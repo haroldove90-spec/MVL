@@ -70,7 +70,7 @@ export default function App() {
   const [activeRole, setActiveRole] = useState<UserRole | null>(null);
 
   // --- Sub-module Tab/Filter States ---
-  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'catalog' | 'inventory'>('financial');
+  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory'>('financial');
   const [coordFilter, setCoordFilter] = useState<'all' | 'pending' | 'in_progress' | 'review' | 'completed'>('all');
   const [techTab, setTechTab] = useState<'agenda' | 'reporte'>('agenda');
   const [clientTab, setClientTab] = useState<'equipos' | 'historial' | 'falla'>('equipos');
@@ -286,6 +286,7 @@ export default function App() {
                   inventory={inventory}
                   setInventory={setInventory}
                   clients={clients}
+                  setClients={setClients}
                   equipment={equipment}
                   activeTab={adminTab}
                   setActiveTab={setAdminTab}
@@ -364,6 +365,15 @@ export default function App() {
               >
                 <Users className="w-5 h-5 mb-0.5" />
                 <span className="text-[9px] uppercase tracking-wider font-semibold">Personal</span>
+              </button>
+              <button
+                onClick={() => setAdminTab('clients')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  adminTab === 'clients' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Building2 className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">CRM Clientes</span>
               </button>
               <button
                 onClick={() => setAdminTab('catalog')}

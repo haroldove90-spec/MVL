@@ -8,7 +8,7 @@ import { Staff, InventoryItem, Client, Equipment } from '../types';
 import { 
   Users, DollarSign, Package, Award, Plus, Trash2, 
   CheckCircle, XCircle, Tag, Layers, TrendingUp, TrendingDown,
-  ShieldCheck, AlertTriangle
+  ShieldCheck, AlertTriangle, Building, Activity
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -18,9 +18,10 @@ interface AdminDashboardProps {
   inventory: InventoryItem[];
   setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
   clients: Client[];
+  setClients: React.Dispatch<React.SetStateAction<Client[]>>;
   equipment: Equipment[];
-  activeTab?: 'financial' | 'staff' | 'catalog' | 'inventory';
-  setActiveTab?: (val: 'financial' | 'staff' | 'catalog' | 'inventory') => void;
+  activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory';
+  setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory') => void;
 }
 
 export default function AdminDashboard({ 
@@ -29,12 +30,13 @@ export default function AdminDashboard({
   inventory, 
   setInventory,
   clients,
+  setClients,
   equipment,
   activeTab: propActiveTab,
   setActiveTab: propSetActiveTab
 }: AdminDashboardProps) {
   // Navigation tabs with parent-control fallback
-  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'catalog' | 'inventory'>('financial');
+  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory'>('financial');
   const activeTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
   const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
 
@@ -56,6 +58,29 @@ export default function AdminDashboard({
   const [brands, setBrands] = useState<string[]>(['Kaeser', 'Atlas Copco', 'Ingersoll Rand', 'Sullair', 'Siemens']);
   const [newBrand, setNewBrand] = useState('');
 
+  // CRM Form state variables
+  const [crmName, setCrmName] = useState('');
+  const [crmCompanyName, setCrmCompanyName] = useState('');
+  const [crmRfc, setCrmRfc] = useState('');
+  const [crmEmail, setCrmEmail] = useState('');
+  const [crmPhone, setCrmPhone] = useState('');
+
+  // Active CRM Client state
+  const [selectedCrmClientId, setSelectedCrmClientId] = useState<string>(clients[0]?.id || '');
+  const activeCrmClient = clients.find(c => c.id === selectedCrmClientId);
+  const clientCrmMachines = equipment.filter(e => e.clientId === selectedCrmClientId);
+
+  // New Plant fields
+  const [newPlantName, setNewPlantName] = useState('');
+  const [newPlantAddress, setNewPlantAddress] = useState('');
+  const [newPlantCity, setNewPlantCity] = useState('');
+
+  // New Contact fields
+  const [newContactName, setNewContactName] = useState('');
+  const [newContactRole, setNewContactRole] = useState('');
+  const [newContactPhone, setNewContactPhone] = useState('');
+  const [newContactEmail, setNewContactEmail] = useState('');
+
   // Profitability metrics calculation
   const totalRevenue = inventory.reduce((sum, item) => sum + (item.price * (item.minStock * 2)), 320000); // Simulated baseline
   const totalCosts = inventory.reduce((sum, item) => sum + ((item.price * 0.45) * (item.minStock * 2)), 144000); // 45% acquisition cost
@@ -68,6 +93,95 @@ export default function AdminDashboard({
     { name: 'Junio', Ingresos: 250000, Costos: 112500, Utilidad: 137500 },
     { name: 'Julio (Proy)', Ingresos: totalRevenue, Costos: totalCosts, Utilidad: netProfit }
   ];
+
+  // SLA & response time performance charts (Módulo 5)
+  const techPerformanceData = [
+    { name: 'Roberto Sánchez', Servicios: 15, SLA: 96.5 },
+    { name: 'Alejandro Torres', Servicios: 9, SLA: 92.0 }
+  ];
+
+  const brandFailureData = [
+    { name: 'Atlas Copco', Fallas: 4 },
+    { name: 'Kaeser', Fallas: 1 },
+    { name: 'Ingersoll Rand', Fallas: 1 },
+    { name: 'Sullair', Fallas: 0 }
+  ];
+
+  // Create Client
+  const handleCreateClient = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!crmName || !crmCompanyName || !crmRfc) return;
+    const newCl: Client = {
+      id: `c${Date.now()}`,
+      name: crmName,
+      companyName: crmCompanyName,
+      rfc: crmRfc,
+      email: crmEmail,
+      phone: crmPhone,
+      plants: [],
+      contacts: []
+    };
+    setClients(prev => [...prev, newCl]);
+    setSelectedCrmClientId(newCl.id);
+    setCrmName('');
+    setCrmCompanyName('');
+    setCrmRfc('');
+    setCrmEmail('');
+    setCrmPhone('');
+  };
+
+  // Add Plant
+  const handleAddPlant = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCrmClientId || !newPlantName || !newPlantAddress) return;
+    setClients(prev => prev.map(c => {
+      if (c.id === selectedCrmClientId) {
+        return {
+          ...c,
+          plants: [
+            ...c.plants,
+            {
+              id: `p${Date.now()}`,
+              name: newPlantName,
+              address: newPlantAddress,
+              city: newPlantCity || 'N/A'
+            }
+          ]
+        };
+      }
+      return c;
+    }));
+    setNewPlantName('');
+    setNewPlantAddress('');
+    setNewPlantCity('');
+  };
+
+  // Add Contact
+  const handleAddContact = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCrmClientId || !newContactName || !newContactRole) return;
+    setClients(prev => prev.map(c => {
+      if (c.id === selectedCrmClientId) {
+        return {
+          ...c,
+          contacts: [
+            ...c.contacts,
+            {
+              name: newContactName,
+              role: newContactRole,
+              phone: newContactPhone || 'N/A',
+              email: newContactEmail || 'N/A'
+            }
+          ]
+        };
+      }
+      return c;
+    }));
+    setNewContactName('');
+    setNewContactRole('');
+    setNewContactPhone('');
+    setNewContactEmail('');
+  };
 
   // Add staff handler
   const handleAddStaff = (e: React.FormEvent) => {
@@ -159,6 +273,16 @@ export default function AdminDashboard({
           }`}
         >
           Gestión de Personal
+        </button>
+        <button
+          onClick={() => setActiveTab('clients')}
+          className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+            activeTab === 'clients' 
+              ? 'bg-[#0196C1] text-white' 
+              : 'text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          Clientes (CRM)
         </button>
         <button
           onClick={() => setActiveTab('catalog')}
@@ -277,6 +401,45 @@ export default function AdminDashboard({
                     <p className="text-xs font-semibold text-slate-700">94.8% SLA Cumplido</p>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Módulo 5: Analytics and Reports Charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            {/* SLA and response times */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
+              <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-1">Métricas de Rendimiento Técnico (SLA)</h4>
+              <p className="text-[10px] text-slate-400 mb-4">Servicios cerrados versus efectividad del tiempo de respuesta acordado.</p>
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={techPerformanceData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} />
+                    <YAxis stroke="#94a3b8" fontSize={10} />
+                    <Tooltip />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
+                    <Bar name="Servicios Cerrados" dataKey="Servicios" fill="#0196C1" radius={[4, 4, 0, 0]} />
+                    <Bar name="Cumplimiento SLA (%)" dataKey="SLA" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Failure distribution by Brand */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
+              <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-1">Indicadores de Falla por Marca</h4>
+              <p className="text-[10px] text-slate-400 mb-4">Frecuencia acumulada de reportes correctivos registrados en el portafolio de clientes.</p>
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={brandFailureData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} />
+                    <YAxis stroke="#94a3b8" fontSize={10} />
+                    <Tooltip />
+                    <Bar name="Reportes Correctivos" dataKey="Fallas" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </div>
@@ -592,6 +755,303 @@ export default function AdminDashboard({
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- Tab: Client Directory (CRM) --- */}
+      {activeTab === 'clients' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left">
+          {/* Left Column: CRM Client Directory list & Add Client */}
+          <div className="space-y-6">
+            {/* Add Client Form */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
+              <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-1.5">
+                <Building className="w-4 h-4 text-[#0196C1]" />
+                Registrar Cliente Comercial
+              </h3>
+              
+              <form onSubmit={handleCreateClient} className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Razón Social (RFC Legal)</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="ej. Distribuidora del Norte S.A."
+                    value={crmCompanyName}
+                    onChange={(e) => setCrmCompanyName(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombre Comercial (Identificador)</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="ej. Lácteos del Norte"
+                    value={crmName}
+                    onChange={(e) => setCrmName(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">RFC</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="ej. PLN841102KK3"
+                      value={crmRfc}
+                      onChange={(e) => setCrmRfc(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Teléfono</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="81-1234-5678"
+                      value={crmPhone}
+                      onChange={(e) => setCrmPhone(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Email Corporativo</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="ej. admin@empresa.com"
+                    value={crmEmail}
+                    onChange={(e) => setCrmEmail(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white font-bold rounded-lg transition-colors cursor-pointer"
+                >
+                  Dar de Alta Cliente
+                </button>
+              </form>
+            </div>
+
+            {/* Clients Directory List */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-3">
+              <h3 className="text-sm font-bold text-slate-800">Directorio CRM</h3>
+              <div className="space-y-2">
+                {clients.map((c) => (
+                  <div
+                    key={c.id}
+                    onClick={() => setSelectedCrmClientId(c.id)}
+                    className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                      selectedCrmClientId === c.id
+                        ? 'bg-sky-50 border-[#0196C1] text-sky-900'
+                        : 'bg-slate-50 border-slate-100 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <p className="font-bold">{c.name}</p>
+                    <p className="text-[10px] text-slate-400 font-semibold">{c.companyName}</p>
+                    <div className="flex justify-between items-center mt-2 pt-1 border-t border-slate-200/40 text-[9px] text-slate-500">
+                      <span>RFC: {c.rfc}</span>
+                      <span className="bg-[#0196C1]/10 text-[#0196C1] px-1.5 py-0.5 rounded font-bold uppercase">
+                        {c.plants.length} {c.plants.length === 1 ? 'sucursal' : 'sucursales'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Detailed view of Plants, Contacts & Equipment */}
+          <div className="lg:col-span-2 space-y-6">
+            {activeCrmClient ? (
+              <div className="space-y-6">
+                {/* Client Main Summary Card */}
+                <div className="bg-[#282829] text-white p-6 rounded-2xl border-b-4 border-[#0196C1] space-y-2 relative overflow-hidden">
+                  <div className="absolute right-4 top-4 text-white/5 font-extrabold text-7xl select-none">CRM</div>
+                  <h2 className="text-base font-extrabold text-[#0196C1] uppercase tracking-wide">{activeCrmClient.companyName}</h2>
+                  <p className="text-xs text-slate-300 font-medium">RFC: {activeCrmClient.rfc} • Teléfono: {activeCrmClient.phone} • Email: {activeCrmClient.email}</p>
+                </div>
+
+                {/* Grid for Plants and Contacts */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Plants / Sucursales List & Add */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-4">
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">🏢 Plantas / Sucursales</h3>
+                      <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">
+                        {activeCrmClient.plants.length} registradas
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                      {activeCrmClient.plants.length === 0 ? (
+                        <p className="text-slate-400 italic text-[10px]">No hay sucursales/plantas registradas.</p>
+                      ) : (
+                        activeCrmClient.plants.map((p) => (
+                          <div key={p.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-[10px]">
+                            <p className="font-bold text-slate-800">{p.name}</p>
+                            <p className="text-slate-500">{p.address}, {p.city}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Add Plant Form */}
+                    <form onSubmit={handleAddPlant} className="space-y-2 bg-slate-50/50 p-3 rounded-xl border border-dashed border-slate-200 text-[10px]">
+                      <p className="font-bold text-slate-700">Añadir Sucursal</p>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Nombre Planta (ej. Planta Poniente)"
+                        value={newPlantName}
+                        onChange={(e) => setNewPlantName(e.target.value)}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-md focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Dirección completa"
+                        value={newPlantAddress}
+                        onChange={(e) => setNewPlantAddress(e.target.value)}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-md focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ciudad, Estado (ej. Monterrey, NL)"
+                        value={newPlantCity}
+                        onChange={(e) => setNewPlantCity(e.target.value)}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-md focus:outline-none"
+                      />
+                      <button
+                        type="submit"
+                        className="w-full py-1.5 bg-[#282829] hover:bg-slate-800 text-white font-bold rounded-md cursor-pointer"
+                      >
+                        Registrar Planta
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Contacts List & Add */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-4">
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">👥 Contactos Autorizados</h3>
+                      <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">
+                        {activeCrmClient.contacts.length} autorizados
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                      {activeCrmClient.contacts.length === 0 ? (
+                        <p className="text-slate-400 italic text-[10px]">No hay contactos registrados.</p>
+                      ) : (
+                        activeCrmClient.contacts.map((contact, idx) => (
+                          <div key={idx} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-[10px] space-y-0.5">
+                            <p className="font-bold text-slate-800">{contact.name}</p>
+                            <p className="text-[#0196C1] font-semibold">{contact.role}</p>
+                            <p className="text-slate-500">Tel: {contact.phone} • Email: {contact.email}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Add Contact Form */}
+                    <form onSubmit={handleAddContact} className="space-y-2 bg-slate-50/50 p-3 rounded-xl border border-dashed border-slate-200 text-[10px]">
+                      <p className="font-bold text-slate-700">Añadir Contacto</p>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <input
+                          type="text"
+                          required
+                          placeholder="Nombre completo"
+                          value={newContactName}
+                          onChange={(e) => setNewContactName(e.target.value)}
+                          className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-md focus:outline-none"
+                        />
+                        <input
+                          type="text"
+                          required
+                          placeholder="Puesto / Rol"
+                          value={newContactRole}
+                          onChange={(e) => setNewContactRole(e.target.value)}
+                          className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-md focus:outline-none"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <input
+                          type="text"
+                          required
+                          placeholder="Teléfono"
+                          value={newContactPhone}
+                          onChange={(e) => setNewContactPhone(e.target.value)}
+                          className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-md focus:outline-none"
+                        />
+                        <input
+                          type="email"
+                          required
+                          placeholder="Email"
+                          value={newContactEmail}
+                          onChange={(e) => setNewContactEmail(e.target.value)}
+                          className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-md focus:outline-none"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="w-full py-1.5 bg-[#282829] hover:bg-slate-800 text-white font-bold rounded-md cursor-pointer"
+                      >
+                        Registrar Contacto
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Equipment / Compressors of this client */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-3">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider pb-1 border-b border-slate-100">
+                    ⚙️ Parque de Equipos Registrados ({clientCrmMachines.length})
+                  </h3>
+                  
+                  {clientCrmMachines.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic">No hay compresores o secadores registrados para esta empresa comercial.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {clientCrmMachines.map((eq) => (
+                        <div key={eq.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[10px] space-y-1">
+                          <div className="flex justify-between items-center">
+                            <p className="font-bold text-slate-800">{eq.name}</p>
+                            <span className={`px-2 py-0.2 text-[8px] font-bold rounded-full uppercase ${
+                              eq.status === 'active' ? 'bg-emerald-50 text-emerald-700' :
+                              eq.status === 'warning' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'
+                            }`}>
+                              {eq.status === 'active' ? 'Operando' :
+                               eq.status === 'warning' ? 'Alerta' : 'Mto.'}
+                            </span>
+                          </div>
+                          <p className="text-slate-400 uppercase font-semibold">{eq.brand} {eq.model} • S/N: {eq.serialNumber}</p>
+                          <p className="text-slate-500">Capacidad: {eq.capacity} • Aceite: {eq.oilType}</p>
+                          <div className="flex justify-between items-center text-[9px] text-slate-400 pt-1 border-t border-slate-200/50">
+                            <span>Horas: {eq.engineHours.toLocaleString()} Hrs</span>
+                            <span>Último Mto: {eq.lastMaintenance}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white p-12 rounded-2xl border border-slate-100 text-center text-slate-400 italic">
+                Selecciona un cliente de la lista para ver sus sucursales, contactos autorizados y flota de compresores.
+              </div>
+            )}
           </div>
         </div>
       )}
