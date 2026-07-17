@@ -1,0 +1,17 @@
+{
+  "short_name": "MVL",
+  "name": "MVL Control y mantenimiento",
+  "icons": [
+    {
+      "src": "https://appdesignproyectos.com/mvlicono.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#282829",
+  "theme_color": "#0196C1",
+  "display": "standalone",
+  "orientation": "portrait"
+}
