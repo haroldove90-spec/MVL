@@ -176,7 +176,7 @@ export default function ClientDashboard({
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex border-b border-slate-200 bg-white p-1 rounded-xl shadow-xs gap-1">
+      <div className="hidden lg:flex border-b border-slate-200 bg-white p-1 rounded-xl shadow-xs gap-1">
         <button
           onClick={() => setActiveTab('equipos')}
           className={`flex-1 py-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${

@@ -199,58 +199,58 @@ export default function App() {
               </div>
 
               {/* Roles selectors with icons and labels - exactly as requested */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 w-full max-w-4xl mx-auto px-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 w-full max-w-4xl mx-auto px-2 sm:px-4">
                 
                 {/* 1. Administrador */}
                 <button
                   id="role-btn-admin"
                   onClick={() => handleSelectRole('admin')}
-                  className="bg-white rounded-[20px] py-8 px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
+                  className="bg-white rounded-[20px] py-4 px-3 sm:py-8 sm:px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
                 >
-                  <div className="w-[70px] h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
-                    <UserCog className="w-7 h-7" />
+                  <div className="w-12 h-12 sm:w-[70px] sm:h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 sm:mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
+                    <UserCog className="w-5 h-5 sm:w-7 sm:h-7" />
                   </div>
-                  <p className="font-bold text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Administrador</p>
-                  <span className="text-[11px] text-slate-500 mt-2 leading-relaxed">Control total y reportes financieros.</span>
+                  <p className="font-bold text-xs sm:text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Administrador</p>
+                  <span className="text-[10px] sm:text-[11px] text-slate-500 mt-1 sm:mt-2 leading-relaxed">Control total y reportes financieros.</span>
                 </button>
 
                 {/* 2. Coordinador */}
                 <button
                   id="role-btn-coordinator"
                   onClick={() => handleSelectRole('coordinator')}
-                  className="bg-white rounded-[20px] py-8 px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
+                  className="bg-white rounded-[20px] py-4 px-3 sm:py-8 sm:px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
                 >
-                  <div className="w-[70px] h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
-                    <CalendarCheck2 className="w-7 h-7" />
+                  <div className="w-12 h-12 sm:w-[70px] sm:h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 sm:mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
+                    <CalendarCheck2 className="w-5 h-5 sm:w-7 sm:h-7" />
                   </div>
-                  <p className="font-bold text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Coordinador</p>
-                  <span className="text-[11px] text-slate-500 mt-2 leading-relaxed">Gestión de agenda y supervisión.</span>
+                  <p className="font-bold text-xs sm:text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Coordinador</p>
+                  <span className="text-[10px] sm:text-[11px] text-slate-500 mt-1 sm:mt-2 leading-relaxed">Gestión de agenda y supervisión.</span>
                 </button>
 
                 {/* 3. Técnico */}
                 <button
                   id="role-btn-technician"
                   onClick={() => handleSelectRole('technician')}
-                  className="bg-white rounded-[20px] py-8 px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
+                  className="bg-white rounded-[20px] py-4 px-3 sm:py-8 sm:px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
                 >
-                  <div className="w-[70px] h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
-                    <Hammer className="w-7 h-7" />
+                  <div className="w-12 h-12 sm:w-[70px] sm:h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 sm:mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
+                    <Hammer className="w-5 h-5 sm:w-7 sm:h-7" />
                   </div>
-                  <p className="font-bold text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Técnico</p>
-                  <span className="text-[11px] text-slate-500 mt-2 leading-relaxed">Ejecución y reportes de campo.</span>
+                  <p className="font-bold text-xs sm:text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Técnico</p>
+                  <span className="text-[10px] sm:text-[11px] text-slate-500 mt-1 sm:mt-2 leading-relaxed">Ejecución y reportes de campo.</span>
                 </button>
 
                 {/* 4. Cliente */}
                 <button
                   id="role-btn-client"
                   onClick={() => handleSelectRole('client')}
-                  className="bg-white rounded-[20px] py-8 px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
+                  className="bg-white rounded-[20px] py-4 px-3 sm:py-8 sm:px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
                 >
-                  <div className="w-[70px] h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
-                    <Building2 className="w-7 h-7" />
+                  <div className="w-12 h-12 sm:w-[70px] sm:h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 sm:mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
+                    <Building2 className="w-5 h-5 sm:w-7 sm:h-7" />
                   </div>
-                  <p className="font-bold text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Cliente</p>
-                  <span className="text-[11px] text-slate-500 mt-2 leading-relaxed">Historial de activos y solicitudes.</span>
+                  <p className="font-bold text-xs sm:text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Cliente</p>
+                  <span className="text-[10px] sm:text-[11px] text-slate-500 mt-1 sm:mt-2 leading-relaxed">Historial de activos y solicitudes.</span>
                 </button>
 
               </div>

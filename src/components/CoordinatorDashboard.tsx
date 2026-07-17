@@ -206,7 +206,7 @@ export default function CoordinatorDashboard({
           </div>
 
           {/* Quick status tabs to filter the list */}
-          <div className="flex gap-2 text-xs">
+          <div className="hidden lg:flex gap-2 text-xs">
             <button 
               onClick={() => setStatusFilter('all')} 
               className={`px-3 py-1.5 rounded-lg font-medium cursor-pointer ${statusFilter === 'all' ? 'bg-[#0196C1]/10 text-[#0196C1]' : 'bg-white hover:bg-slate-50 border border-slate-100'}`}
