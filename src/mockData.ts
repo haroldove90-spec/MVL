@@ -52,7 +52,14 @@ export const INITIAL_EQUIPMENT: Equipment[] = [
     status: 'active',
     lastMaintenance: '2026-03-10',
     nextMaintenance: '2026-09-10',
-    engineHours: 12450
+    engineHours: 12450,
+    telemetry: {
+      psi: 112,
+      temp: 84,
+      vibration: 'normal',
+      rpm: 1750,
+      lastUpdate: 'Hace unos instantes'
+    }
   },
   {
     id: 'eq2',
@@ -68,7 +75,14 @@ export const INITIAL_EQUIPMENT: Equipment[] = [
     status: 'warning',
     lastMaintenance: '2026-01-15',
     nextMaintenance: '2026-07-15',
-    engineHours: 8900
+    engineHours: 8900,
+    telemetry: {
+      psi: 94,
+      temp: 45, // Un poco alto para secadora de aire
+      vibration: 'moderate',
+      rpm: 1200,
+      lastUpdate: 'Hace unos instantes'
+    }
   },
   {
     id: 'eq3',
@@ -84,7 +98,14 @@ export const INITIAL_EQUIPMENT: Equipment[] = [
     status: 'maintenance',
     lastMaintenance: '2025-11-20',
     nextMaintenance: '2026-05-20',
-    engineHours: 24610
+    engineHours: 24610,
+    telemetry: {
+      psi: 0,
+      temp: 22,
+      vibration: 'normal',
+      rpm: 0,
+      lastUpdate: 'Hace unos instantes'
+    }
   }
 ];
 
@@ -200,7 +221,9 @@ export const INITIAL_WORK_ORDERS: WorkOrder[] = [
     afterPhoto: 'https://images.unsplash.com/photo-1581092162613-f9a130f8c575?auto=format&fit=crop&q=80&w=300',
     signature: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><path d="M 10 25 Q 30 10, 50 25 T 90 25" stroke="black" fill="none"/></svg>',
     signatureName: 'Ing. Laura Garza',
-    dateCompleted: '2026-07-15'
+    dateCompleted: '2026-07-15',
+    laborHours: 5,
+    laborCost: 7500
   },
   {
     id: 'ot4',
@@ -227,7 +250,14 @@ export const INITIAL_WORK_ORDERS: WorkOrder[] = [
     signature: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><path d="M 5 35 Q 25 15, 65 35 T 95 15" stroke="black" fill="none"/></svg>',
     signatureName: 'Ing. Fernando Ortiz',
     dateCompleted: '2026-07-10',
-    approvedByCoordinator: true
+    approvedByCoordinator: true,
+    laborHours: 3,
+    laborCost: 4500,
+    clientFeedback: {
+      rating: 5,
+      nps: 10,
+      comments: 'Excelente servicio técnico. El compresor quedó operando perfectamente tras el cambio de la solenoide.'
+    }
   }
 ];
 

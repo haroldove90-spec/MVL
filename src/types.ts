@@ -45,6 +45,13 @@ export interface Equipment {
   lastMaintenance: string;
   nextMaintenance: string;
   engineHours: number;
+  telemetry?: {
+    psi: number;
+    temp: number;
+    vibration: 'normal' | 'moderate' | 'high';
+    rpm: number;
+    lastUpdate: string;
+  };
 }
 
 export interface HistoryItem {
@@ -85,6 +92,13 @@ export interface WorkOrder {
   signatureName?: string;
   dateCompleted?: string;
   approvedByCoordinator?: boolean;
+  clientFeedback?: {
+    rating: number; // 1 to 5
+    nps: number; // 0 to 10
+    comments: string;
+  };
+  laborHours?: number;
+  laborCost?: number;
 }
 
 export interface InventoryItem {

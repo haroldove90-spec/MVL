@@ -4,11 +4,11 @@
  */
 
 import React, { useState } from 'react';
-import { Staff, InventoryItem, Client, Equipment } from '../types';
+import { Staff, InventoryItem, Client, Equipment, WorkOrder } from '../types';
 import { 
   Users, DollarSign, Package, Award, Plus, Trash2, 
   CheckCircle, XCircle, Tag, Layers, TrendingUp, TrendingDown,
-  ShieldCheck, AlertTriangle, Building, Activity
+  ShieldCheck, AlertTriangle, Building, Activity, FileText
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -20,6 +20,8 @@ interface AdminDashboardProps {
   clients: Client[];
   setClients: React.Dispatch<React.SetStateAction<Client[]>>;
   equipment: Equipment[];
+  workOrders?: WorkOrder[];
+  setWorkOrders?: React.Dispatch<React.SetStateAction<WorkOrder[]>>;
   activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory';
   setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory') => void;
 }
@@ -32,6 +34,8 @@ export default function AdminDashboard({
   clients,
   setClients,
   equipment,
+  workOrders = [],
+  setWorkOrders,
   activeTab: propActiveTab,
   setActiveTab: propSetActiveTab
 }: AdminDashboardProps) {
@@ -39,6 +43,10 @@ export default function AdminDashboard({
   const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory'>('financial');
   const activeTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
   const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
+
+  // Pro features states: tracked invoice list
+  const [invoicedOrders, setInvoicedOrders] = useState<string[]>(['ot4']);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
 
   // New staff form states
   const [newStaffName, setNewStaffName] = useState('');
@@ -81,31 +89,56 @@ export default function AdminDashboard({
   const [newContactPhone, setNewContactPhone] = useState('');
   const [newContactEmail, setNewContactEmail] = useState('');
 
-  // Profitability metrics calculation
-  const totalRevenue = inventory.reduce((sum, item) => sum + (item.price * (item.minStock * 2)), 320000); // Simulated baseline
-  const totalCosts = inventory.reduce((sum, item) => sum + ((item.price * 0.45) * (item.minStock * 2)), 144000); // 45% acquisition cost
+  // Dynamic profitability metrics calculation from workOrders
+  const completedOrders = workOrders.filter(o => o.status === 'completed' || o.status === 'review');
+  
+  // Calculate parts costs and revenue
+  const actualPartsRevenue = completedOrders.reduce((sum, ot) => {
+    return sum + (ot.partsUsed || []).reduce((s, p) => s + (p.price * p.quantity), 0);
+  }, 0);
+  
+  const actualPartsCost = actualPartsRevenue * 0.45; // 45% cost of acquisition
+
+  // Calculate labor cost and billing revenue
+  const actualLaborCost = completedOrders.reduce((sum, ot) => sum + (ot.laborCost || 0), 0);
+  const actualLaborRevenue = completedOrders.reduce((sum, ot) => sum + ((ot.laborHours || 0) * 1800), 0); // Billed at $1,800/hr
+
+  const totalRevenue = 320000 + actualPartsRevenue + actualLaborRevenue;
+  const totalCosts = 144000 + actualPartsCost + actualLaborCost;
   const netProfit = totalRevenue - totalCosts;
-  const profitMargin = ((netProfit / totalRevenue) * 100).toFixed(1);
+  const profitMargin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : '0';
 
   // Chart data
   const financialData = [
     { name: 'Mayo', Ingresos: 180000, Costos: 81000, Utilidad: 99000 },
     { name: 'Junio', Ingresos: 250000, Costos: 112500, Utilidad: 137500 },
-    { name: 'Julio (Proy)', Ingresos: totalRevenue, Costos: totalCosts, Utilidad: netProfit }
+    { name: 'Julio (En Vivo)', Ingresos: totalRevenue, Costos: totalCosts, Utilidad: netProfit }
   ];
 
-  // SLA & response time performance charts (Módulo 5)
-  const techPerformanceData = [
-    { name: 'Roberto Sánchez', Servicios: 15, SLA: 96.5 },
-    { name: 'Alejandro Torres', Servicios: 9, SLA: 92.0 }
-  ];
+  // Dynamic SLA and Response Times per Technician
+  const techPerformanceData = staff.filter(s => s.role === 'technician').map(tech => {
+    const techOrders = workOrders.filter(o => o.assignedTechnicianId === tech.id);
+    const completedCount = techOrders.filter(o => o.status === 'completed').length;
+    // SLA compliance based on registered checklists completion rate
+    const totalTasks = techOrders.reduce((sum, o) => sum + o.checklist.length, 0);
+    const completedTasks = techOrders.reduce((sum, o) => sum + o.checklist.filter(c => c.checked).length, 0);
+    const slaPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 95;
+    return {
+      name: tech.name.split(' ')[0], // short name
+      Servicios: completedCount || 4,
+      SLA: slaPercent
+    };
+  });
 
-  const brandFailureData = [
-    { name: 'Atlas Copco', Fallas: 4 },
-    { name: 'Kaeser', Fallas: 1 },
-    { name: 'Ingersoll Rand', Fallas: 1 },
-    { name: 'Sullair', Fallas: 0 }
-  ];
+  // Dynamic failures by brand
+  const brandFailureData = ['Kaeser', 'Atlas Copco', 'Ingersoll Rand', 'Sullair'].map(brandName => {
+    const brandEqs = equipment.filter(e => e.brand.toLowerCase() === brandName.toLowerCase());
+    const brandCorrectiveCount = workOrders.filter(o => o.type === 'corrective' && brandEqs.some(e => e.id === o.equipmentId)).length;
+    return {
+      name: brandName,
+      Fallas: brandCorrectiveCount || 1
+    };
+  });
 
   // Create Client
   const handleCreateClient = (e: React.FormEvent) => {
@@ -443,6 +476,332 @@ export default function AdminDashboard({
               </div>
             </div>
           </div>
+
+          {/* Bento Grid: Pro Level Modules */}
+          <div className="border-t border-slate-200/80 pt-6 mt-6 space-y-6">
+            <div className="flex items-center gap-2 text-left">
+              <span className="px-2 py-0.5 bg-[#0196C1] text-white text-[9px] font-extrabold rounded-md uppercase tracking-wider">PRO UPDATE</span>
+              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Centro de Operaciones Inteligente y Control Comercial</h3>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Column 1 & 2: Billing & NPS */}
+              <div className="lg:col-span-2 space-y-6">
+                
+                {/* 1. Facturación Automática de Mano de Obra y Refacciones */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs text-left space-y-4">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-sky-50 text-sky-600 rounded-lg">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Facturación Automática y Pre-Auditoría</h4>
+                        <p className="text-[10px] text-slate-400">Generación inmediata de pre-facturas basadas en mano de obra registrada y refacciones utilizadas.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {completedOrders.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic text-center py-4">No hay órdenes cerradas en revisión o completadas para facturación.</p>
+                    ) : (
+                      <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto pr-1">
+                        {completedOrders.map(ot => {
+                          const client = clients.find(c => c.id === ot.clientId);
+                          const isBilled = invoicedOrders.includes(ot.id);
+                          const laborCostTotal = (ot.laborHours || 0) * 1800;
+                          const partsCostTotal = ot.partsUsed.reduce((s, p) => s + (p.price * p.quantity), 0);
+                          const subtotal = laborCostTotal + partsCostTotal;
+                          const vat = subtotal * 0.16;
+                          const total = subtotal + vat;
+
+                          return (
+                            <div key={ot.id} className="py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-extrabold text-slate-800">{ot.code}</span>
+                                  <span className="text-[10px] text-slate-400 font-bold">{client?.companyName}</span>
+                                  <span className={`px-2 py-0.2 text-[8px] font-extrabold rounded-sm uppercase ${
+                                    isBilled ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                                  }`}>
+                                    {isBilled ? 'Facturado' : 'Pendiente Factura'}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 font-medium">
+                                  Mano de Obra: <span className="font-bold text-slate-700">{ot.laborHours || 0} Hrs Billed</span> • Refacciones: <span className="font-bold text-slate-700">{ot.partsUsed.length} ítems</span>
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                                <p className="font-mono font-bold text-slate-700 text-right sm:text-left">${total.toLocaleString('es-MX', {minimumFractionDigits: 2})} <span className="text-[9px] font-normal text-slate-400">MXN</span></p>
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => setSelectedInvoiceId(selectedInvoiceId === ot.id ? null : ot.id)}
+                                    className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-[10px] rounded-lg transition-colors border border-slate-200 cursor-pointer"
+                                  >
+                                    Ver Detalle
+                                  </button>
+                                  {!isBilled && (
+                                    <button
+                                      onClick={() => setInvoicedOrders(prev => [...prev, ot.id])}
+                                      className="px-2.5 py-1.5 bg-[#0196C1] hover:bg-[#0185ab] text-white font-bold text-[10px] rounded-lg transition-colors border-none cursor-pointer"
+                                    >
+                                      Sellar / Facturar
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Métricas NPS de Satisfacción de Clientes */}
+                {(() => {
+                  const ratedOrders = workOrders.filter(o => o.clientFeedback);
+                  const promoters = ratedOrders.filter(o => o.clientFeedback!.nps >= 9).length;
+                  const detractors = ratedOrders.filter(o => o.clientFeedback!.nps <= 6).length;
+                  const totalNPSCount = ratedOrders.length;
+                  const npsScore = totalNPSCount > 0 ? Math.round(((promoters - detractors) / totalNPSCount) * 100) : 100;
+                  const averageStars = totalNPSCount > 0 ? (ratedOrders.reduce((sum, o) => sum + o.clientFeedback!.rating, 0) / totalNPSCount).toFixed(1) : '5.0';
+
+                  return (
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs text-left space-y-4">
+                      <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-2 border-b border-slate-100 pb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+                            <Award className="w-4 h-4 animate-bounce" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Evaluación NPS y Satisfacción</h4>
+                            <p className="text-[10px] text-slate-400">Feedback en tiempo real ingresado por clientes al cerrar las órdenes.</p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-4">
+                          <div className="text-center bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-100">
+                            <p className="text-[8px] font-extrabold text-emerald-700 uppercase">Score NPS</p>
+                            <h5 className="text-sm font-black text-emerald-800">+{npsScore}</h5>
+                          </div>
+                          <div className="text-center bg-amber-50 px-3 py-1 rounded-xl border border-amber-100">
+                            <p className="text-[8px] font-extrabold text-amber-700 uppercase">Estrellas Avg</p>
+                            <h5 className="text-sm font-black text-amber-800">{averageStars} / 5.0</h5>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        {ratedOrders.length === 0 ? (
+                          <p className="text-xs text-slate-400 italic text-center py-4">Ningún cliente ha calificado servicios aún.</p>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[250px] overflow-y-auto pr-1">
+                            {ratedOrders.map(o => {
+                              const client = clients.find(c => c.id === o.clientId);
+                              return (
+                                <div key={o.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1.5 text-xs">
+                                  <div className="flex justify-between items-center text-[10px]">
+                                    <span className="font-extrabold text-slate-700 truncate max-w-[120px]">{client?.companyName}</span>
+                                    <span className="text-slate-400 font-bold">{o.dateCompleted}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-amber-500 font-bold">{"⭐".repeat(o.clientFeedback!.rating)}</span>
+                                    <span className="text-[9px] bg-amber-100 text-amber-800 px-1 rounded-sm font-bold font-mono">NPS: {o.clientFeedback!.nps}</span>
+                                  </div>
+                                  <p className="text-slate-500 italic text-[10.5px] leading-relaxed">"{o.clientFeedback!.comments}"</p>
+                                  <div className="text-[8px] text-slate-400 font-extrabold uppercase border-t border-slate-200/60 pt-1">
+                                    OT: {o.code} • Atendió: {o.assignedTechnicianName}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+              </div>
+
+              {/* Column 3: IoT Real-Time Warnings Panel */}
+              <div className="space-y-6">
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-left space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <div className="p-1.5 bg-rose-50 text-rose-600 rounded-lg">
+                      <Activity className="w-4 h-4 animate-pulse" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Sensores de Operación (IoT)</h4>
+                      <p className="text-[10px] text-slate-400 font-medium">Alertas de temperatura de descarga, presión y vibraciones anormales.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {/* Filter critical / warning equipment */}
+                    {(() => {
+                      const warningEqs = equipment.filter(e => e.status === 'warning' || (e.telemetry && e.telemetry.temp > 95));
+                      
+                      if (warningEqs.length === 0) {
+                        return (
+                          <div className="p-4 bg-emerald-50 text-emerald-800 border border-emerald-100 rounded-xl text-center space-y-1.5">
+                            <CheckCircle className="w-5 h-5 text-emerald-600 mx-auto" />
+                            <p className="text-[11px] font-extrabold uppercase tracking-wide">Todos los Compresores OK</p>
+                            <p className="text-[10px] text-emerald-600 leading-snug">Cero alarmas de vibración, temperatura o caída crítica de presión.</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                          {warningEqs.map(eq => {
+                            const client = clients.find(c => c.id === eq.clientId);
+                            return (
+                              <div key={eq.id} className="p-3 bg-rose-50/50 text-rose-950 border border-rose-100 rounded-xl space-y-2">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <h5 className="font-extrabold text-rose-900 text-xs">{eq.name}</h5>
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase">{eq.brand} • S/N {eq.serialNumber}</p>
+                                  </div>
+                                  <span className="px-1.5 py-0.2 bg-rose-100 text-rose-800 rounded-sm font-bold uppercase text-[8px] animate-pulse">ALERTA CRÍTICA</span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-1.5 bg-white/75 p-2 rounded-lg border border-rose-100 text-[10px]">
+                                  <p className="text-slate-500 font-medium">Cliente: <span className="font-bold text-slate-700">{client?.companyName}</span></p>
+                                  <p className="text-slate-500 font-medium">Temp: <span className="font-bold text-rose-600">{eq.telemetry?.temp ?? 98} °C</span></p>
+                                  <p className="text-slate-500 font-medium">Presión: <span className="font-bold text-slate-700">{eq.telemetry?.psi ?? 115} PSI</span></p>
+                                  <p className="text-slate-500 font-medium">Vibración: <span className="font-bold text-rose-600">{eq.telemetry?.vibration ?? 'high'}</span></p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Detailed Pre-Invoice Modal */}
+          {selectedInvoiceId && (() => {
+            const ot = workOrders.find(o => o.id === selectedInvoiceId);
+            if (!ot) return null;
+            const client = clients.find(c => c.id === ot.clientId);
+            const eq = equipment.find(e => e.id === ot.equipmentId);
+            const isBilled = invoicedOrders.includes(ot.id);
+            const laborCostTotal = (ot.laborHours || 0) * 1800;
+            const partsCostTotal = ot.partsUsed.reduce((s, p) => s + (p.price * p.quantity), 0);
+            const subtotal = laborCostTotal + partsCostTotal;
+            const vat = subtotal * 0.16;
+            const total = subtotal + vat;
+
+            return (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs text-left text-xs overflow-y-auto">
+                <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full flex flex-col border border-slate-100">
+                  
+                  {/* Modal Header */}
+                  <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 rounded-t-2xl flex justify-between items-center">
+                    <div>
+                      <h4 className="font-black text-slate-800 uppercase tracking-wider text-xs">PRE-AUDITORÍA Y FACTURA AUTOMÁTICA</h4>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">ORDEN DE SERVICIO: {ot.code}</p>
+                    </div>
+                    <button 
+                      onClick={() => setSelectedInvoiceId(null)}
+                      className="text-slate-400 hover:text-slate-600 font-bold text-lg border-none bg-transparent cursor-pointer"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  {/* Modal Body */}
+                  <div className="p-6 space-y-4">
+                    {/* Client & Equipment header info */}
+                    <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100 text-[11px]">
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Cliente (Emisor)</p>
+                        <p className="font-bold text-slate-700">{client?.companyName}</p>
+                        <p className="text-slate-500 font-medium">RFC: {client?.rfc}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Activo Intervenido</p>
+                        <p className="font-bold text-slate-700">{eq?.name}</p>
+                        <p className="text-slate-500 font-medium">{eq?.brand} {eq?.model}</p>
+                      </div>
+                    </div>
+
+                    {/* Breakdown table */}
+                    <div className="space-y-2">
+                      <h5 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider pb-1 border-b border-slate-100">Conceptos de Facturación</h5>
+                      
+                      <div className="space-y-1.5 divide-y divide-slate-50">
+                        {/* Labor */}
+                        <div className="flex justify-between items-center pt-1.5">
+                          <div>
+                            <p className="font-bold text-slate-700">Mano de Obra Certificada de Campo</p>
+                            <p className="text-[10px] text-slate-400 font-semibold">{ot.laborHours || 0} Horas registradas @ $1,800.00 MXN / Hr</p>
+                          </div>
+                          <span className="font-mono font-bold text-slate-700">${laborCostTotal.toLocaleString('es-MX', {minimumFractionDigits: 2})}</span>
+                        </div>
+
+                        {/* Parts used */}
+                        {ot.partsUsed.length > 0 ? (
+                          ot.partsUsed.map((p, i) => (
+                            <div key={i} className="flex justify-between items-center pt-1.5">
+                              <div>
+                                <p className="font-bold text-slate-700">{p.name}</p>
+                                <p className="text-[10px] text-slate-400 font-semibold">{p.quantity} pzas @ ${p.price.toLocaleString('es-MX')} c/u</p>
+                              </div>
+                              <span className="font-mono font-bold text-slate-700">${(p.price * p.quantity).toLocaleString('es-MX', {minimumFractionDigits: 2})}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex justify-between items-center pt-1.5 text-slate-400 italic text-[10px]">
+                            <span>No se utilizaron refacciones del inventario</span>
+                            <span>$0.00</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Totals box */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col items-end space-y-1 text-right">
+                      <p className="text-slate-500 font-medium">Subtotal: <span className="font-mono font-bold text-slate-700">${subtotal.toLocaleString('es-MX', {minimumFractionDigits: 2})}</span></p>
+                      <p className="text-slate-500 font-medium">IVA Trasladado (16%): <span className="font-mono font-bold text-slate-700">${vat.toLocaleString('es-MX', {minimumFractionDigits: 2})}</span></p>
+                      <div className="w-32 border-t border-slate-200 my-1"></div>
+                      <p className="text-slate-800 font-bold text-sm">TOTAL: <span className="font-mono font-extrabold text-[#0196C1]">${total.toLocaleString('es-MX', {minimumFractionDigits: 2})} MXN</span></p>
+                    </div>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end gap-2">
+                    <button
+                      onClick={() => setSelectedInvoiceId(null)}
+                      className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg cursor-pointer border-none text-[11px]"
+                    >
+                      Cerrar
+                    </button>
+                    {!isBilled && (
+                      <button
+                        onClick={() => {
+                          setInvoicedOrders(prev => [...prev, ot.id]);
+                          setSelectedInvoiceId(null);
+                        }}
+                        className="px-4 py-2 bg-[#0196C1] hover:bg-[#0185ab] text-white font-bold rounded-lg cursor-pointer border-none text-[11px]"
+                      >
+                        Autorizar Factura
+                      </button>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 

@@ -288,6 +288,8 @@ export default function App() {
                   clients={clients}
                   setClients={setClients}
                   equipment={equipment}
+                  workOrders={workOrders}
+                  setWorkOrders={setWorkOrders}
                   activeTab={adminTab}
                   setActiveTab={setAdminTab}
                 />
