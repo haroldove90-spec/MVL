@@ -19,6 +19,8 @@ interface AdminDashboardProps {
   setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
   clients: Client[];
   equipment: Equipment[];
+  activeTab?: 'financial' | 'staff' | 'catalog' | 'inventory';
+  setActiveTab?: (val: 'financial' | 'staff' | 'catalog' | 'inventory') => void;
 }
 
 export default function AdminDashboard({ 
@@ -27,10 +29,14 @@ export default function AdminDashboard({
   inventory, 
   setInventory,
   clients,
-  equipment
+  equipment,
+  activeTab: propActiveTab,
+  setActiveTab: propSetActiveTab
 }: AdminDashboardProps) {
-  // Navigation tabs
-  const [activeTab, setActiveTab] = useState<'financial' | 'staff' | 'catalog' | 'inventory'>('financial');
+  // Navigation tabs with parent-control fallback
+  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'catalog' | 'inventory'>('financial');
+  const activeTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
+  const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
 
   // New staff form states
   const [newStaffName, setNewStaffName] = useState('');

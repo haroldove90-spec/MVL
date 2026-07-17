@@ -19,6 +19,8 @@ interface CoordinatorDashboardProps {
   inventory: InventoryItem[];
   setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
   onOpenReport: (ot: WorkOrder) => void;
+  statusFilter?: 'all' | 'pending' | 'in_progress' | 'review' | 'completed';
+  setStatusFilter?: (val: 'all' | 'pending' | 'in_progress' | 'review' | 'completed') => void;
 }
 
 export default function CoordinatorDashboard({
@@ -29,7 +31,9 @@ export default function CoordinatorDashboard({
   equipment,
   inventory,
   setInventory,
-  onOpenReport
+  onOpenReport,
+  statusFilter: propStatusFilter,
+  setStatusFilter: propSetStatusFilter
 }: CoordinatorDashboardProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   
@@ -40,8 +44,10 @@ export default function CoordinatorDashboard({
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split('T')[0]);
   const [observations, setObservations] = useState('');
 
-  // Active filter
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'in_progress' | 'review' | 'completed'>('all');
+  // Active filter with parent-control fallback
+  const [localStatusFilter, setLocalStatusFilter] = useState<'all' | 'pending' | 'in_progress' | 'review' | 'completed'>('all');
+  const statusFilter = propStatusFilter !== undefined ? propStatusFilter : localStatusFilter;
+  const setStatusFilter = propSetStatusFilter !== undefined ? propSetStatusFilter : setLocalStatusFilter;
 
   // Filtered orders
   const filteredOrders = workOrders.filter(o => {

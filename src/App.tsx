@@ -7,7 +7,9 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   UserCog, CalendarCheck2, Hammer, Building2, 
-  ArrowLeft, LogOut, Check, Sparkles, AlertCircle, RefreshCw
+  ArrowLeft, LogOut, Check, Sparkles, AlertCircle, RefreshCw,
+  LayoutGrid, DollarSign, Users, Layers, Package, Clock,
+  FileText, Calendar, AlertOctagon
 } from 'lucide-react';
 
 // Data models & Storage helpers
@@ -67,6 +69,23 @@ export default function App() {
   // --- Session State ---
   const [activeRole, setActiveRole] = useState<UserRole | null>(null);
 
+  // --- Sub-module Tab/Filter States ---
+  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'catalog' | 'inventory'>('financial');
+  const [coordFilter, setCoordFilter] = useState<'all' | 'pending' | 'in_progress' | 'review' | 'completed'>('all');
+  const [techTab, setTechTab] = useState<'agenda' | 'reporte'>('agenda');
+  const [clientTab, setClientTab] = useState<'equipos' | 'historial' | 'falla'>('equipos');
+
+  // Unified role selector resetting tabs on logout
+  const handleSelectRole = (role: UserRole | null) => {
+    setActiveRole(role);
+    if (role === null) {
+      setAdminTab('financial');
+      setCoordFilter('all');
+      setTechTab('agenda');
+      setClientTab('equipos');
+    }
+  };
+
   // --- PDF Viewer Overlay State ---
   const [selectedPdfOt, setSelectedPdfOt] = useState<WorkOrder | null>(null);
 
@@ -89,12 +108,12 @@ export default function App() {
       setInventory(INITIAL_INVENTORY);
       setStaff(INITIAL_STAFF);
       setWorkOrders(INITIAL_WORK_ORDERS);
-      setActiveRole(null);
+      handleSelectRole(null);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 selection:bg-[#0196C1]/20 selection:text-[#0196C1]">
+    <div className="min-h-screen bg-[#F8FAFB] flex flex-col font-sans text-[#282829] selection:bg-[#0196C1]/20 selection:text-[#0196C1] pb-16 lg:pb-0">
       
       {/* Dynamic PDF Report overlay rendering */}
       {selectedPdfOt && (
@@ -113,11 +132,11 @@ export default function App() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="bg-[#282829] text-white px-6 py-4 shadow-md flex justify-between items-center sticky top-0 z-40"
+            className="bg-[#282829] text-white px-6 py-4 shadow-md flex justify-between items-center sticky top-0 z-40 border-b-3 border-[#0196C1]"
           >
             <div className="flex items-center gap-3">
               <img src="https://appdesignproyectos.com/mvl.png" alt="MVL Logo" className="h-8 object-contain bg-white/5 p-1 rounded-lg" />
-              <div className="hidden sm:block border-l border-slate-600 pl-3">
+              <div className="hidden sm:block border-l border-slate-600/50 pl-3">
                 <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider">
                   {activeRole === 'admin' ? 'Socio Administrador' :
                    activeRole === 'coordinator' ? 'Coordinador de Operaciones' :
@@ -129,14 +148,14 @@ export default function App() {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setActiveRole(null)}
+                onClick={() => handleSelectRole(null)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer active:scale-95"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span className="hidden xs:inline">Cambiar Rol</span>
               </button>
               <button
-                onClick={() => setActiveRole(null)}
+                onClick={() => handleSelectRole(null)}
                 className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors cursor-pointer"
                 title="Cerrar Sesión"
               >
@@ -180,54 +199,58 @@ export default function App() {
               </div>
 
               {/* Roles selectors with icons and labels - exactly as requested */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 w-full max-w-4xl mx-auto px-4">
                 
                 {/* 1. Administrador */}
                 <button
                   id="role-btn-admin"
-                  onClick={() => setActiveRole('admin')}
-                  className="bg-white hover:border-[#0196C1] hover:shadow-md border border-slate-200/80 p-5 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all cursor-pointer active:scale-95 group text-center"
+                  onClick={() => handleSelectRole('admin')}
+                  className="bg-white rounded-[20px] py-8 px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
                 >
-                  <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center group-hover:bg-rose-500 group-hover:text-white transition-all">
-                    <UserCog className="w-6 h-6" />
+                  <div className="w-[70px] h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
+                    <UserCog className="w-7 h-7" />
                   </div>
-                  <span className="text-xs font-bold text-slate-700 block">Administrador</span>
+                  <p className="font-bold text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Administrador</p>
+                  <span className="text-[11px] text-slate-500 mt-2 leading-relaxed">Control total y reportes financieros.</span>
                 </button>
 
                 {/* 2. Coordinador */}
                 <button
                   id="role-btn-coordinator"
-                  onClick={() => setActiveRole('coordinator')}
-                  className="bg-white hover:border-[#0196C1] hover:shadow-md border border-slate-200/80 p-5 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all cursor-pointer active:scale-95 group text-center"
+                  onClick={() => handleSelectRole('coordinator')}
+                  className="bg-white rounded-[20px] py-8 px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
                 >
-                  <div className="w-12 h-12 bg-[#0196C1]/10 text-[#0196C1] rounded-xl flex items-center justify-center group-hover:bg-[#0196C1] group-hover:text-white transition-all">
-                    <CalendarCheck2 className="w-6 h-6" />
+                  <div className="w-[70px] h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
+                    <CalendarCheck2 className="w-7 h-7" />
                   </div>
-                  <span className="text-xs font-bold text-slate-700 block">Coordinador</span>
+                  <p className="font-bold text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Coordinador</p>
+                  <span className="text-[11px] text-slate-500 mt-2 leading-relaxed">Gestión de agenda y supervisión.</span>
                 </button>
 
                 {/* 3. Técnico */}
                 <button
                   id="role-btn-technician"
-                  onClick={() => setActiveRole('technician')}
-                  className="bg-white hover:border-[#0196C1] hover:shadow-md border border-slate-200/80 p-5 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all cursor-pointer active:scale-95 group text-center"
+                  onClick={() => handleSelectRole('technician')}
+                  className="bg-white rounded-[20px] py-8 px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
                 >
-                  <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                    <Hammer className="w-6 h-6" />
+                  <div className="w-[70px] h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
+                    <Hammer className="w-7 h-7" />
                   </div>
-                  <span className="text-xs font-bold text-slate-700 block">Técnico Móvil</span>
+                  <p className="font-bold text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Técnico</p>
+                  <span className="text-[11px] text-slate-500 mt-2 leading-relaxed">Ejecución y reportes de campo.</span>
                 </button>
 
                 {/* 4. Cliente */}
                 <button
                   id="role-btn-client"
-                  onClick={() => setActiveRole('client')}
-                  className="bg-white hover:border-[#0196C1] hover:shadow-md border border-slate-200/80 p-5 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all cursor-pointer active:scale-95 group text-center"
+                  onClick={() => handleSelectRole('client')}
+                  className="bg-white rounded-[20px] py-8 px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
                 >
-                  <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all">
-                    <Building2 className="w-6 h-6" />
+                  <div className="w-[70px] h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
+                    <Building2 className="w-7 h-7" />
                   </div>
-                  <span className="text-xs font-bold text-slate-700 block">Cliente (Portal)</span>
+                  <p className="font-bold text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Cliente</p>
+                  <span className="text-[11px] text-slate-500 mt-2 leading-relaxed">Historial de activos y solicitudes.</span>
                 </button>
 
               </div>
@@ -264,6 +287,8 @@ export default function App() {
                   setInventory={setInventory}
                   clients={clients}
                   equipment={equipment}
+                  activeTab={adminTab}
+                  setActiveTab={setAdminTab}
                 />
               )}
 
@@ -277,6 +302,8 @@ export default function App() {
                   inventory={inventory}
                   setInventory={setInventory}
                   onOpenReport={handleOpenReport}
+                  statusFilter={coordFilter}
+                  setStatusFilter={setCoordFilter}
                 />
               )}
 
@@ -288,6 +315,8 @@ export default function App() {
                   inventory={inventory}
                   equipment={equipment}
                   clients={clients}
+                  activeTab={techTab}
+                  setActiveTab={setTechTab}
                 />
               )}
 
@@ -298,6 +327,8 @@ export default function App() {
                   workOrders={workOrders}
                   setWorkOrders={setWorkOrders}
                   onOpenReport={handleOpenReport}
+                  activeTab={clientTab}
+                  setActiveTab={setClientTab}
                 />
               )}
             </motion.div>
@@ -306,9 +337,162 @@ export default function App() {
       </main>
 
       {/* --- Footer --- */}
-      <footer className="py-4 text-center text-[11px] text-slate-400 border-t border-slate-200 bg-white/40">
+      <footer className="py-4 text-center text-[11px] text-slate-400 border-t border-slate-200 bg-white/40 mb-16 lg:mb-0">
         MVL Control y mantenimiento • Compresores Industriales • © {new Date().getFullYear()}
       </footer>
+
+      {/* --- MOBILE/TABLET BOTTOM NAVIGATION BAR --- */}
+      {activeRole && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#282829] border-t-3 border-[#0196C1] shadow-[0_-8px_30px_rgb(0,0,0,0.25)] z-50 flex justify-around items-center h-16 px-1">
+          
+          {activeRole === 'admin' && (
+            <>
+              <button
+                onClick={() => setAdminTab('financial')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  adminTab === 'financial' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <DollarSign className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Finanzas</span>
+              </button>
+              <button
+                onClick={() => setAdminTab('staff')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  adminTab === 'staff' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Users className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Personal</span>
+              </button>
+              <button
+                onClick={() => setAdminTab('catalog')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  adminTab === 'catalog' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Layers className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Marcas</span>
+              </button>
+              <button
+                onClick={() => setAdminTab('inventory')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  adminTab === 'inventory' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Package className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Inventario</span>
+              </button>
+            </>
+          )}
+
+          {activeRole === 'coordinator' && (
+            <>
+              <button
+                onClick={() => setCoordFilter('all')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  coordFilter === 'all' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <LayoutGrid className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Todo</span>
+              </button>
+              <button
+                onClick={() => setCoordFilter('pending')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  coordFilter === 'pending' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Clock className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Pendientes</span>
+              </button>
+              <button
+                onClick={() => setCoordFilter('in_progress')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  coordFilter === 'in_progress' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <RefreshCw className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Activas</span>
+              </button>
+              <button
+                onClick={() => setCoordFilter('review')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  coordFilter === 'review' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <AlertCircle className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Revisión</span>
+              </button>
+              <button
+                onClick={() => setCoordFilter('completed')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  coordFilter === 'completed' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Check className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Cerradas</span>
+              </button>
+            </>
+          )}
+
+          {activeRole === 'technician' && (
+            <>
+              <button
+                onClick={() => setTechTab('agenda')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  techTab === 'agenda' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Calendar className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Agenda</span>
+              </button>
+              <button
+                onClick={() => setTechTab('reporte')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  techTab === 'reporte' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Hammer className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Reportar</span>
+              </button>
+            </>
+          )}
+
+          {activeRole === 'client' && (
+            <>
+              <button
+                onClick={() => setClientTab('equipos')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  clientTab === 'equipos' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <LayoutGrid className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Equipos</span>
+              </button>
+              <button
+                onClick={() => setClientTab('historial')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  clientTab === 'historial' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <FileText className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Historial</span>
+              </button>
+              <button
+                onClick={() => setClientTab('falla')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  clientTab === 'falla' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <AlertOctagon className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Reportar Falla</span>
+              </button>
+            </>
+          )}
+
+        </div>
+      )}
 
     </div>
   );
