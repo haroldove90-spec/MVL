@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Client, Equipment, HistoryItem, InventoryItem, Staff, WorkOrder, PurchaseOrder } from './types';
+import { Client, Equipment, HistoryItem, InventoryItem, Staff, WorkOrder, PurchaseOrder, ExpenseControl } from './types';
 
 export const INITIAL_CLIENTS: Client[] = [
   {
@@ -515,6 +515,235 @@ export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
     leoFinal: 6017.62
   }
 ];
+
+export const INITIAL_EXPENSE_CONTROL: ExpenseControl[] = [
+  {
+    id: 'exp1',
+    projectDescription: 'aceite para compresor oc 417252',
+    clientName: 'SENSIENT',
+    agentName: 'Marco',
+    invoiceDate: '2026-03-13',
+    invoiceNumber: '90',
+    paymentDate: '2026-06-03',
+    tax: 2061.60,
+    subtotal: 12885.00,
+    clientPayment: 12885.00,
+    expenses: 0.00,
+    utility: 12885.00,
+    savings: 2577.00
+  },
+  {
+    id: 'exp2',
+    projectDescription: 'reparación de secadora OC 416063',
+    clientName: 'SENSIENT',
+    agentName: 'Marco',
+    invoiceDate: '2026-03-13',
+    invoiceNumber: '91',
+    paymentDate: '2026-06-03',
+    tax: 5017.60,
+    subtotal: 31360.00,
+    clientPayment: 31360.00,
+    expenses: 0.00,
+    utility: 31360.00,
+    savings: 6272.00
+  },
+  {
+    id: 'exp3',
+    projectDescription: 'INSTALACION DE COMPRESOR CON No. DE PEDIDO: 4500148860',
+    clientName: 'relats',
+    agentName: 'Victor',
+    invoiceDate: '2026-04-09',
+    invoiceNumber: '393',
+    paymentDate: '2026-06-18',
+    tax: 25105.60,
+    subtotal: 156910.00,
+    clientPayment: 156910.00,
+    expenses: 85269.53,
+    utility: 71640.47,
+    savings: 14328.09
+  },
+  {
+    id: 'exp4',
+    projectDescription: 'tenería panamericana servicio a GA55 nuevo',
+    clientName: 'Teneria pa',
+    agentName: 'victor',
+    invoiceDate: '2026-04-27',
+    invoiceNumber: '397',
+    paymentDate: '2026-06-04',
+    tax: 9630.40,
+    subtotal: 60190.00,
+    clientPayment: 60190.00,
+    expenses: 22980.00,
+    utility: 37210.00,
+    savings: 7442.00
+  },
+  {
+    id: 'exp5',
+    projectDescription: 'filtros de aceite separador y de aire',
+    clientName: 'Teneria pa',
+    agentName: 'victor',
+    invoiceDate: '2026-05-05',
+    invoiceNumber: '401',
+    paymentDate: '2026-06-12',
+    tax: 1896.00,
+    subtotal: 11850.00,
+    clientPayment: 11850.00,
+    expenses: 1850.00,
+    utility: 10000.00,
+    savings: 2000.00
+  },
+  {
+    id: 'exp6',
+    projectDescription: 'SERVICIO DE MANTENIMIENTO PREVENTIVO A VARIADORES',
+    clientName: 'Teneria pa',
+    agentName: 'victor',
+    invoiceDate: '2026-05-05',
+    invoiceNumber: '402',
+    paymentDate: '2026-06-12',
+    tax: 1600.00,
+    subtotal: 10000.00,
+    clientPayment: 10000.00,
+    expenses: 0.00,
+    utility: 10000.00,
+    savings: 2000.00
+  },
+  {
+    id: 'exp7',
+    projectDescription: 'relats anualidad 1 de 4',
+    clientName: 'relats',
+    agentName: 'victor',
+    invoiceDate: '2026-05-05',
+    invoiceNumber: '403',
+    paymentDate: '2026-05-25',
+    tax: 21931.83,
+    subtotal: 137073.94,
+    clientPayment: 137073.94,
+    expenses: 68900.00,
+    utility: 68173.94,
+    savings: 13634.79
+  },
+  {
+    id: 'exp8',
+    projectDescription: 'Roto Xtend Fluid Cikautxo OC 3703312',
+    clientName: 'cikautxo',
+    agentName: 'victor',
+    invoiceDate: '2026-05-12',
+    invoiceNumber: '404',
+    paymentDate: '2026-06-15',
+    tax: 3470.40,
+    subtotal: 21690.00,
+    clientPayment: 21690.00,
+    expenses: 18650.00,
+    utility: 3040.00,
+    savings: 608.00
+  },
+  {
+    id: 'exp9',
+    projectDescription: 'cikautxo Mtto GA75 (2) GA30 OC 3399008',
+    clientName: 'cikautxo',
+    agentName: 'victor',
+    invoiceDate: '2026-05-22',
+    invoiceNumber: '406',
+    paymentDate: '2026-06-29',
+    tax: 20940.80,
+    subtotal: 130880.00,
+    clientPayment: 130880.00,
+    expenses: 46252.06,
+    utility: 84627.94,
+    savings: 16925.59
+  },
+  {
+    id: 'exp10',
+    projectDescription: 'insta lación de ac guala oc ZX0977',
+    clientName: 'Guala',
+    agentName: 'LEONARDO',
+    invoiceDate: '2026-06-12',
+    invoiceNumber: '412',
+    paymentDate: '2026-06-12',
+    tax: 22979.05,
+    subtotal: 143619.05,
+    clientPayment: 143619.05,
+    expenses: 74465.88,
+    utility: 69153.17,
+    savings: 13830.63
+  },
+  {
+    id: 'exp11',
+    projectDescription: 'factura de equioo refri INVERSIÓN MAILHOT',
+    clientName: 'marco',
+    agentName: 'victor',
+    invoiceDate: '2026-06-03',
+    invoiceNumber: '415',
+    paymentDate: '2026-06-03',
+    tax: 1740.53,
+    subtotal: 10878.31,
+    clientPayment: 10878.31,
+    expenses: 0.00,
+    utility: 10878.31,
+    savings: 2175.66
+  },
+  {
+    id: 'exp12',
+    projectDescription: 'factura de equioo refri INVERSIÓN MAILHOT',
+    clientName: 'leonardo',
+    agentName: 'victor',
+    invoiceDate: '2026-06-03',
+    invoiceNumber: '416',
+    paymentDate: '2026-06-03',
+    tax: 1740.53,
+    subtotal: 10878.31,
+    clientPayment: 10878.31,
+    expenses: 0.00,
+    utility: 10878.31,
+    savings: 2175.66
+  },
+  {
+    id: 'exp13',
+    projectDescription: 'servico de aires metso',
+    clientName: 'Metso',
+    agentName: 'victor',
+    invoiceDate: '2026-06-04',
+    invoiceNumber: '571',
+    paymentDate: '2026-06-04',
+    tax: 3657.24,
+    subtotal: 22857.77,
+    clientPayment: 22857.77,
+    expenses: 0.00,
+    utility: 22857.77,
+    savings: 4571.55
+  },
+  {
+    id: 'exp14',
+    projectDescription: 'factura a leo por metso',
+    clientName: 'leonardo',
+    agentName: 'victor',
+    invoiceDate: '2026-06-25',
+    invoiceNumber: '421',
+    paymentDate: '2026-06-04',
+    tax: 3657.24,
+    subtotal: 22857.76,
+    clientPayment: 22857.76,
+    expenses: 0.00,
+    utility: 22857.76,
+    savings: 4571.55
+  },
+  {
+    id: 'exp15',
+    projectDescription: 'novatec anualidad',
+    clientName: 'novatec',
+    agentName: 'marco',
+    invoiceDate: '2026-06-22',
+    invoiceNumber: '132',
+    paymentDate: '2026-06-22',
+    tax: 4657.60,
+    subtotal: 29109.98,
+    clientPayment: 29109.98,
+    expenses: 0.00,
+    utility: 29109.98,
+    savings: 5822.00
+  }
+];
+
 
 // LocalStorage helpers
 export const loadFromStorage = <T>(key: string, defaultValue: T): T => {

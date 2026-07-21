@@ -4,11 +4,13 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Staff, InventoryItem, Client, Equipment, WorkOrder, PurchaseOrder } from '../types';
+import { Staff, InventoryItem, Client, Equipment, WorkOrder, PurchaseOrder, ExpenseControl } from '../types';
+import { supabase } from '../lib/supabase';
+import { INITIAL_EXPENSE_CONTROL, loadFromStorage, saveToStorage } from '../mockData';
 import { 
   Users, DollarSign, Package, Award, Plus, Trash2, 
   CheckCircle, XCircle, Tag, Layers, TrendingUp, TrendingDown,
-  ShieldCheck, AlertTriangle, Building, Activity, FileText, Search, Edit2, Eye
+  ShieldCheck, AlertTriangle, Building, Activity, FileText, Search, Edit2, Eye, RefreshCw
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -24,8 +26,8 @@ interface AdminDashboardProps {
   setWorkOrders?: React.Dispatch<React.SetStateAction<WorkOrder[]>>;
   purchaseOrders?: PurchaseOrder[];
   setPurchaseOrders?: React.Dispatch<React.SetStateAction<PurchaseOrder[]>>;
-  activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders';
-  setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders') => void;
+  activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control';
+  setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control') => void;
 }
 
 export default function AdminDashboard({ 
@@ -44,7 +46,7 @@ export default function AdminDashboard({
   setActiveTab: propSetActiveTab
 }: AdminDashboardProps) {
   // Navigation tabs with parent-control fallback
-  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders'>('financial');
+  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control'>('financial');
   const activeTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
   const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
 
@@ -110,6 +112,248 @@ export default function AdminDashboard({
   const [formPoVictorPercent, setFormPoVictorPercent] = useState(20);
   const [formPoLeoPercent, setFormPoLeoPercent] = useState(20);
   const [formPoRikyPercent, setFormPoRikyPercent] = useState(0);
+
+  // --- Expense Control States ---
+  const [expensesList, setExpensesList] = useState<ExpenseControl[]>(() =>
+    loadFromStorage<ExpenseControl[]>('mvl_expense_control', INITIAL_EXPENSE_CONTROL)
+  );
+  const [expSearchQuery, setExpSearchQuery] = useState('');
+  const [activeExpModal, setActiveExpModal] = useState<'create' | 'edit' | 'view' | null>(null);
+  const [selectedExp, setSelectedExp] = useState<ExpenseControl | null>(null);
+  const [expCurrentPage, setExpCurrentPage] = useState(1);
+  const [supabaseStatus, setSupabaseStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
+  const [supabaseError, setSupabaseError] = useState<string | null>(null);
+
+  const filteredExpenses = expensesList.filter(exp => {
+    const query = expSearchQuery.toLowerCase();
+    return (
+      exp.projectDescription.toLowerCase().includes(query) ||
+      exp.clientName.toLowerCase().includes(query) ||
+      exp.agentName.toLowerCase().includes(query) ||
+      exp.invoiceNumber.toLowerCase().includes(query)
+    );
+  });
+
+  const expItemsPerPage = 10;
+  const expTotalPages = Math.ceil(filteredExpenses.length / expItemsPerPage);
+  const paginatedExpenses = filteredExpenses.slice(
+    (expCurrentPage - 1) * expItemsPerPage,
+    expCurrentPage * expItemsPerPage
+  );
+
+  // Form states for Expense Control
+  const [formExpDescription, setFormExpDescription] = useState('');
+  const [formExpClientName, setFormExpClientName] = useState('');
+  const [formExpAgentName, setFormExpAgentName] = useState('');
+  const [formExpInvoiceDate, setFormExpInvoiceDate] = useState('');
+  const [formExpInvoiceNumber, setFormExpInvoiceNumber] = useState('');
+  const [formExpPaymentDate, setFormExpPaymentDate] = useState('');
+  const [formExpTax, setFormExpTax] = useState(0);
+  const [formExpSubtotal, setFormExpSubtotal] = useState(0);
+  const [formExpClientPayment, setFormExpClientPayment] = useState(0);
+  const [formExpExpenses, setFormExpExpenses] = useState(0);
+  const [formExpUtility, setFormExpUtility] = useState(0);
+  const [formExpSavings, setFormExpSavings] = useState(0);
+
+  // Supabase sync hooks
+  const fetchExpensesFromSupabase = async () => {
+    try {
+      setSupabaseStatus('checking');
+      const { data, error } = await supabase
+        .from('expense_control')
+        .select('*');
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        const mapped: ExpenseControl[] = data.map((item: any) => ({
+          id: String(item.id),
+          projectDescription: item.project_description || '',
+          clientName: item.client_name || '',
+          agentName: item.agent_name || '',
+          invoiceDate: item.invoice_date || '',
+          invoiceNumber: item.invoice_number || '',
+          paymentDate: item.payment_date || '',
+          tax: Number(item.tax || 0),
+          subtotal: Number(item.subtotal || 0),
+          clientPayment: Number(item.client_payment || 0),
+          expenses: Number(item.expenses || 0),
+          utility: Number(item.utility || 0),
+          savings: Number(item.savings || 0)
+        }));
+        setExpensesList(mapped);
+        saveToStorage('mvl_expense_control', mapped);
+      }
+      setSupabaseStatus('connected');
+      setSupabaseError(null);
+    } catch (err: any) {
+      console.warn('Could not load from Supabase, using localStorage:', err);
+      setSupabaseStatus('disconnected');
+      setSupabaseError(err?.message || 'Error de conexión');
+    }
+  };
+
+  useEffect(() => {
+    fetchExpensesFromSupabase();
+  }, []);
+
+  // Auto calculations for Expense Form
+  useEffect(() => {
+    // Auto IVA (16%)
+    const computedTax = Number((formExpSubtotal * 0.16).toFixed(2));
+    setFormExpTax(computedTax);
+    
+    // Auto set Client Payment to Subtotal if it's 0 or empty
+    if (formExpClientPayment === 0 && formExpSubtotal > 0) {
+      setFormExpClientPayment(formExpSubtotal);
+    }
+  }, [formExpSubtotal]);
+
+  useEffect(() => {
+    // Auto Utility = Client Payment - Expenses
+    const computedUtility = Number((formExpClientPayment - formExpExpenses).toFixed(2));
+    setFormExpUtility(computedUtility);
+  }, [formExpClientPayment, formExpExpenses]);
+
+  useEffect(() => {
+    // Auto Savings = 20% of Utility (only if positive)
+    const computedSavings = formExpUtility > 0 ? Number((formExpUtility * 0.20).toFixed(2)) : 0;
+    setFormExpSavings(computedSavings);
+  }, [formExpUtility]);
+
+  const handleOpenCreateExp = () => {
+    setFormExpDescription('');
+    setFormExpClientName('');
+    setFormExpAgentName('');
+    setFormExpInvoiceDate(new Date().toISOString().split('T')[0]);
+    setFormExpInvoiceNumber('');
+    setFormExpPaymentDate(new Date().toISOString().split('T')[0]);
+    setFormExpSubtotal(0);
+    setFormExpTax(0);
+    setFormExpClientPayment(0);
+    setFormExpExpenses(0);
+    setFormExpUtility(0);
+    setFormExpSavings(0);
+    setSelectedExp(null);
+    setActiveExpModal('create');
+  };
+
+  const handleOpenEditExp = (exp: ExpenseControl) => {
+    setSelectedExp(exp);
+    setFormExpDescription(exp.projectDescription);
+    setFormExpClientName(exp.clientName);
+    setFormExpAgentName(exp.agentName);
+    setFormExpInvoiceDate(exp.invoiceDate);
+    setFormExpInvoiceNumber(exp.invoiceNumber);
+    setFormExpPaymentDate(exp.paymentDate);
+    setFormExpSubtotal(exp.subtotal);
+    setFormExpTax(exp.tax);
+    setFormExpClientPayment(exp.clientPayment);
+    setFormExpExpenses(exp.expenses);
+    setFormExpUtility(exp.utility);
+    setFormExpSavings(exp.savings);
+    setActiveExpModal('edit');
+  };
+
+  const handleOpenViewExp = (exp: ExpenseControl) => {
+    setSelectedExp(exp);
+    setActiveExpModal('view');
+  };
+
+  const handleCreateOrUpdateExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const targetId = activeExpModal === 'edit' && selectedExp ? selectedExp.id : `exp_${Date.now()}`;
+    const newExp: ExpenseControl = {
+      id: targetId,
+      projectDescription: formExpDescription,
+      clientName: formExpClientName,
+      agentName: formExpAgentName,
+      invoiceDate: formExpInvoiceDate,
+      invoiceNumber: formExpInvoiceNumber,
+      paymentDate: formExpPaymentDate,
+      tax: formExpTax,
+      subtotal: formExpSubtotal,
+      clientPayment: formExpClientPayment,
+      expenses: formExpExpenses,
+      utility: formExpUtility,
+      savings: formExpSavings
+    };
+
+    // Update state & local storage immediately
+    let updatedList: ExpenseControl[];
+    if (activeExpModal === 'create') {
+      updatedList = [newExp, ...expensesList];
+    } else {
+      updatedList = expensesList.map(item => item.id === targetId ? newExp : item);
+    }
+    setExpensesList(updatedList);
+    saveToStorage('mvl_expense_control', updatedList);
+
+    // Sync with Supabase (upsert)
+    try {
+      const dbPayload = {
+        id: targetId.startsWith('exp_') ? undefined : targetId, // let db assign if text/uuid, or keep if existing
+        project_description: formExpDescription,
+        client_name: formExpClientName,
+        agent_name: formExpAgentName,
+        invoice_date: formExpInvoiceDate || null,
+        invoice_number: formExpInvoiceNumber,
+        payment_date: formExpPaymentDate || null,
+        tax: formExpTax,
+        subtotal: formExpSubtotal,
+        client_payment: formExpClientPayment,
+        expenses: formExpExpenses,
+        utility: formExpUtility,
+        savings: formExpSavings
+      };
+
+      let result;
+      if (activeExpModal === 'create') {
+        result = await supabase.from('expense_control').insert([dbPayload]);
+      } else {
+        // Since ID might be client-side generated (e.g. 'exp1', 'exp2') or uuid, we can filter or upsert
+        result = await supabase.from('expense_control').upsert([
+          { id: targetId, ...dbPayload }
+        ]);
+      }
+
+      if (result.error) throw result.error;
+      setSupabaseStatus('connected');
+      setSupabaseError(null);
+    } catch (err: any) {
+      console.warn('Supabase sync failed, saved locally:', err);
+      setSupabaseStatus('disconnected');
+      setSupabaseError('Guardado localmente. Error Supabase: ' + err.message);
+    }
+
+    setActiveExpModal(null);
+    setSelectedExp(null);
+  };
+
+  const handleDeleteExpense = async (id: string) => {
+    if (confirm('¿Está seguro de eliminar este registro de control de gastos?')) {
+      const updatedList = expensesList.filter(item => item.id !== id);
+      setExpensesList(updatedList);
+      saveToStorage('mvl_expense_control', updatedList);
+
+      try {
+        const { error } = await supabase
+          .from('expense_control')
+          .delete()
+          .eq('id', id);
+        
+        if (error) throw error;
+        setSupabaseStatus('connected');
+        setSupabaseError(null);
+      } catch (err: any) {
+        console.warn('Supabase delete failed, deleted locally:', err);
+        setSupabaseStatus('disconnected');
+        setSupabaseError('Eliminado localmente. Error Supabase: ' + err.message);
+      }
+    }
+  };
+
 
   // Double horizontal scrollbar refs & state
   const topScrollRef = useRef<HTMLDivElement>(null);
@@ -573,6 +817,16 @@ export default function AdminDashboard({
           }`}
         >
           Registro de Órdenes de Compra
+        </button>
+        <button
+          onClick={() => setActiveTab('expense_control')}
+          className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+            activeTab === 'expense_control' 
+              ? 'bg-[#0196C1] text-white' 
+              : 'text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          Control de Gastos (Proyectos)
         </button>
       </div>
 
@@ -2262,6 +2516,597 @@ export default function AdminDashboard({
                   <div className="flex justify-end pt-2">
                     <button
                       onClick={() => { setActivePoModal(null); setSelectedPo(null); }}
+                      className="px-5 py-2 bg-[#282829] hover:bg-slate-800 text-white font-bold rounded-lg cursor-pointer transition-colors"
+                    >
+                      Cerrar Vista
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* --- Tab: Control de Gastos (Proyectos) --- */}
+      {activeTab === 'expense_control' && (
+        <div className="space-y-6 text-left animate-fadeIn">
+          {/* Header Description & Supabase Status */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base font-extrabold text-[#282829] uppercase tracking-wider">Control de Gastos y Rentabilidad de Proyectos</h2>
+                {supabaseStatus === 'connected' ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200">
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+                    Supabase Conectado
+                  </span>
+                ) : supabaseStatus === 'checking' ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-sky-50 text-sky-700 text-[10px] font-bold rounded-full border border-sky-200">
+                    <span className="w-1.5 h-1.5 bg-sky-500 rounded-full animate-pulse"></span>
+                    Sincronizando...
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-full border border-amber-200" title={supabaseError || ''}>
+                    Modo Local (Offline)
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">
+                Registro minucioso de ingresos de clientes, desglose de IVA (16%), deducción de gastos de proyecto, cálculo de ahorro (20%) y utilidad neta real.
+              </p>
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => {
+                  fetchExpensesFromSupabase();
+                }}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
+                title="Recargar datos de Supabase"
+              >
+                Sincronizar
+              </button>
+              <button
+                onClick={handleOpenCreateExp}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4" />
+                Nuevo Registro de Gastos
+              </button>
+            </div>
+          </div>
+
+          {/* KPI Summary Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Ingreso de Clientes (Neto)</span>
+                <span className="p-1 bg-sky-50 text-sky-600 rounded-lg"><DollarSign className="w-3.5 h-3.5" /></span>
+              </div>
+              <h3 className="text-xl font-black text-slate-800 mt-2">
+                ${expensesList.reduce((sum, item) => sum + item.clientPayment, 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h3>
+              <p className="text-[10px] text-slate-500 mt-1">Suma total cobrada a clientes</p>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] text-rose-600 font-bold uppercase tracking-wider block">Gastos Totales Deductibles</span>
+                <span className="p-1 bg-rose-50 text-rose-600 rounded-lg"><TrendingDown className="w-3.5 h-3.5" /></span>
+              </div>
+              <h3 className="text-xl font-black text-rose-600 mt-2">
+                ${expensesList.reduce((sum, item) => sum + item.expenses, 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h3>
+              <p className="text-[10px] text-slate-500 mt-1">Costo de materiales, refacciones e insumos</p>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider block">Utilidad Bruta Acumulada</span>
+                <span className="p-1 bg-emerald-50 text-emerald-600 rounded-lg"><TrendingUp className="w-3.5 h-3.5" /></span>
+              </div>
+              <h3 className="text-xl font-black text-emerald-600 mt-2">
+                ${expensesList.reduce((sum, item) => sum + item.utility, 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h3>
+              <p className="text-[10px] text-slate-500 mt-1">Utilidad neta generada por proyectos</p>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs bg-gradient-to-br from-white to-amber-50/20">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider block">Fondo de Ahorro MVL (20%)</span>
+                <span className="p-1 bg-amber-50 text-amber-600 rounded-lg"><Award className="w-3.5 h-3.5" /></span>
+              </div>
+              <h3 className="text-xl font-black text-amber-700 mt-2">
+                ${expensesList.reduce((sum, item) => sum + item.savings, 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h3>
+              <p className="text-[10px] text-slate-500 mt-1">Fondo acumulado de ahorro reservado</p>
+            </div>
+          </div>
+
+          {/* Database Setup Info (Copy SQL) */}
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-3">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Building className="w-4 h-4 text-[#0196C1]" />
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Esquema SQL para tu Consola de Supabase</h4>
+              </div>
+              <span className="text-[9px] bg-[#0196C1]/10 text-[#0196C1] px-2 py-0.5 rounded font-extrabold uppercase">Instrucciones</span>
+            </div>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              Para habilitar la sincronización en la nube, ingresa al panel de SQL Editor de tu proyecto de Supabase (<span className="font-mono text-[10px] bg-white px-1 py-0.2 rounded border">vquibpskgoxtzaiphkac</span>) y ejecuta la siguiente consulta:
+            </p>
+            <div className="relative">
+              <pre className="text-[9px] bg-slate-900 text-slate-300 p-4 rounded-xl overflow-x-auto font-mono leading-relaxed max-h-40 overflow-y-auto">
+{`CREATE TABLE IF NOT EXISTS expense_control (
+  id text PRIMARY KEY,
+  project_description text NOT NULL,
+  client_name text NOT NULL,
+  agent_name text NOT NULL,
+  invoice_date date,
+  invoice_number text,
+  payment_date date,
+  tax numeric(15, 2) DEFAULT 0.00,
+  subtotal numeric(15, 2) DEFAULT 0.00,
+  client_payment numeric(15, 2) DEFAULT 0.00,
+  expenses numeric(15, 2) DEFAULT 0.00,
+  utility numeric(15, 2) DEFAULT 0.00,
+  savings numeric(15, 2) DEFAULT 0.00,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Habilitar acceso publico
+ALTER TABLE expense_control ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Permitir acceso publico total" ON expense_control FOR ALL USING (true) WITH CHECK (true);`}
+              </pre>
+            </div>
+          </div>
+
+          {/* Search, Filter & Actions Panel */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-xs flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="relative w-full sm:max-w-md">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                <Search className="w-4 h-4" />
+              </span>
+              <input
+                type="text"
+                placeholder="Buscar por cliente, descripción, agente o factura..."
+                value={expSearchQuery}
+                onChange={(e) => {
+                  setExpSearchQuery(e.target.value);
+                  setExpCurrentPage(1);
+                }}
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0196C1] focus:bg-white text-xs transition-all"
+              />
+            </div>
+            
+            <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
+              Registros encontrados: <span className="text-[#0196C1]">{expensesList.filter(exp => {
+                const query = expSearchQuery.toLowerCase();
+                return (
+                  exp.projectDescription.toLowerCase().includes(query) ||
+                  exp.clientName.toLowerCase().includes(query) ||
+                  exp.agentName.toLowerCase().includes(query) ||
+                  exp.invoiceNumber.toLowerCase().includes(query)
+                );
+              }).length}</span>
+            </div>
+          </div>
+
+          {/* Interactive Expenses Registry Grid/Table */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[1200px]">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-[10px] text-slate-400 uppercase font-bold">
+                    <th className="py-3.5 px-4">Cliente // proyecto</th>
+                    <th className="py-3.5 px-4">Cliente</th>
+                    <th className="py-3.5 px-4">Agente</th>
+                    <th className="py-3.5 px-4 whitespace-nowrap">Fecha Fac</th>
+                    <th className="py-3.5 px-4">Factura</th>
+                    <th className="py-3.5 px-4 whitespace-nowrap">Fecha de pago</th>
+                    <th className="py-3.5 px-4 text-right">IVA</th>
+                    <th className="py-3.5 px-4 text-right">Subtotal</th>
+                    <th className="py-3.5 px-4 text-right">Pago de cliente</th>
+                    <th className="py-3.5 px-4 text-right">Gastos</th>
+                    <th className="py-3.5 px-4 text-right">Utilidad</th>
+                    <th className="py-3.5 px-4 text-right">Ahorro 20%</th>
+                    <th className="py-3.5 px-4 text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {paginatedExpenses.map((exp) => (
+                      <tr key={exp.id} className="hover:bg-slate-50/30 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-slate-800 max-w-[220px] truncate" title={exp.projectDescription}>
+                          {exp.projectDescription}
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-[#0196C1] uppercase">{exp.clientName}</td>
+                        <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">{exp.agentName}</td>
+                        <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
+                          {exp.invoiceDate ? exp.invoiceDate.split('-').reverse().join('/') : '-'}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-700 font-bold">{exp.invoiceNumber || '-'}</td>
+                        <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
+                          {exp.paymentDate ? exp.paymentDate.split('-').reverse().join('/') : '-'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-medium text-slate-500">
+                          ${exp.tax.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-semibold text-slate-800">
+                          ${exp.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-bold text-[#0196C1] bg-[#0196C1]/5">
+                          ${exp.clientPayment.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className={`py-3.5 px-4 text-right font-semibold ${exp.expenses > 0 ? 'text-rose-600 bg-rose-50/10' : 'text-slate-400'}`}>
+                          {exp.expenses > 0 ? `$${exp.expenses.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-black text-emerald-600 bg-emerald-50/10">
+                          ${exp.utility.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-bold text-amber-600 bg-amber-50/25">
+                          ${exp.savings.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenViewExp(exp)}
+                              className="p-1.5 text-slate-500 hover:text-[#0196C1] hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
+                              title="Detalle Completo"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditExp(exp)}
+                              className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                              title="Editar Fila"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteExpense(exp.id)}
+                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Eliminar Fila"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {expTotalPages > 1 && (
+              <div className="bg-slate-50 p-4 border-t border-slate-100 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setExpCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={expCurrentPage === 1}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-50 disabled:hover:bg-white border border-slate-200 font-bold rounded-lg cursor-pointer transition-all text-xs"
+                >
+                  Anterior
+                </button>
+                <div className="flex gap-1">
+                  {Array.from({ length: expTotalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() => setExpCurrentPage(page)}
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                        expCurrentPage === page
+                          ? 'bg-[#0196C1] text-white font-extrabold shadow-xs'
+                          : 'text-slate-600 bg-white hover:bg-slate-50 border border-slate-200'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setExpCurrentPage(prev => Math.min(expTotalPages, prev + 1))}
+                  disabled={expCurrentPage === expTotalPages}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-50 disabled:hover:bg-white border border-slate-200 font-bold rounded-lg cursor-pointer transition-all text-xs"
+                >
+                  Siguiente
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Form Modal (Create & Edit) */}
+          {(activeExpModal === 'create' || activeExpModal === 'edit') && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
+              <div className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-2xl w-full max-h-[90vh] overflow-y-auto overflow-x-hidden flex flex-col">
+                {/* Modal Header */}
+                <div className="px-6 py-4 bg-[#282829] text-white flex justify-between items-center border-b border-slate-700">
+                  <h3 className="text-sm font-bold uppercase tracking-wider">
+                    {activeExpModal === 'create' ? 'Agregar Registro de Gasto/Proyecto' : 'Editar Registro de Gasto/Proyecto'}
+                  </h3>
+                  <button
+                    onClick={() => { setActiveExpModal(null); setSelectedExp(null); }}
+                    className="text-slate-400 hover:text-white transition-colors cursor-pointer text-lg font-bold"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <form onSubmit={handleCreateOrUpdateExpense} className="p-6 space-y-4">
+                  {/* Basic Project Fields */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cliente // Proyecto (Descripción)</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. aceite para compresor oc 417252"
+                      value={formExpDescription}
+                      onChange={(e) => setFormExpDescription(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0196C1] focus:bg-white text-xs transition-all"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nombre del Cliente</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej. SENSIENT, relats, Guala..."
+                        value={formExpClientName}
+                        onChange={(e) => setFormExpClientName(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0196C1] focus:bg-white text-xs transition-all"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Agente / Encargado</label>
+                      <select
+                        value={formExpAgentName}
+                        onChange={(e) => setFormExpAgentName(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0196C1] focus:bg-white text-xs transition-all"
+                      >
+                        <option value="">Selecciona Agente...</option>
+                        <option value="Marco">Marco</option>
+                        <option value="Victor">Victor</option>
+                        <option value="LEONARDO">LEONARDO</option>
+                        <option value="Riky">Riky</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Dates & Reference */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fecha Factura (fecha fac)</label>
+                      <input
+                        type="date"
+                        value={formExpInvoiceDate}
+                        onChange={(e) => setFormExpInvoiceDate(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0196C1] focus:bg-white text-xs transition-all"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Número de Factura</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. 90"
+                        value={formExpInvoiceNumber}
+                        onChange={(e) => setFormExpInvoiceNumber(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0196C1] focus:bg-white text-xs transition-all"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fecha de Pago</label>
+                      <input
+                        type="date"
+                        value={formExpPaymentDate}
+                        onChange={(e) => setFormExpPaymentDate(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0196C1] focus:bg-white text-xs transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Financial Fields */}
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                    <h4 className="text-[11px] font-bold uppercase text-slate-700 tracking-wider">Valores Financieros</h4>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Subtotal ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          placeholder="0.00"
+                          value={formExpSubtotal || ''}
+                          onChange={(e) => setFormExpSubtotal(Number(e.target.value))}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0196C1] text-xs transition-all font-bold"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">IVA Estimado (16% Auto) ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formExpTax || ''}
+                          onChange={(e) => setFormExpTax(Number(e.target.value))}
+                          className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl focus:outline-none text-xs transition-all font-semibold text-slate-600"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pago de Cliente ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          placeholder="0.00"
+                          value={formExpClientPayment || ''}
+                          onChange={(e) => setFormExpClientPayment(Number(e.target.value))}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0196C1] text-xs transition-all font-bold text-[#0196C1]"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gastos Deductibles ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          placeholder="0.00"
+                          value={formExpExpenses || ''}
+                          onChange={(e) => setFormExpExpenses(Number(e.target.value))}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-400 text-xs transition-all font-bold text-rose-600"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Utilidad (Auto) ($)</label>
+                        <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-emerald-600">
+                          ${formExpUtility.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-200/50 flex justify-between items-center text-xs">
+                      <span className="text-slate-500 font-medium">Ahorro Estimado (20% Reserva MVL):</span>
+                      <span className="font-extrabold text-amber-600 text-sm">
+                        ${formExpSavings.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Submit buttons */}
+                  <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => { setActiveExpModal(null); setSelectedExp(null); }}
+                      className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl cursor-pointer text-xs transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2.5 bg-[#0196C1] hover:bg-[#017fa4] text-white font-bold rounded-xl cursor-pointer text-xs shadow-xs transition-colors"
+                    >
+                      {activeExpModal === 'create' ? 'Agregar Fila' : 'Guardar Cambios'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* View Details Modal */}
+          {activeExpModal === 'view' && selectedExp && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full">
+                {/* Modal Header */}
+                <div className="px-6 py-4 bg-[#282829] text-white flex justify-between items-center border-b border-slate-700 rounded-t-2xl">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Detalle del Registro</span>
+                    <span className="text-xs font-semibold text-[#0196C1]">ID: {selectedExp.id}</span>
+                  </div>
+                  <button
+                    onClick={() => { setActiveExpModal(null); setSelectedExp(null); }}
+                    className="text-slate-400 hover:text-white transition-colors cursor-pointer text-lg font-bold"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-6 text-xs text-left">
+                  {/* Summary Header */}
+                  <div className="border-b border-slate-100 pb-4 text-center space-y-1">
+                    <div className="flex justify-center gap-2 items-center text-[10px] font-bold uppercase text-slate-400">
+                      <span className="text-[#0196C1]">Cliente: {selectedExp.clientName}</span>
+                      <span>•</span>
+                      <span>Agente: {selectedExp.agentName}</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Monto de Utilidad Bruta</span>
+                    <h2 className="text-2xl font-black text-slate-800">
+                      ${selectedExp.utility.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </h2>
+                    <span className="inline-block bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded text-[9px] font-bold">
+                      Ahorro MVL (20%): ${selectedExp.savings.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  {/* Project Details */}
+                  <div className="space-y-2.5">
+                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Concepto de Proyecto</h4>
+                    <p className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-slate-800 font-semibold text-xs">
+                      {selectedExp.projectDescription}
+                    </p>
+                  </div>
+
+                  {/* Details Grid */}
+                  <div className="grid grid-cols-2 gap-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                    <div>
+                      <span className="block text-[9px] text-slate-400 uppercase font-bold">Fecha de Factura</span>
+                      <span className="font-semibold text-slate-800">
+                        {selectedExp.invoiceDate ? selectedExp.invoiceDate.split('-').reverse().join('/') : '-'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] text-slate-400 uppercase font-bold">Factura Nº</span>
+                      <span className="font-bold text-[#0196C1]">
+                        {selectedExp.invoiceNumber || '-'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] text-slate-400 uppercase font-bold">Fecha de Pago</span>
+                      <span className="font-semibold text-slate-800">
+                        {selectedExp.paymentDate ? selectedExp.paymentDate.split('-').reverse().join('/') : '-'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] text-slate-400 uppercase font-bold">IVA (16% cobrado)</span>
+                      <span className="font-semibold text-slate-700">
+                        ${selectedExp.tax.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Breakdown details */}
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Desglose de Totales</h4>
+                    <div className="space-y-1.5 bg-slate-50 p-3.5 rounded-xl border border-slate-100 font-medium">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Subtotal:</span>
+                        <span className="text-slate-800 font-bold">${selectedExp.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between text-[#0196C1] font-bold">
+                        <span>Pago de Cliente (Ingreso):</span>
+                        <span>${selectedExp.clientPayment.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between text-rose-600">
+                        <span>Gastos de Proyecto:</span>
+                        <span>-${selectedExp.expenses.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between pt-1 border-t border-slate-200 text-emerald-600 font-extrabold text-xs">
+                        <span>Utilidad Comercial:</span>
+                        <span>${selectedExp.utility.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Close button */}
+                  <div className="flex justify-end pt-2">
+                    <button
+                      onClick={() => { setActiveExpModal(null); setSelectedExp(null); }}
                       className="px-5 py-2 bg-[#282829] hover:bg-slate-800 text-white font-bold rounded-lg cursor-pointer transition-colors"
                     >
                       Cerrar Vista

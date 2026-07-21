@@ -150,3 +150,20 @@ export interface PurchaseOrder {
   leoFinal: number;
 }
 
+export interface ExpenseControl {
+  id: string;
+  projectDescription: string; // Cliente // proyecto
+  clientName: string; // cliente
+  agentName: string; // agente
+  invoiceDate: string; // fecha fac
+  invoiceNumber: string; // factura
+  paymentDate: string; // Fecha de pago
+  tax: number; // IVA
+  subtotal: number; // Subtotal
+  clientPayment: number; // Pago de cliente
+  expenses: number; // Gastos
+  utility: number; // Utilidad
+  savings: number; // ahorro 20%
+}
+
+

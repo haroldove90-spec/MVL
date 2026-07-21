@@ -77,7 +77,7 @@ export default function App() {
   const [activeRole, setActiveRole] = useState<UserRole | null>(null);
 
   // --- Sub-module Tab/Filter States ---
-  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders'>('financial');
+  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control'>('financial');
   const [coordFilter, setCoordFilter] = useState<'all' | 'pending' | 'in_progress' | 'review' | 'completed'>('all');
   const [techTab, setTechTab] = useState<'agenda' | 'reporte'>('agenda');
   const [clientTab, setClientTab] = useState<'equipos' | 'historial' | 'falla'>('equipos');
@@ -413,6 +413,15 @@ export default function App() {
               >
                 <FileText className="w-5 h-5 mb-0.5" />
                 <span className="text-[9px] uppercase tracking-wider font-semibold">Órdenes</span>
+              </button>
+              <button
+                onClick={() => setAdminTab('expense_control')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  adminTab === 'expense_control' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <DollarSign className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Gastos</span>
               </button>
             </>
           )}
