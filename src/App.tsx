@@ -13,10 +13,10 @@ import {
 } from 'lucide-react';
 
 // Data models & Storage helpers
-import { Client, Equipment, InventoryItem, Staff, WorkOrder, UserRole } from './types';
+import { Client, Equipment, InventoryItem, Staff, WorkOrder, UserRole, PurchaseOrder } from './types';
 import { 
   INITIAL_CLIENTS, INITIAL_EQUIPMENT, INITIAL_INVENTORY, 
-  INITIAL_STAFF, INITIAL_WORK_ORDERS, loadFromStorage, saveToStorage 
+  INITIAL_STAFF, INITIAL_WORK_ORDERS, INITIAL_PURCHASE_ORDERS, loadFromStorage, saveToStorage 
 } from './mockData';
 
 // Dashboard Components
@@ -44,6 +44,9 @@ export default function App() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>(() => 
     loadFromStorage<WorkOrder[]>('mvl_work_orders', INITIAL_WORK_ORDERS)
   );
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => 
+    loadFromStorage<PurchaseOrder[]>('mvl_purchase_orders', INITIAL_PURCHASE_ORDERS)
+  );
 
   // Sync to local storage
   useEffect(() => {
@@ -66,11 +69,15 @@ export default function App() {
     saveToStorage('mvl_work_orders', workOrders);
   }, [workOrders]);
 
+  useEffect(() => {
+    saveToStorage('mvl_purchase_orders', purchaseOrders);
+  }, [purchaseOrders]);
+
   // --- Session State ---
   const [activeRole, setActiveRole] = useState<UserRole | null>(null);
 
   // --- Sub-module Tab/Filter States ---
-  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory'>('financial');
+  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders'>('financial');
   const [coordFilter, setCoordFilter] = useState<'all' | 'pending' | 'in_progress' | 'review' | 'completed'>('all');
   const [techTab, setTechTab] = useState<'agenda' | 'reporte'>('agenda');
   const [clientTab, setClientTab] = useState<'equipos' | 'historial' | 'falla'>('equipos');
@@ -108,6 +115,7 @@ export default function App() {
       setInventory(INITIAL_INVENTORY);
       setStaff(INITIAL_STAFF);
       setWorkOrders(INITIAL_WORK_ORDERS);
+      setPurchaseOrders(INITIAL_PURCHASE_ORDERS);
       handleSelectRole(null);
     }
   };
@@ -290,6 +298,8 @@ export default function App() {
                   equipment={equipment}
                   workOrders={workOrders}
                   setWorkOrders={setWorkOrders}
+                  purchaseOrders={purchaseOrders}
+                  setPurchaseOrders={setPurchaseOrders}
                   activeTab={adminTab}
                   setActiveTab={setAdminTab}
                 />
@@ -394,6 +404,15 @@ export default function App() {
               >
                 <Package className="w-5 h-5 mb-0.5" />
                 <span className="text-[9px] uppercase tracking-wider font-semibold">Inventario</span>
+              </button>
+              <button
+                onClick={() => setAdminTab('purchase_orders')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  adminTab === 'purchase_orders' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <FileText className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Órdenes</span>
               </button>
             </>
           )}

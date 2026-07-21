@@ -4,11 +4,11 @@
  */
 
 import React, { useState } from 'react';
-import { Staff, InventoryItem, Client, Equipment, WorkOrder } from '../types';
+import { Staff, InventoryItem, Client, Equipment, WorkOrder, PurchaseOrder } from '../types';
 import { 
   Users, DollarSign, Package, Award, Plus, Trash2, 
   CheckCircle, XCircle, Tag, Layers, TrendingUp, TrendingDown,
-  ShieldCheck, AlertTriangle, Building, Activity, FileText
+  ShieldCheck, AlertTriangle, Building, Activity, FileText, Search, Edit2, Eye
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -22,8 +22,10 @@ interface AdminDashboardProps {
   equipment: Equipment[];
   workOrders?: WorkOrder[];
   setWorkOrders?: React.Dispatch<React.SetStateAction<WorkOrder[]>>;
-  activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory';
-  setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory') => void;
+  purchaseOrders?: PurchaseOrder[];
+  setPurchaseOrders?: React.Dispatch<React.SetStateAction<PurchaseOrder[]>>;
+  activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders';
+  setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders') => void;
 }
 
 export default function AdminDashboard({ 
@@ -36,11 +38,13 @@ export default function AdminDashboard({
   equipment,
   workOrders = [],
   setWorkOrders,
+  purchaseOrders = [],
+  setPurchaseOrders,
   activeTab: propActiveTab,
   setActiveTab: propSetActiveTab
 }: AdminDashboardProps) {
   // Navigation tabs with parent-control fallback
-  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory'>('financial');
+  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders'>('financial');
   const activeTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
   const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
 
@@ -88,6 +92,22 @@ export default function AdminDashboard({
   const [newContactRole, setNewContactRole] = useState('');
   const [newContactPhone, setNewContactPhone] = useState('');
   const [newContactEmail, setNewContactEmail] = useState('');
+
+  // Purchase Order states
+  const [poSearchQuery, setPoSearchQuery] = useState('');
+  const [activePoModal, setActivePoModal] = useState<'create' | 'edit' | 'view' | null>(null);
+  const [selectedPo, setSelectedPo] = useState<PurchaseOrder | null>(null);
+
+  // Form states for Purchase Order
+  const [formPoCode, setFormPoCode] = useState('');
+  const [formPoDate, setFormPoDate] = useState('');
+  const [formPoConcept, setFormPoConcept] = useState('');
+  const [formPoUtility, setFormPoUtility] = useState(0);
+  const [formPoSavingsPercent, setFormPoSavingsPercent] = useState(20); // standard 20%
+  const [formPoMarcoPercent, setFormPoMarcoPercent] = useState(60);
+  const [formPoVictorPercent, setFormPoVictorPercent] = useState(20);
+  const [formPoLeoPercent, setFormPoLeoPercent] = useState(20);
+  const [formPoRikyPercent, setFormPoRikyPercent] = useState(0);
 
   // Dynamic profitability metrics calculation from workOrders
   const completedOrders = workOrders.filter(o => o.status === 'completed' || o.status === 'review');
@@ -139,6 +159,140 @@ export default function AdminDashboard({
       Fallas: brandCorrectiveCount || 1
     };
   });
+
+  // --- Purchase Orders CRUD Handlers ---
+  const handleOpenCreatePo = () => {
+    const count = purchaseOrders.length + 1;
+    const nextCode = `OC-2026-${String(count).padStart(3, '0')}`;
+    
+    setFormPoCode(nextCode);
+    setFormPoDate(new Date().toISOString().split('T')[0]);
+    setFormPoConcept('');
+    setFormPoUtility(10000);
+    setFormPoSavingsPercent(20);
+    setFormPoMarcoPercent(60);
+    setFormPoVictorPercent(20);
+    setFormPoLeoPercent(20);
+    setFormPoRikyPercent(0);
+    
+    setSelectedPo(null);
+    setActivePoModal('create');
+  };
+
+  const handleOpenEditPo = (po: PurchaseOrder) => {
+    setSelectedPo(po);
+    setFormPoCode(po.code);
+    setFormPoDate(po.date);
+    setFormPoConcept(po.concept);
+    setFormPoUtility(po.utility);
+    const savPercent = po.utility > 0 ? Math.round((po.savings / po.utility) * 100) : 20;
+    setFormPoSavingsPercent(savPercent);
+    setFormPoMarcoPercent(po.marcoPercent);
+    setFormPoVictorPercent(po.victorPercent);
+    setFormPoLeoPercent(po.leoPercent);
+    setFormPoRikyPercent(po.rikyPercent);
+    
+    setActivePoModal('edit');
+  };
+
+  const handleOpenViewPo = (po: PurchaseOrder) => {
+    setSelectedPo(po);
+    setActivePoModal('view');
+  };
+
+  const handleSavePo = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formPoCode || !formPoConcept || formPoUtility <= 0) {
+      alert('Por favor complete todos los campos obligatorios y con valores válidos.');
+      return;
+    }
+
+    const utility = Number(formPoUtility);
+    const savings = Number((utility * (formPoSavingsPercent / 100)).toFixed(2));
+    const utilityAfterSavings = Number((utility - savings).toFixed(2));
+    
+    const mPercent = Number(formPoMarcoPercent);
+    const vPercent = Number(formPoVictorPercent);
+    const lPercent = Number(formPoLeoPercent);
+    const rPercent = Number(formPoRikyPercent);
+
+    const sumPercent = mPercent + vPercent + lPercent + rPercent;
+    if (sumPercent !== 100 && sumPercent !== 0) {
+      if (!confirm(`La suma de los porcentajes es ${sumPercent}%. ¿Desea continuar de todas formas? (Se recomienda que sume 100%)`)) {
+        return;
+      }
+    }
+
+    const marcoAmount = Number((utilityAfterSavings * (mPercent / 100)).toFixed(2));
+    const victorAmount = Number((utilityAfterSavings * (vPercent / 100)).toFixed(2));
+    const leoAmount = Number((utilityAfterSavings * (lPercent / 100)).toFixed(2));
+    const rikyAmount = Number((utilityAfterSavings * (rPercent / 100)).toFixed(2));
+
+    const marcoFinal = Number((utilityAfterSavings * 0.2622).toFixed(2));
+    const victorFinal = Number((utilityAfterSavings * 0.4794).toFixed(2));
+    const leoFinal = Number((utilityAfterSavings * 0.2584).toFixed(2));
+
+    if (activePoModal === 'create') {
+      const newPo: PurchaseOrder = {
+        id: `po_${Date.now()}`,
+        code: formPoCode,
+        date: formPoDate,
+        concept: formPoConcept,
+        utility,
+        savings,
+        utilityAfterSavings,
+        marcoPercent: mPercent,
+        victorPercent: vPercent,
+        leoPercent: lPercent,
+        rikyPercent: rPercent,
+        marcoAmount,
+        victorAmount,
+        leoAmount,
+        rikyAmount,
+        marcoFinal,
+        victorFinal,
+        leoFinal
+      };
+      
+      if (setPurchaseOrders) {
+        setPurchaseOrders(prev => [newPo, ...prev]);
+      }
+    } else if (activePoModal === 'edit' && selectedPo) {
+      if (setPurchaseOrders) {
+        setPurchaseOrders(prev => prev.map(item => item.id === selectedPo.id ? {
+          ...item,
+          code: formPoCode,
+          date: formPoDate,
+          concept: formPoConcept,
+          utility,
+          savings,
+          utilityAfterSavings,
+          marcoPercent: mPercent,
+          victorPercent: vPercent,
+          leoPercent: lPercent,
+          rikyPercent: rPercent,
+          marcoAmount,
+          victorAmount,
+          leoAmount,
+          rikyAmount,
+          marcoFinal,
+          victorFinal,
+          leoFinal
+        } : item));
+      }
+    }
+
+    setActivePoModal(null);
+    setSelectedPo(null);
+  };
+
+  const handleDeletePo = (id: string) => {
+    if (confirm('¿Está seguro de eliminar este registro de orden de compra?')) {
+      if (setPurchaseOrders) {
+        setPurchaseOrders(prev => prev.filter(item => item.id !== id));
+      }
+    }
+  };
 
   // Create Client
   const handleCreateClient = (e: React.FormEvent) => {
@@ -336,6 +490,16 @@ export default function AdminDashboard({
           }`}
         >
           Inventario Global
+        </button>
+        <button
+          onClick={() => setActiveTab('purchase_orders')}
+          className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+            activeTab === 'purchase_orders' 
+              ? 'bg-[#0196C1] text-white' 
+              : 'text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          Registro de Órdenes de Compra
         </button>
       </div>
 
@@ -1412,6 +1576,533 @@ export default function AdminDashboard({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* --- Tab: Registro de Órdenes de Compra (As requested) --- */}
+      {activeTab === 'purchase_orders' && (
+        <div className="space-y-6 text-left">
+          {/* Header Description */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-extrabold text-[#282829] uppercase tracking-wider">Registro y Distribución de Órdenes de Compra</h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Monitoreo financiero, reserva del 20% para cuenta de ahorro de la empresa y distribución detallada de utilidades entre socios comerciales.
+              </p>
+            </div>
+            <button
+              onClick={handleOpenCreatePo}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer active:scale-95 whitespace-nowrap self-start md:self-auto"
+            >
+              <Plus className="w-4 h-4" />
+              Nueva Orden de Compra
+            </button>
+          </div>
+
+          {/* Financial KPI Summary Cards specifically for POs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Utilidad Bruta Total</span>
+              <h3 className="text-xl font-black text-slate-800 mt-1">
+                ${purchaseOrders.reduce((sum, po) => sum + po.utility, 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h3>
+              <p className="text-[10px] text-slate-500 mt-1">Fondo antes de reservas y splits</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+              <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider block">Ahorro MVL (20% Reserva)</span>
+              <h3 className="text-xl font-black text-amber-600 mt-1">
+                ${purchaseOrders.reduce((sum, po) => sum + po.savings, 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h3>
+              <p className="text-[10px] text-slate-500 mt-1">Resguardado en cuenta bancaria</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-[#0196C1]/10 shadow-xs">
+              <span className="text-[10px] text-[#0196C1] font-bold uppercase tracking-wider block">Monto Neto Distribuible</span>
+              <h3 className="text-xl font-black text-[#0196C1] mt-1">
+                ${purchaseOrders.reduce((sum, po) => sum + po.utilityAfterSavings, 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h3>
+              <p className="text-[10px] text-slate-500 mt-1">Utilidad neta a repartir</p>
+            </div>
+
+            <div className="bg-[#282829] text-white p-4 rounded-xl border-l-4 border-[#0196C1] shadow-xs">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Sueldos Finales Netos (X, Y, Z)</span>
+              <div className="space-y-1 mt-1 text-[11px] font-semibold text-slate-200">
+                <div className="flex justify-between">
+                  <span>Marco (26.22%):</span>
+                  <span className="font-bold text-white">
+                    ${purchaseOrders.reduce((sum, po) => sum + po.marcoFinal, 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Victor (47.94%):</span>
+                  <span className="font-bold text-white">
+                    ${purchaseOrders.reduce((sum, po) => sum + po.victorFinal, 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Leo (25.84%):</span>
+                  <span className="font-bold text-white">
+                    ${purchaseOrders.reduce((sum, po) => sum + po.leoFinal, 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Search bar & statistics info */}
+          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="relative w-full sm:w-80">
+              <input
+                type="text"
+                placeholder="Buscar por código o concepto..."
+                value={poSearchQuery}
+                onChange={(e) => setPoSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none"
+              />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+            </div>
+
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              Mostrando {purchaseOrders.filter(po => 
+                po.code.toLowerCase().includes(poSearchQuery.toLowerCase()) || 
+                po.concept.toLowerCase().includes(poSearchQuery.toLowerCase())
+              ).length} de {purchaseOrders.length} registros
+            </div>
+          </div>
+
+          {/* Table of Purchase Orders */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[1000px]">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-[10px] text-slate-400 uppercase font-bold">
+                    <th className="py-3 px-4">Código</th>
+                    <th className="py-3 px-4">Fecha</th>
+                    <th className="py-3 px-4">Concepto / Servicio</th>
+                    <th className="py-3 px-4 text-right">Utilidad</th>
+                    <th className="py-3 px-4 text-right">Ahorro 20%</th>
+                    <th className="py-3 px-4 text-right">Neto Disp.</th>
+                    <th className="py-3 px-4 text-center">Marco</th>
+                    <th className="py-3 px-4 text-center">Victor</th>
+                    <th className="py-3 px-4 text-center">Leo</th>
+                    <th className="py-3 px-4 text-center">Sueldos Finales (M / V / L)</th>
+                    <th className="py-3 px-4 text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {purchaseOrders
+                    .filter(po => 
+                      po.code.toLowerCase().includes(poSearchQuery.toLowerCase()) || 
+                      po.concept.toLowerCase().includes(poSearchQuery.toLowerCase())
+                    )
+                    .map((po) => (
+                      <tr key={po.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-slate-800">{po.code}</td>
+                        <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">{po.date}</td>
+                        <td className="py-3.5 px-4 text-slate-700 font-medium max-w-[200px] truncate" title={po.concept}>{po.concept}</td>
+                        <td className="py-3.5 px-4 text-right font-semibold text-slate-800">
+                          ${po.utility.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-medium text-amber-600 bg-amber-50/20">
+                          ${po.savings.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-bold text-[#0196C1]">
+                          ${po.utilityAfterSavings.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        
+                        {/* Partner O (Marco) */}
+                        <td className="py-3.5 px-3 text-center">
+                          <span className="block font-semibold">${po.marcoAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span className="text-[9px] text-slate-400 font-bold bg-slate-100 px-1 py-0.2 rounded">{po.marcoPercent}%</span>
+                        </td>
+
+                        {/* Partner Q (Victor) */}
+                        <td className="py-3.5 px-3 text-center">
+                          <span className="block font-semibold">${po.victorAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span className="text-[9px] text-slate-400 font-bold bg-slate-100 px-1 py-0.2 rounded">{po.victorPercent}%</span>
+                        </td>
+
+                        {/* Partner S (Leo) */}
+                        <td className="py-3.5 px-3 text-center">
+                          <span className="block font-semibold">${po.leoAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span className="text-[9px] text-slate-400 font-bold bg-slate-100 px-1 py-0.2 rounded">{po.leoPercent}%</span>
+                        </td>
+
+                        {/* Final payments columns X, Y, Z */}
+                        <td className="py-3.5 px-3 bg-slate-50/40">
+                          <div className="flex flex-col gap-0.5 text-[10px] font-medium text-slate-600">
+                            <div className="flex justify-between gap-2">
+                              <span>M (26.22%):</span>
+                              <span className="font-bold text-slate-800">${po.marcoFinal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span>V (47.94%):</span>
+                              <span className="font-bold text-slate-800">${po.victorFinal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span>L (25.84%):</span>
+                              <span className="font-bold text-slate-800">${po.leoFinal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => handleOpenViewPo(po)}
+                              className="p-1.5 text-slate-500 hover:text-[#0196C1] hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
+                              title="Ver Detalles"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleOpenEditPo(po)}
+                              className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                              title="Editar Registro"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePo(po.id)}
+                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Borrar Registro"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Create/Edit Modal Overlay */}
+          {(activePoModal === 'create' || activePoModal === 'edit') && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-2xl w-full max-h-[90vh] overflow-y-auto overflow-x-hidden flex flex-col">
+                {/* Modal Header */}
+                <div className="px-6 py-4 bg-[#282829] text-white flex justify-between items-center border-b border-slate-700">
+                  <h3 className="text-sm font-bold uppercase tracking-wider">
+                    {activePoModal === 'create' ? 'Agregar Nueva Orden de Compra' : 'Editar Orden de Compra'}
+                  </h3>
+                  <button
+                    onClick={() => { setActivePoModal(null); setSelectedPo(null); }}
+                    className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                  >
+                    <XCircle className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Form */}
+                <form onSubmit={handleSavePo} className="p-6 space-y-5 text-xs flex-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Código de Orden</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="ej. OC-2026-013"
+                        value={formPoCode}
+                        onChange={(e) => setFormPoCode(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#0196C1]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha de Registro</label>
+                      <input
+                        type="date"
+                        required
+                        value={formPoDate}
+                        onChange={(e) => setFormPoDate(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#0196C1]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Utilidad Bruta ($)</label>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        step="0.01"
+                        placeholder="Monto de utilidad"
+                        value={formPoUtility || ''}
+                        onChange={(e) => setFormPoUtility(Number(e.target.value))}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#0196C1] font-semibold text-slate-800"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Concepto / Descripción del Servicio</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="ej. Reconstrucción de Unidad de Compresión de Aire Kaeser"
+                      value={formPoConcept}
+                      onChange={(e) => setFormPoConcept(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#0196C1]"
+                    />
+                  </div>
+
+                  <div className="bg-amber-50/40 p-4 rounded-xl border border-amber-200/60">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Ahorro MVL (Reserva de Empresa)</span>
+                      <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">{formPoSavingsPercent}%</span>
+                    </div>
+                    <div className="flex gap-4 items-center">
+                      <input
+                        type="range"
+                        min="0"
+                        max="50"
+                        value={formPoSavingsPercent}
+                        onChange={(e) => setFormPoSavingsPercent(Number(e.target.value))}
+                        className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
+                      />
+                      <span className="text-xs font-bold text-slate-700 w-24 text-right whitespace-nowrap">
+                        ${(formPoUtility * (formPoSavingsPercent / 100)).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Partner Split Percentages */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Distribución entre Socios (%)</h4>
+                      <span className={`text-[10px] px-2 py-0.5 font-bold rounded-md ${
+                        (Number(formPoMarcoPercent) + Number(formPoVictorPercent) + Number(formPoLeoPercent) + Number(formPoRikyPercent)) === 100
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-800 animate-pulse'
+                      }`}>
+                        Suma: {Number(formPoMarcoPercent) + Number(formPoVictorPercent) + Number(formPoLeoPercent) + Number(formPoRikyPercent)}% (Req: 100%)
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1">Marco (%)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={formPoMarcoPercent}
+                          onChange={(e) => setFormPoMarcoPercent(Number(e.target.value))}
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-center font-bold"
+                        />
+                        <span className="block text-center text-[10px] text-slate-400 mt-1">
+                          ${((formPoUtility * (1 - formPoSavingsPercent / 100)) * (formPoMarcoPercent / 100)).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1">Victor (%)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={formPoVictorPercent}
+                          onChange={(e) => setFormPoVictorPercent(Number(e.target.value))}
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-center font-bold"
+                        />
+                        <span className="block text-center text-[10px] text-slate-400 mt-1">
+                          ${((formPoUtility * (1 - formPoSavingsPercent / 100)) * (formPoVictorPercent / 100)).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1">Leo (%)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={formPoLeoPercent}
+                          onChange={(e) => setFormPoLeoPercent(Number(e.target.value))}
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-center font-bold"
+                        />
+                        <span className="block text-center text-[10px] text-slate-400 mt-1">
+                          ${((formPoUtility * (1 - formPoSavingsPercent / 100)) * (formPoLeoPercent / 100)).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1">Riky (%)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={formPoRikyPercent}
+                          onChange={(e) => setFormPoRikyPercent(Number(e.target.value))}
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-center font-bold"
+                        />
+                        <span className="block text-center text-[10px] text-slate-400 mt-1">
+                          ${((formPoUtility * (1 - formPoSavingsPercent / 100)) * (formPoRikyPercent / 100)).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Final Calculations preview box (Columns X, Y, Z based on ratios) */}
+                  <div className="bg-[#282829] text-white p-4 rounded-xl border-l-4 border-[#0196C1] space-y-2">
+                    <h5 className="text-[10px] font-extrabold uppercase text-[#0196C1] tracking-wide">Cálculo de Sueldos Finales (Fórmula de Proporciones Excel)</h5>
+                    <p className="text-[10px] text-slate-400">
+                      Calculado automáticamente a partir de los coeficientes del libro de control de obra (Marco 26.22%, Victor 47.94%, Leo 25.84%).
+                    </p>
+                    
+                    <div className="grid grid-cols-3 gap-2 text-center pt-2 border-t border-slate-700">
+                      <div>
+                        <span className="block text-[9px] uppercase font-bold text-slate-400">Marco Sueldo</span>
+                        <span className="block text-xs font-extrabold text-white">
+                          ${((formPoUtility * (1 - formPoSavingsPercent / 100)) * 0.2622).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] uppercase font-bold text-slate-400">Victor Sueldo</span>
+                        <span className="block text-xs font-extrabold text-white">
+                          ${((formPoUtility * (1 - formPoSavingsPercent / 100)) * 0.4794).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] uppercase font-bold text-slate-400">Leo Sueldo</span>
+                        <span className="block text-xs font-extrabold text-white">
+                          ${((formPoUtility * (1 - formPoSavingsPercent / 100)) * 0.2584).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Modal Action Buttons */}
+                  <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => { setActivePoModal(null); setSelectedPo(null); }}
+                      className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold rounded-lg cursor-pointer transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white font-bold rounded-lg cursor-pointer transition-colors shadow-sm"
+                    >
+                      Guardar Registro
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* View Details Modal Overlay */}
+          {activePoModal === 'view' && selectedPo && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-lg w-full overflow-hidden flex flex-col">
+                <div className="px-6 py-4 bg-[#282829] text-white flex justify-between items-center border-b border-slate-700">
+                  <h3 className="text-xs font-bold uppercase tracking-wider">Detalles de la Orden {selectedPo.code}</h3>
+                  <button
+                    onClick={() => { setActivePoModal(null); setSelectedPo(null); }}
+                    className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                  >
+                    <XCircle className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-6 text-xs">
+                  {/* Summary Header */}
+                  <div className="border-b border-slate-100 pb-4 text-center space-y-1">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Monto de Utilidad Bruta</span>
+                    <h2 className="text-2xl font-black text-[#282829]">
+                      ${selectedPo.utility.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium">{selectedPo.concept}</p>
+                    <span className="inline-block bg-slate-100 text-slate-600 text-[10px] px-2 py-0.5 rounded-full font-semibold">
+                      Fecha: {selectedPo.date}
+                    </span>
+                  </div>
+
+                  {/* Split Distribution breakdown */}
+                  <div className="space-y-3">
+                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cálculos de Distribución Financiera</h4>
+                    
+                    <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      <div className="flex justify-between pb-1 border-b border-slate-200/40 font-medium">
+                        <span className="text-slate-500">Utilidad Bruta:</span>
+                        <span className="font-bold text-slate-800">${selectedPo.utility.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between pb-1 border-b border-slate-200/40 text-amber-700 font-medium">
+                        <span>Ahorro MVL ({selectedPo.utility > 0 ? Math.round((selectedPo.savings / selectedPo.utility) * 100) : 20}%):</span>
+                        <span className="font-bold">${selectedPo.savings.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between pt-1 font-bold text-[#0196C1]">
+                        <span>Utilidad Distribuible:</span>
+                        <span>${selectedPo.utilityAfterSavings.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Partner splits */}
+                  <div className="space-y-3">
+                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Participación de Socios</h4>
+                    
+                    <div className="grid grid-cols-4 gap-2 text-center">
+                      <div className="p-2 bg-slate-50/50 rounded-lg border border-slate-100">
+                        <span className="block text-[9px] font-semibold text-slate-500">Marco</span>
+                        <span className="block font-bold text-slate-800">${selectedPo.marcoAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-[9px] text-slate-400 font-medium">({selectedPo.marcoPercent}%)</span>
+                      </div>
+                      <div className="p-2 bg-slate-50/50 rounded-lg border border-slate-100">
+                        <span className="block text-[9px] font-semibold text-slate-500">Victor</span>
+                        <span className="block font-bold text-slate-800">${selectedPo.victorAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-[9px] text-slate-400 font-medium">({selectedPo.victorPercent}%)</span>
+                      </div>
+                      <div className="p-2 bg-slate-50/50 rounded-lg border border-slate-100">
+                        <span className="block text-[9px] font-semibold text-slate-500">Leo</span>
+                        <span className="block font-bold text-slate-800">${selectedPo.leoAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-[9px] text-slate-400 font-medium">({selectedPo.leoPercent}%)</span>
+                      </div>
+                      <div className="p-2 bg-slate-50/50 rounded-lg border border-slate-100">
+                        <span className="block text-[9px] font-semibold text-slate-500">Riky</span>
+                        <span className="block font-bold text-slate-800">${selectedPo.rikyAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-[9px] text-slate-400 font-medium">({selectedPo.rikyPercent}%)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Final pay distributions */}
+                  <div className="p-4 bg-[#282829] text-white rounded-xl border-l-4 border-[#0196C1] space-y-2">
+                    <h5 className="text-[10px] font-extrabold uppercase text-[#0196C1] tracking-wide">Sueldos Finales de Socios (Libro Excel)</h5>
+                    <div className="grid grid-cols-3 gap-2 text-center pt-1">
+                      <div>
+                        <span className="block text-[9px] text-slate-400">Marco (26.22%)</span>
+                        <span className="block font-bold text-white">${selectedPo.marcoFinal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] text-slate-400">Victor (47.94%)</span>
+                        <span className="block font-bold text-white">${selectedPo.victorFinal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] text-slate-400">Leo (25.84%)</span>
+                        <span className="block font-bold text-white">${selectedPo.leoFinal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Close button */}
+                  <div className="flex justify-end pt-2">
+                    <button
+                      onClick={() => { setActivePoModal(null); setSelectedPo(null); }}
+                      className="px-5 py-2 bg-[#282829] hover:bg-slate-800 text-white font-bold rounded-lg cursor-pointer transition-colors"
+                    >
+                      Cerrar Vista
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

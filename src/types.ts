@@ -127,3 +127,25 @@ export interface FinancialMetric {
   netProfit: number;
   servicesCompleted: number;
 }
+
+export interface PurchaseOrder {
+  id: string;
+  code: string;
+  date: string;
+  concept: string;
+  utility: number;
+  savings: number;
+  utilityAfterSavings: number;
+  marcoPercent: number;
+  victorPercent: number;
+  leoPercent: number;
+  rikyPercent: number;
+  marcoAmount: number;
+  victorAmount: number;
+  leoAmount: number;
+  rikyAmount: number;
+  marcoFinal: number;
+  victorFinal: number;
+  leoFinal: number;
+}
+
