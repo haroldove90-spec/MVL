@@ -2624,43 +2624,7 @@ export default function AdminDashboard({
             </div>
           </div>
 
-          {/* Database Setup Info (Copy SQL) */}
-          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-3">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Building className="w-4 h-4 text-[#0196C1]" />
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Esquema SQL para tu Consola de Supabase</h4>
-              </div>
-              <span className="text-[9px] bg-[#0196C1]/10 text-[#0196C1] px-2 py-0.5 rounded font-extrabold uppercase">Instrucciones</span>
-            </div>
-            <p className="text-[11px] text-slate-600 leading-relaxed">
-              Para habilitar la sincronización en la nube, ingresa al panel de SQL Editor de tu proyecto de Supabase (<span className="font-mono text-[10px] bg-white px-1 py-0.2 rounded border">vquibpskgoxtzaiphkac</span>) y ejecuta la siguiente consulta:
-            </p>
-            <div className="relative">
-              <pre className="text-[9px] bg-slate-900 text-slate-300 p-4 rounded-xl overflow-x-auto font-mono leading-relaxed max-h-40 overflow-y-auto">
-{`CREATE TABLE IF NOT EXISTS expense_control (
-  id text PRIMARY KEY,
-  project_description text NOT NULL,
-  client_name text NOT NULL,
-  agent_name text NOT NULL,
-  invoice_date date,
-  invoice_number text,
-  payment_date date,
-  tax numeric(15, 2) DEFAULT 0.00,
-  subtotal numeric(15, 2) DEFAULT 0.00,
-  client_payment numeric(15, 2) DEFAULT 0.00,
-  expenses numeric(15, 2) DEFAULT 0.00,
-  utility numeric(15, 2) DEFAULT 0.00,
-  savings numeric(15, 2) DEFAULT 0.00,
-  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
 
--- Habilitar acceso publico
-ALTER TABLE expense_control ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Permitir acceso publico total" ON expense_control FOR ALL USING (true) WITH CHECK (true);`}
-              </pre>
-            </div>
-          </div>
 
           {/* Search, Filter & Actions Panel */}
           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-xs flex flex-col sm:flex-row justify-between items-center gap-4">
