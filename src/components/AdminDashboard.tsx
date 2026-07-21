@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Staff, InventoryItem, Client, Equipment, WorkOrder, PurchaseOrder } from '../types';
 import { 
   Users, DollarSign, Package, Award, Plus, Trash2, 
@@ -97,8 +97,10 @@ export default function AdminDashboard({
   const [poSearchQuery, setPoSearchQuery] = useState('');
   const [activePoModal, setActivePoModal] = useState<'create' | 'edit' | 'view' | null>(null);
   const [selectedPo, setSelectedPo] = useState<PurchaseOrder | null>(null);
+  const [poCurrentPage, setPoCurrentPage] = useState(1);
 
   // Form states for Purchase Order
+  const [formPoOrderNumber, setFormPoOrderNumber] = useState('');
   const [formPoCode, setFormPoCode] = useState('');
   const [formPoDate, setFormPoDate] = useState('');
   const [formPoConcept, setFormPoConcept] = useState('');
@@ -108,6 +110,71 @@ export default function AdminDashboard({
   const [formPoVictorPercent, setFormPoVictorPercent] = useState(20);
   const [formPoLeoPercent, setFormPoLeoPercent] = useState(20);
   const [formPoRikyPercent, setFormPoRikyPercent] = useState(0);
+
+  // Double horizontal scrollbar refs & state
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const bottomScrollRef = useRef<HTMLDivElement>(null);
+  const [tableScrollWidth, setTableScrollWidth] = useState(0);
+
+  const handleTopScroll = () => {
+    if (topScrollRef.current && bottomScrollRef.current) {
+      if (Math.abs(bottomScrollRef.current.scrollLeft - topScrollRef.current.scrollLeft) > 1) {
+        bottomScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+      }
+    }
+  };
+
+  const handleBottomScroll = () => {
+    if (topScrollRef.current && bottomScrollRef.current) {
+      if (Math.abs(topScrollRef.current.scrollLeft - bottomScrollRef.current.scrollLeft) > 1) {
+        topScrollRef.current.scrollLeft = bottomScrollRef.current.scrollLeft;
+      }
+    }
+  };
+
+  // Synchronize top scrollbar helper on resize
+  useEffect(() => {
+    const tableEl = bottomScrollRef.current;
+    if (!tableEl) return;
+
+    const handleResize = () => {
+      const firstTableElement = tableEl.querySelector('table');
+      if (firstTableElement) {
+        setTableScrollWidth(firstTableElement.scrollWidth);
+      } else {
+        setTableScrollWidth(tableEl.scrollWidth);
+      }
+    };
+
+    // Run slightly delayed to allow DOM rendering to complete
+    const timeoutId = setTimeout(handleResize, 100);
+
+    const observer = new ResizeObserver(handleResize);
+    observer.observe(tableEl);
+    
+    const firstTableElement = tableEl.querySelector('table');
+    if (firstTableElement) {
+      observer.observe(firstTableElement);
+    }
+
+    return () => {
+      clearTimeout(timeoutId);
+      observer.disconnect();
+    };
+  }, [purchaseOrders, poSearchQuery, poCurrentPage, activeTab, activePoModal]);
+
+  // Filter and paginate Purchase Orders
+  const filteredPOs = purchaseOrders.filter(po => {
+    const q = poSearchQuery.toLowerCase();
+    return (
+      po.code.toLowerCase().includes(q) || 
+      po.concept.toLowerCase().includes(q) ||
+      (po.orderNumber && po.orderNumber.toLowerCase().includes(q))
+    );
+  });
+  const poTotalPages = Math.ceil(filteredPOs.length / 10) || 1;
+  const currentPage = Math.max(1, Math.min(poCurrentPage, poTotalPages));
+  const paginatedPOs = filteredPOs.slice((currentPage - 1) * 10, currentPage * 10);
 
   // Dynamic profitability metrics calculation from workOrders
   const completedOrders = workOrders.filter(o => o.status === 'completed' || o.status === 'review');
@@ -165,6 +232,7 @@ export default function AdminDashboard({
     const count = purchaseOrders.length + 1;
     const nextCode = `OC-2026-${String(count).padStart(3, '0')}`;
     
+    setFormPoOrderNumber(String(count));
     setFormPoCode(nextCode);
     setFormPoDate(new Date().toISOString().split('T')[0]);
     setFormPoConcept('');
@@ -181,6 +249,7 @@ export default function AdminDashboard({
 
   const handleOpenEditPo = (po: PurchaseOrder) => {
     setSelectedPo(po);
+    setFormPoOrderNumber(po.orderNumber || '');
     setFormPoCode(po.code);
     setFormPoDate(po.date);
     setFormPoConcept(po.concept);
@@ -232,9 +301,12 @@ export default function AdminDashboard({
     const victorFinal = Number((utilityAfterSavings * 0.4794).toFixed(2));
     const leoFinal = Number((utilityAfterSavings * 0.2584).toFixed(2));
 
+    const orderNum = formPoOrderNumber.trim() || String(purchaseOrders.length + 1);
+
     if (activePoModal === 'create') {
       const newPo: PurchaseOrder = {
         id: `po_${Date.now()}`,
+        orderNumber: orderNum,
         code: formPoCode,
         date: formPoDate,
         concept: formPoConcept,
@@ -261,6 +333,7 @@ export default function AdminDashboard({
       if (setPurchaseOrders) {
         setPurchaseOrders(prev => prev.map(item => item.id === selectedPo.id ? {
           ...item,
+          orderNumber: orderNum,
           code: formPoCode,
           date: formPoDate,
           concept: formPoConcept,
@@ -1655,28 +1728,69 @@ export default function AdminDashboard({
             <div className="relative w-full sm:w-80">
               <input
                 type="text"
-                placeholder="Buscar por código o concepto..."
+                placeholder="Buscar por número, código o concepto..."
                 value={poSearchQuery}
-                onChange={(e) => setPoSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setPoSearchQuery(e.target.value);
+                  setPoCurrentPage(1); // reset to page 1 on search
+                }}
                 className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none"
               />
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
             </div>
 
             <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-              Mostrando {purchaseOrders.filter(po => 
-                po.code.toLowerCase().includes(poSearchQuery.toLowerCase()) || 
-                po.concept.toLowerCase().includes(poSearchQuery.toLowerCase())
-              ).length} de {purchaseOrders.length} registros
+              Mostrando {paginatedPOs.length} de {filteredPOs.length} filtrados (Total: {purchaseOrders.length} registros)
             </div>
           </div>
 
+          {/* Custom style for highly visible lateral scrollbar */}
+          <style>{`
+            .custom-scrollbar::-webkit-scrollbar {
+              height: 12px !important;
+              width: 12px !important;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+              background: #f8fafc !important; /* slate-50 */
+              border-radius: 6px !important;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+              background: #94a3b8 !important; /* slate-400 */
+              border-radius: 6px !important;
+              border: 2px solid #f8fafc !important;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+              background: #0196C1 !important;
+            }
+            .custom-scrollbar {
+              scrollbar-width: auto !important;
+              scrollbar-color: #94a3b8 #f8fafc !important;
+            }
+          `}</style>
+
+          {/* Double Horizontal Scrollbar - TOP SCROLLER */}
+          {tableScrollWidth > 0 && (
+            <div 
+              ref={topScrollRef} 
+              onScroll={handleTopScroll} 
+              className="overflow-x-auto w-full custom-scrollbar bg-slate-50/60 rounded-lg border border-slate-100 p-1"
+              style={{ scrollbarWidth: 'thin' }}
+            >
+              <div style={{ width: `${tableScrollWidth}px`, height: '2px' }}></div>
+            </div>
+          )}
+
           {/* Table of Purchase Orders */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[1000px]">
+            <div 
+              ref={bottomScrollRef} 
+              onScroll={handleBottomScroll} 
+              className="overflow-x-auto w-full custom-scrollbar"
+            >
+              <table className="w-full text-left border-collapse min-w-[1100px]">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100 text-[10px] text-slate-400 uppercase font-bold">
+                    <th className="py-3 px-4">Número de orden</th>
                     <th className="py-3 px-4">Código</th>
                     <th className="py-3 px-4">Fecha</th>
                     <th className="py-3 px-4">Concepto / Servicio</th>
@@ -1691,93 +1805,130 @@ export default function AdminDashboard({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
-                  {purchaseOrders
-                    .filter(po => 
-                      po.code.toLowerCase().includes(poSearchQuery.toLowerCase()) || 
-                      po.concept.toLowerCase().includes(poSearchQuery.toLowerCase())
-                    )
-                    .map((po) => (
-                      <tr key={po.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-3.5 px-4 font-bold text-slate-800">{po.code}</td>
-                        <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">{po.date}</td>
-                        <td className="py-3.5 px-4 text-slate-700 font-medium max-w-[200px] truncate" title={po.concept}>{po.concept}</td>
-                        <td className="py-3.5 px-4 text-right font-semibold text-slate-800">
-                          ${po.utility.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-medium text-amber-600 bg-amber-50/20">
-                          ${po.savings.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-bold text-[#0196C1]">
-                          ${po.utilityAfterSavings.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                        
-                        {/* Partner O (Marco) */}
-                        <td className="py-3.5 px-3 text-center">
-                          <span className="block font-semibold">${po.marcoAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          <span className="text-[9px] text-slate-400 font-bold bg-slate-100 px-1 py-0.2 rounded">{po.marcoPercent}%</span>
-                        </td>
+                  {paginatedPOs.map((po) => (
+                    <tr key={po.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-3.5 px-4 font-extrabold text-[#0196C1]">Nº {po.orderNumber || '-'}</td>
+                      <td className="py-3.5 px-4 font-bold text-slate-800">{po.code}</td>
+                      <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">{po.date}</td>
+                      <td className="py-3.5 px-4 text-slate-700 font-medium max-w-[200px] truncate" title={po.concept}>{po.concept}</td>
+                      <td className="py-3.5 px-4 text-right font-semibold text-slate-800">
+                        ${po.utility.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-medium text-amber-600 bg-amber-50/20">
+                        ${po.savings.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-bold text-[#0196C1]">
+                        ${po.utilityAfterSavings.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      
+                      {/* Partner O (Marco) */}
+                      <td className="py-3.5 px-3 text-center">
+                        <span className="block font-semibold">${po.marcoAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-[9px] text-slate-400 font-bold bg-slate-100 px-1 py-0.2 rounded">{po.marcoPercent}%</span>
+                      </td>
 
-                        {/* Partner Q (Victor) */}
-                        <td className="py-3.5 px-3 text-center">
-                          <span className="block font-semibold">${po.victorAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          <span className="text-[9px] text-slate-400 font-bold bg-slate-100 px-1 py-0.2 rounded">{po.victorPercent}%</span>
-                        </td>
+                      {/* Partner Q (Victor) */}
+                      <td className="py-3.5 px-3 text-center">
+                        <span className="block font-semibold">${po.victorAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-[9px] text-slate-400 font-bold bg-slate-100 px-1 py-0.2 rounded">{po.victorPercent}%</span>
+                      </td>
 
-                        {/* Partner S (Leo) */}
-                        <td className="py-3.5 px-3 text-center">
-                          <span className="block font-semibold">${po.leoAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          <span className="text-[9px] text-slate-400 font-bold bg-slate-100 px-1 py-0.2 rounded">{po.leoPercent}%</span>
-                        </td>
+                      {/* Partner S (Leo) */}
+                      <td className="py-3.5 px-3 text-center">
+                        <span className="block font-semibold">${po.leoAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-[9px] text-slate-400 font-bold bg-slate-100 px-1 py-0.2 rounded">{po.leoPercent}%</span>
+                      </td>
 
-                        {/* Final payments columns X, Y, Z */}
-                        <td className="py-3.5 px-3 bg-slate-50/40">
-                          <div className="flex flex-col gap-0.5 text-[10px] font-medium text-slate-600">
-                            <div className="flex justify-between gap-2">
-                              <span>M (26.22%):</span>
-                              <span className="font-bold text-slate-800">${po.marcoFinal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                            <div className="flex justify-between gap-2">
-                              <span>V (47.94%):</span>
-                              <span className="font-bold text-slate-800">${po.victorFinal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                            <div className="flex justify-between gap-2">
-                              <span>L (25.84%):</span>
-                              <span className="font-bold text-slate-800">${po.leoFinal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
+                      {/* Final payments columns X, Y, Z */}
+                      <td className="py-3.5 px-3 bg-slate-50/40">
+                        <div className="flex flex-col gap-0.5 text-[10px] font-medium text-slate-600">
+                          <div className="flex justify-between gap-2">
+                            <span>M (26.22%):</span>
+                            <span className="font-bold text-slate-800">${po.marcoFinal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
-                        </td>
-
-                        {/* Actions */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              onClick={() => handleOpenViewPo(po)}
-                              className="p-1.5 text-slate-500 hover:text-[#0196C1] hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
-                              title="Ver Detalles"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleOpenEditPo(po)}
-                              className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
-                              title="Editar Registro"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeletePo(po.id)}
-                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                              title="Borrar Registro"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                          <div className="flex justify-between gap-2">
+                            <span>V (47.94%):</span>
+                            <span className="font-bold text-slate-800">${po.victorFinal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
+                          <div className="flex justify-between gap-2">
+                            <span>L (25.84%):</span>
+                            <span className="font-bold text-slate-800">${po.leoFinal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenViewPo(po)}
+                            className="p-1.5 text-slate-500 hover:text-[#0196C1] hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
+                            title="Ver Detalles"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditPo(po)}
+                            className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                            title="Editar Registro"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePo(po.id)}
+                            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Borrar Registro"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls inside table wrapper footer */}
+            {poTotalPages > 1 && (
+              <div className="bg-slate-50 p-4 border-t border-slate-100 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setPoCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-50 disabled:hover:bg-white border border-slate-200 font-bold rounded-lg cursor-pointer transition-all text-xs"
+                >
+                  Anterior
+                </button>
+                <div className="flex gap-1">
+                  {Array.from({ length: poTotalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() => setPoCurrentPage(page)}
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                        currentPage === page
+                          ? 'bg-[#0196C1] text-white font-extrabold shadow-xs'
+                          : 'text-slate-600 bg-white hover:bg-slate-50 border border-slate-200'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPoCurrentPage(prev => Math.min(poTotalPages, prev + 1))}
+                  disabled={currentPage === poTotalPages}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-50 disabled:hover:bg-white border border-slate-200 font-bold rounded-lg cursor-pointer transition-all text-xs"
+                >
+                  Siguiente
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Create/Edit Modal Overlay */}
@@ -1799,7 +1950,19 @@ export default function AdminDashboard({
 
                 {/* Form */}
                 <form onSubmit={handleSavePo} className="p-6 space-y-5 text-xs flex-1">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Número de orden</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="ej. 13"
+                        value={formPoOrderNumber}
+                        onChange={(e) => setFormPoOrderNumber(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#0196C1] font-extrabold text-[#0196C1]"
+                      />
+                    </div>
+
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Código de Orden</label>
                       <input
@@ -2013,7 +2176,12 @@ export default function AdminDashboard({
                 <div className="p-6 space-y-6 text-xs">
                   {/* Summary Header */}
                   <div className="border-b border-slate-100 pb-4 text-center space-y-1">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Monto de Utilidad Bruta</span>
+                    <div className="flex justify-center gap-2 items-center text-[10px] font-bold uppercase text-slate-400">
+                      <span className="text-[#0196C1]">Nº Orden: {selectedPo.orderNumber || '-'}</span>
+                      <span>•</span>
+                      <span>Código: {selectedPo.code}</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Monto de Utilidad Bruta</span>
                     <h2 className="text-2xl font-black text-[#282829]">
                       ${selectedPo.utility.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h2>

@@ -130,6 +130,7 @@ export interface FinancialMetric {
 
 export interface PurchaseOrder {
   id: string;
+  orderNumber: string;
   code: string;
   date: string;
   concept: string;

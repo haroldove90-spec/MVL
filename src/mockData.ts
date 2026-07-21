@@ -264,6 +264,7 @@ export const INITIAL_WORK_ORDERS: WorkOrder[] = [
 export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   {
     id: 'po1',
+    orderNumber: '1',
     code: 'OC-2026-001',
     date: '2026-07-01',
     concept: 'Instalación de compresor y tubería principal',
@@ -284,6 +285,7 @@ export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: 'po2',
+    orderNumber: '2',
     code: 'OC-2026-002',
     date: '2026-07-03',
     concept: 'Mantenimiento Mayor Kaeser BSD 60',
@@ -304,6 +306,7 @@ export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: 'po3',
+    orderNumber: '3',
     code: 'OC-2026-003',
     date: '2026-07-05',
     concept: 'Reconstrucción de Unidad de Compresión Atlas Copco',
@@ -324,6 +327,7 @@ export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: 'po4',
+    orderNumber: '4',
     code: 'OC-2026-004',
     date: '2026-07-06',
     concept: 'Servicio Correctivo Secador de Aire Frigorífico',
@@ -344,6 +348,7 @@ export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: 'po5',
+    orderNumber: '5',
     code: 'OC-2026-005',
     date: '2026-07-08',
     concept: 'Auditoría de Fugas de Aire Comprimido',
@@ -364,6 +369,7 @@ export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: 'po6',
+    orderNumber: '6',
     code: 'OC-2026-006',
     date: '2026-07-09',
     concept: 'Suministro de Filtros Coalescentes y Refacciones',
@@ -384,6 +390,7 @@ export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: 'po7',
+    orderNumber: '7',
     code: 'OC-2026-007',
     date: '2026-07-11',
     concept: 'Renta de Compresor de Respaldo 50HP',
@@ -404,6 +411,7 @@ export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: 'po8',
+    orderNumber: '8',
     code: 'OC-2026-012',
     date: '2026-07-12',
     concept: 'Mantenimiento Preventivo de Filtros de Aire',
@@ -424,6 +432,7 @@ export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: 'po9',
+    orderNumber: '9',
     code: 'OC-2026-008',
     date: '2026-07-13',
     concept: 'Servicio Integral y Calibración Sullair 3700',
@@ -444,6 +453,7 @@ export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: 'po10',
+    orderNumber: '10',
     code: 'OC-2026-009',
     date: '2026-07-14',
     concept: 'Instalación Eléctrica y Tablero de Control',
@@ -464,6 +474,7 @@ export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: 'po11',
+    orderNumber: '11',
     code: 'OC-2026-010',
     date: '2026-07-15',
     concept: 'Mantenimiento Kaeser CSD 75',
@@ -484,6 +495,7 @@ export const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
   },
   {
     id: 'po12',
+    orderNumber: '12',
     code: 'OC-2026-011',
     date: '2026-07-16',
     concept: 'Reubicación y Puesta en Marcha de Sistema de Enfriamiento',
