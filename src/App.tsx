@@ -74,13 +74,44 @@ export default function App() {
   }, [purchaseOrders]);
 
   // --- Session State ---
-  const [activeRole, setActiveRole] = useState<UserRole | null>(null);
+  const [activeRole, setActiveRole] = useState<UserRole | null>(() =>
+    loadFromStorage<UserRole | null>('mvl_active_role', null)
+  );
 
   // --- Sub-module Tab/Filter States ---
-  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control'>('financial');
-  const [coordFilter, setCoordFilter] = useState<'all' | 'pending' | 'in_progress' | 'review' | 'completed'>('all');
-  const [techTab, setTechTab] = useState<'agenda' | 'reporte'>('agenda');
-  const [clientTab, setClientTab] = useState<'equipos' | 'historial' | 'falla'>('equipos');
+  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control'>(() =>
+    loadFromStorage<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control'>('mvl_admin_tab', 'financial')
+  );
+  const [coordFilter, setCoordFilter] = useState<'all' | 'pending' | 'in_progress' | 'review' | 'completed'>(() =>
+    loadFromStorage<'all' | 'pending' | 'in_progress' | 'review' | 'completed'>('mvl_coord_filter', 'all')
+  );
+  const [techTab, setTechTab] = useState<'agenda' | 'reporte'>(() =>
+    loadFromStorage<'agenda' | 'reporte'>('mvl_tech_tab', 'agenda')
+  );
+  const [clientTab, setClientTab] = useState<'equipos' | 'historial' | 'falla'>(() =>
+    loadFromStorage<'equipos' | 'historial' | 'falla'>('mvl_client_tab', 'equipos')
+  );
+
+  // Sync session and tab/filter states to storage
+  useEffect(() => {
+    saveToStorage('mvl_active_role', activeRole);
+  }, [activeRole]);
+
+  useEffect(() => {
+    saveToStorage('mvl_admin_tab', adminTab);
+  }, [adminTab]);
+
+  useEffect(() => {
+    saveToStorage('mvl_coord_filter', coordFilter);
+  }, [coordFilter]);
+
+  useEffect(() => {
+    saveToStorage('mvl_tech_tab', techTab);
+  }, [techTab]);
+
+  useEffect(() => {
+    saveToStorage('mvl_client_tab', clientTab);
+  }, [clientTab]);
 
   // Unified role selector resetting tabs on logout
   const handleSelectRole = (role: UserRole | null) => {
