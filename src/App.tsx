@@ -9,7 +9,7 @@ import {
   UserCog, CalendarCheck2, Hammer, Building2, 
   ArrowLeft, LogOut, Check, Sparkles, AlertCircle, RefreshCw,
   LayoutGrid, DollarSign, Users, Layers, Package, Clock,
-  FileText, Calendar, AlertOctagon
+  FileText, Calendar, AlertOctagon, BookOpen
 } from 'lucide-react';
 
 // Data models & Storage helpers
@@ -79,17 +79,17 @@ export default function App() {
   );
 
   // --- Sub-module Tab/Filter States ---
-  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control'>(() =>
-    loadFromStorage<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control'>('mvl_admin_tab', 'financial')
+  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial'>(() =>
+    loadFromStorage<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial'>('mvl_admin_tab', 'financial')
   );
-  const [coordFilter, setCoordFilter] = useState<'all' | 'pending' | 'in_progress' | 'review' | 'completed'>(() =>
-    loadFromStorage<'all' | 'pending' | 'in_progress' | 'review' | 'completed'>('mvl_coord_filter', 'all')
+  const [coordFilter, setCoordFilter] = useState<'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial'>(() =>
+    loadFromStorage<'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial'>('mvl_coord_filter', 'all')
   );
-  const [techTab, setTechTab] = useState<'agenda' | 'reporte'>(() =>
-    loadFromStorage<'agenda' | 'reporte'>('mvl_tech_tab', 'agenda')
+  const [techTab, setTechTab] = useState<'agenda' | 'reporte' | 'tutorial'>(() =>
+    loadFromStorage<'agenda' | 'reporte' | 'tutorial'>('mvl_tech_tab', 'agenda')
   );
-  const [clientTab, setClientTab] = useState<'equipos' | 'historial' | 'falla'>(() =>
-    loadFromStorage<'equipos' | 'historial' | 'falla'>('mvl_client_tab', 'equipos')
+  const [clientTab, setClientTab] = useState<'equipos' | 'historial' | 'falla' | 'tutorial'>(() =>
+    loadFromStorage<'equipos' | 'historial' | 'falla' | 'tutorial'>('mvl_client_tab', 'equipos')
   );
 
   // Sync session and tab/filter states to storage
@@ -454,6 +454,15 @@ export default function App() {
                 <DollarSign className="w-5 h-5 mb-0.5" />
                 <span className="text-[9px] uppercase tracking-wider font-semibold">Gastos</span>
               </button>
+              <button
+                onClick={() => setAdminTab('tutorial')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  adminTab === 'tutorial' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <BookOpen className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Guía</span>
+              </button>
             </>
           )}
 
@@ -504,6 +513,15 @@ export default function App() {
                 <Check className="w-5 h-5 mb-0.5" />
                 <span className="text-[9px] uppercase tracking-wider font-semibold">Cerradas</span>
               </button>
+              <button
+                onClick={() => setCoordFilter('tutorial')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  coordFilter === 'tutorial' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <BookOpen className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Guía</span>
+              </button>
             </>
           )}
 
@@ -526,6 +544,15 @@ export default function App() {
               >
                 <Hammer className="w-5 h-5 mb-0.5" />
                 <span className="text-[9px] uppercase tracking-wider font-semibold">Reportar</span>
+              </button>
+              <button
+                onClick={() => setTechTab('tutorial')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  techTab === 'tutorial' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <BookOpen className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Guía</span>
               </button>
             </>
           )}
@@ -557,7 +584,16 @@ export default function App() {
                 }`}
               >
                 <AlertOctagon className="w-5 h-5 mb-0.5" />
-                <span className="text-[9px] uppercase tracking-wider font-semibold">Reportar Falla</span>
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Reportar</span>
+              </button>
+              <button
+                onClick={() => setClientTab('tutorial')}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  clientTab === 'tutorial' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <BookOpen className="w-5 h-5 mb-0.5" />
+                <span className="text-[9px] uppercase tracking-wider font-semibold">Guía</span>
               </button>
             </>
           )}

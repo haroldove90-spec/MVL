@@ -10,7 +10,8 @@ import { INITIAL_EXPENSE_CONTROL, loadFromStorage, saveToStorage } from '../mock
 import { 
   Users, DollarSign, Package, Award, Plus, Trash2, 
   CheckCircle, XCircle, Tag, Layers, TrendingUp, TrendingDown,
-  ShieldCheck, AlertTriangle, Building, Activity, FileText, Search, Edit2, Eye, RefreshCw
+  ShieldCheck, AlertTriangle, Building, Activity, FileText, Search, Edit2, Eye, RefreshCw,
+  BookOpen, HelpCircle, Lightbulb, PlayCircle, CheckCircle2, ChevronRight, Info, Building2
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -26,8 +27,8 @@ interface AdminDashboardProps {
   setWorkOrders?: React.Dispatch<React.SetStateAction<WorkOrder[]>>;
   purchaseOrders?: PurchaseOrder[];
   setPurchaseOrders?: React.Dispatch<React.SetStateAction<PurchaseOrder[]>>;
-  activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control';
-  setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control') => void;
+  activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial';
+  setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial') => void;
 }
 
 export default function AdminDashboard({ 
@@ -46,7 +47,7 @@ export default function AdminDashboard({
   setActiveTab: propSetActiveTab
 }: AdminDashboardProps) {
   // Navigation tabs with parent-control fallback
-  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control'>('financial');
+  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial'>('financial');
   const activeTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
   const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
 
@@ -828,7 +829,240 @@ export default function AdminDashboard({
         >
           Control de Gastos (Proyectos)
         </button>
+        <button
+          onClick={() => setActiveTab('tutorial')}
+          className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+            activeTab === 'tutorial' 
+              ? 'bg-[#0196C1] text-white' 
+              : 'text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          Tutorial / Guía
+        </button>
       </div>
+
+      {/* --- Tab: Tutorial / Guía del Administrador --- */}
+      {activeTab === 'tutorial' && (
+        <div className="space-y-6 text-left">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-[#282829] to-slate-800 text-white p-6 rounded-2xl shadow-md border-l-4 border-[#0196C1] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-[#0196C1]/20 rounded-lg text-[#0196C1] text-xs font-extrabold uppercase tracking-wide">
+                <BookOpen className="w-4 h-4" /> Manual del Rol Administrador
+              </div>
+              <h2 className="text-xl font-black text-white">Guía de Uso: Módulos Administrativos</h2>
+              <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                Aprende a gestionar todas las funciones clave del sistema MVL Control: desde la rentabilidad financiera y el personal, hasta el control de inventarios, órdenes de compra y gastos.
+              </p>
+            </div>
+            <div className="bg-white/10 px-4 py-2.5 rounded-xl border border-white/10 backdrop-blur-xs text-right">
+              <span className="block text-[10px] text-slate-300 uppercase tracking-wider font-semibold">Perfil Activo</span>
+              <span className="text-sm font-bold text-sky-400">Administrador General</span>
+            </div>
+          </div>
+
+          {/* Tutorial Modules Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            
+            {/* 1. Rentabilidad y Métricas */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs hover:border-slate-200 transition-all space-y-3">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800">1. Rentabilidad y Métricas (Finanzas)</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Monitoreo de ingresos, costos y márgenes en tiempo real</p>
+                </div>
+              </div>
+              <ul className="space-y-2 text-xs text-slate-600 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                  <span><strong>Tarjetas Cero Errores:</strong> Observa las cifras globales de Ingresos Acumulados, Costos Totales de Refacciones/Mano de Obra y la Utilidad Neta en vivo.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                  <span><strong>Gráficas Dinámicas:</strong> Visualiza el comportamiento mensual comparando Ingresos vs. Costos vs. Utilidad Bruta.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                  <span><strong>Rendimiento de Técnicos y SLA:</strong> Evalúa el número de mantenimientos concluidos por cada técnico y su porcentaje de cumplimiento de normatividad.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* 2. Gestión de Personal */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs hover:border-slate-200 transition-all space-y-3">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="w-9 h-9 bg-sky-50 text-sky-600 rounded-xl flex items-center justify-center font-bold">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800">2. Gestión de Personal</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Administración del equipo de trabajo y permisos</p>
+                </div>
+              </div>
+              <ul className="space-y-2 text-xs text-slate-600 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-sky-100 text-sky-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                  <span><strong>Registrar Nuevo Integrante:</strong> Llena el formulario con Nombre Completo, Rol (Técnico, Coordinador o Administrador), Correo y Teléfono.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-sky-100 text-sky-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                  <span><strong>Estado Activo / Inactivo:</strong> Presiona el interruptor de la lista para dar de baja temporalmente o reactivar a un empleado sin eliminar sus antecedentes.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-sky-100 text-sky-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                  <span><strong>Asignación Automática:</strong> Los técnicos activos aparecerán de inmediato para asignación de órdenes de trabajo en la coordinación.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* 3. Clientes (CRM) */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs hover:border-slate-200 transition-all space-y-3">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="w-9 h-9 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center font-bold">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800">3. Clientes (CRM)</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Registro de empresas, plantas físicas y contactos clave</p>
+                </div>
+              </div>
+              <ul className="space-y-2 text-xs text-slate-600 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                  <span><strong>Alta de Clientes:</strong> Agrega empresas compradoras con su Razón Social, RFC, Correo y Teléfono directo.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                  <span><strong>Sucursales y Plantas:</strong> Selecciona un cliente registrado e ingresa sus direcciones físicas o plantas industriales.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                  <span><strong>Directorio de Contactos:</strong> Guarda los números de WhatsApp y cargos de los gerentes de mantenimiento o supervisores de planta.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* 4. Catálogos de Marcas y Precios */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs hover:border-slate-200 transition-all space-y-3">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="w-9 h-9 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center font-bold">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800">4. Catálogos de Marcas y Precios</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Librería oficial de fabricantes y refacciones estándar</p>
+                </div>
+              </div>
+              <ul className="space-y-2 text-xs text-slate-600 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                  <span><strong>Catálogo de Marcas:</strong> Añade fabricantes de compresores (Kaeser, Atlas Copco, Ingersoll Rand, Sullair) para estandarizar registros.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                  <span><strong>Matriz de Precios Recomendados:</strong> Revisa la lista oficial de costos sugeridos para cotizar servicios preventivos y correctivos a clientes.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* 5. Inventario Global */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs hover:border-slate-200 transition-all space-y-3">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="w-9 h-9 bg-[#0196C1]/10 text-[#0196C1] rounded-xl flex items-center justify-center font-bold">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800">5. Inventario Global de Refacciones</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Control de stock de aceites, filtros y piezas de repuesto</p>
+                </div>
+              </div>
+              <ul className="space-y-2 text-xs text-slate-600 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-[#0196C1]/20 text-[#0196C1] text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                  <span><strong>Agregar Repuesto:</strong> Ingresa el Código Único, Nombre de la Pieza, Categoría, Stock Inicial, Stock Mínimo y Precio.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-[#0196C1]/20 text-[#0196C1] text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                  <span><strong>Alertas de Reabastecimiento:</strong> El sistema resalta automáticamente en amarillo o rojo las piezas con existencia igual o inferior al stock mínimo.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-[#0196C1]/20 text-[#0196C1] text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                  <span><strong>Descuento Automático:</strong> Cuando los técnicos agregan refacciones a sus servicios en campo y la orden se aprueba, las existencias se descuentan solas.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* 6. Registro de Órdenes de Compra (OC) */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs hover:border-slate-200 transition-all space-y-3">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800">6. Órdenes de Compra y Distribución de Socios</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Cálculo de ahorro de empresa y dispersión de utilidades</p>
+                </div>
+              </div>
+              <ul className="space-y-2 text-xs text-slate-600 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                  <span><strong>Crear Nueva OC:</strong> Haz clic en "+ Nueva Orden de Compra", asigna un folio (ej: OC-2026-001) y la Utilidad Bruta del proyecto.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                  <span><strong>Fórmula de Ahorro MVL:</strong> Aplica el 20% de reserva para la empresa antes de distribuir ganancias.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                  <span><strong>Sueldos de Socios (Libro Contable):</strong> Ajusta los porcentajes de Marco, Víctor, Leo y Riky para ver en tiempo real el desglose exacto en pantalla.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* 7. Control de Gastos (Proyectos) */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs hover:border-slate-200 border-l-4 border-l-[#0196C1] transition-all space-y-3 md:col-span-2">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="w-9 h-9 bg-slate-900 text-[#0196C1] rounded-xl flex items-center justify-center font-bold">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800">7. Control de Gastos de Proyectos (Sincronizado con Supabase Cloud)</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Registro detallado de facturas, agentes, pagos e IVA en la nube</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-600">
+                <div className="space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="font-bold text-slate-800 block text-[11px] uppercase tracking-wide">Paso A: Registrar Proyecto</span>
+                  <p>Ingresa la Descripción del Proyecto, Cliente, Agente Responsable, Folio de Factura y Fecha de Pago.</p>
+                </div>
+                <div className="space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="font-bold text-slate-800 block text-[11px] uppercase tracking-wide">Paso B: Cálculo Automático IVA</span>
+                  <p>Escribe el Subtotal y Gastos. El sistema calcula automáticamente el IVA (16%), la Utilidad Neta y el Ahorro (20%).</p>
+                </div>
+                <div className="space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="font-bold text-slate-800 block text-[11px] uppercase tracking-wide">Paso C: Respaldo Cloud</span>
+                  <p>Los datos quedan guardados simultáneamente en la nube de Supabase y en la memoria local para consulta instantánea.</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Quick Help Card */}
+          <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200/60 flex items-start gap-3">
+            <Lightbulb className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-amber-900 leading-relaxed">
+              <strong className="block font-bold">Consejo de Uso Seguro:</strong>
+              Puedes cambiar de rol en cualquier momento desde el botón "Cerrar Sesión / Cambiar Rol" ubicado en la barra superior del menú principal para probar la experiencia de la app como Coordinador, Técnico o Cliente.
+            </div>
+          </div>
+
+        </div>
+      )}
 
       {/* --- Tab 1: Financial & Metrics --- */}
       {activeTab === 'financial' && (

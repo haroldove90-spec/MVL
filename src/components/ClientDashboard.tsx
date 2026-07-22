@@ -7,7 +7,8 @@ import React, { useState } from 'react';
 import { Client, Equipment, WorkOrder, HistoryItem } from '../types';
 import { 
   Building, LayoutGrid, FileText, AlertOctagon, Plus, CheckCircle, 
-  HelpCircle, Sparkles, Wrench, RefreshCw, Calendar, Download, X, Activity
+  HelpCircle, Sparkles, Wrench, RefreshCw, Calendar, Download, X, Activity,
+  BookOpen, Lightbulb, PlayCircle, CheckCircle2, ChevronRight, Info
 } from 'lucide-react';
 
 interface ClientDashboardProps {
@@ -16,8 +17,8 @@ interface ClientDashboardProps {
   workOrders: WorkOrder[];
   setWorkOrders: React.Dispatch<React.SetStateAction<WorkOrder[]>>;
   onOpenReport: (ot: WorkOrder) => void;
-  activeTab?: 'equipos' | 'historial' | 'falla';
-  setActiveTab?: (val: 'equipos' | 'historial' | 'falla') => void;
+  activeTab?: 'equipos' | 'historial' | 'falla' | 'tutorial';
+  setActiveTab?: (val: 'equipos' | 'historial' | 'falla' | 'tutorial') => void;
 }
 
 export default function ClientDashboard({
@@ -30,7 +31,7 @@ export default function ClientDashboard({
   setActiveTab: propSetActiveTab
 }: ClientDashboardProps) {
   // Navigation tabs with parent fallback
-  const [localActiveTab, setLocalActiveTab] = useState<'equipos' | 'historial' | 'falla'>('equipos');
+  const [localActiveTab, setLocalActiveTab] = useState<'equipos' | 'historial' | 'falla' | 'tutorial'>('equipos');
   const activeTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
   const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
 
@@ -255,9 +256,158 @@ export default function ClientDashboard({
         >
           Reportar Falla
         </button>
+        <button
+          onClick={() => setActiveTab('tutorial')}
+          className={`flex-1 py-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            activeTab === 'tutorial' 
+              ? 'bg-[#0196C1] text-white shadow-xs' 
+              : 'text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          Tutorial / Guía
+        </button>
       </div>
 
       {/* Conditionally rendered sections based on activeTab */}
+
+      {/* --- Tab: Tutorial / Guía para el Cliente --- */}
+      {activeTab === 'tutorial' && (
+        <div className="space-y-6 text-left">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-[#282829] to-slate-800 text-white p-6 rounded-2xl shadow-md border-l-4 border-[#0196C1] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-[#0196C1]/20 rounded-lg text-[#0196C1] text-xs font-extrabold uppercase tracking-wide">
+                <BookOpen className="w-4 h-4" /> Manual del Cliente Industrial
+              </div>
+              <h2 className="text-xl font-black text-white">Guía de Uso: Portal de Cliente MVL</h2>
+              <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                Aprende a monitorear la salud operacional de tus compresores en tiempo real, consultar hojas de vida técnicas, descargar reportes en PDF y solicitar atención inmediata de fallas.
+              </p>
+            </div>
+            <div className="bg-white/10 px-4 py-2.5 rounded-xl border border-white/10 backdrop-blur-xs text-right">
+              <span className="block text-[10px] text-slate-300 uppercase tracking-wider font-semibold">Perfil Activo</span>
+              <span className="text-sm font-bold text-sky-400">Cliente Industrial</span>
+            </div>
+          </div>
+
+          {/* Tutorial Step Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+            {/* 1. Monitoreo IoT Telemetría */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-3">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="w-9 h-9 bg-sky-50 text-sky-600 rounded-xl flex items-center justify-center font-bold">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800">1. Monitoreo IoT de Compresores (En Vivo)</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Lectura en tiempo real de presiones y temperaturas</p>
+                </div>
+              </div>
+              <ul className="space-y-2 text-xs text-slate-600 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-sky-100 text-sky-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                  <span>En la pestaña <strong>"Mis Equipos"</strong> verás las tarjetas de tus compresores industriales instalados en tu planta.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-sky-100 text-sky-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                  <span>Revisa los valores en tiempo real de <strong>Presión (PSI)</strong>, <strong>Temperatura (°C)</strong>, <strong>RPM</strong> y <strong>Nivel de Vibración</strong>.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-sky-100 text-sky-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                  <span>Si un parámetro supera los límites normales, la tarjeta cambiará de color advirtiéndote preventivamente sobre anomalías.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* 2. Hoja de Vida e Historial Clínico */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-3">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="w-9 h-9 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center font-bold">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800">2. Hoja de Vida e Historial Clínico</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Expediente completo de mantenimientos por máquina</p>
+                </div>
+              </div>
+              <ul className="space-y-2 text-xs text-slate-600 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                  <span>Haz clic sobre cualquier equipo para abrir su <strong>Hoja de Vida Oficial</strong>.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                  <span>Consulta el número de serie, modelo, potencia en HP, fecha del último mantenimiento y días faltantes para la próxima revisión.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                  <span>Revisa la lista cronológica de intervenciones técnicas pasadas y refacciones cambiadas.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* 3. Descargar PDF y Calificar Servicio */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-3">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800">3. Reportes PDF y Calificación de Atención</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Descarga de informes firmados y evaluación de satisfacción</p>
+                </div>
+              </div>
+              <ul className="space-y-2 text-xs text-slate-600 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                  <span>Ve a la pestaña <strong>"Historial y Reportes"</strong> para ver los servicios concluidos en tus plantas.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                  <span>Presiona <strong>"Ver Reporte PDF"</strong> para guardar o imprimir la hoja oficial firmada con las fotografías de evidencia.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                  <span><strong>Califica al Técnico:</strong> Asigna estrellas de 1 a 5 y comparte comentarios para ayudarnos a mantener la máxima calidad de atención.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* 4. Reportar Falla Urgente */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-3">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="w-9 h-9 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center font-bold">
+                  <AlertOctagon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800">4. Reportar Falla Urgente (Ticket de Atención)</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Solicitud inmediata de visita técnica correctiva</p>
+                </div>
+              </div>
+              <ol className="space-y-2 text-xs text-slate-600 leading-relaxed list-decimal pl-4">
+                <li>Dirígete a la pestaña <strong>"Reportar Falla"</strong>.</li>
+                <li>Selecciona el <strong>Compresor Averiado</strong> de tu lista de equipos.</li>
+                <li>Describe los síntomas (ejemplo: <em>"Aviso de sobretemperatura en display"</em> o <em>"Ruido inusual en unidad de compresión"</em>).</li>
+                <li>Haz clic en <strong>"Enviar Reporte de Falla"</strong>.</li>
+                <li>La solicitud llegará de inmediato a la Coordinación para enviarte a un especialista de urgencia.</li>
+              </ol>
+            </div>
+
+          </div>
+
+          {/* Support Banner */}
+          <div className="bg-[#0196C1]/10 p-4 rounded-2xl border border-[#0196C1]/20 flex items-start gap-3">
+            <Lightbulb className="w-5 h-5 text-[#0196C1] shrink-0 mt-0.5" />
+            <div className="text-xs text-slate-700 leading-relaxed">
+              <strong className="block font-bold text-slate-800">Soporte Técnico Especializado:</strong>
+              Si requieres orientación inmediata sobre una emergencia en tu planta o cotización de refacciones adicionales, nuestro equipo de coordinación está disponible 24/7.
+            </div>
+          </div>
+
+        </div>
+      )}
       {activeTab === 'equipos' && (
         <div className="space-y-4 text-left">
           {/* IoT Controller Banner */}

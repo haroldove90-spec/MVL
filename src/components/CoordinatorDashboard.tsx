@@ -7,7 +7,8 @@ import React, { useState } from 'react';
 import { WorkOrder, Staff, Client, Equipment, InventoryItem } from '../types';
 import { 
   Calendar, Plus, Clock, FileCheck, CheckCircle2, 
-  MapPin, UserCheck, AlertCircle, FileEdit, Eye, Check 
+  MapPin, UserCheck, AlertCircle, FileEdit, Eye, Check,
+  BookOpen, HelpCircle, Lightbulb, PlayCircle, ChevronRight, Wrench, ShieldCheck
 } from 'lucide-react';
 
 interface CoordinatorDashboardProps {
@@ -19,8 +20,8 @@ interface CoordinatorDashboardProps {
   inventory: InventoryItem[];
   setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
   onOpenReport: (ot: WorkOrder) => void;
-  statusFilter?: 'all' | 'pending' | 'in_progress' | 'review' | 'completed';
-  setStatusFilter?: (val: 'all' | 'pending' | 'in_progress' | 'review' | 'completed') => void;
+  statusFilter?: 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial';
+  setStatusFilter?: (val: 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial') => void;
 }
 
 export default function CoordinatorDashboard({
@@ -45,7 +46,7 @@ export default function CoordinatorDashboard({
   const [observations, setObservations] = useState('');
 
   // Active filter with parent-control fallback
-  const [localStatusFilter, setLocalStatusFilter] = useState<'all' | 'pending' | 'in_progress' | 'review' | 'completed'>('all');
+  const [localStatusFilter, setLocalStatusFilter] = useState<'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial'>('all');
   const statusFilter = propStatusFilter !== undefined ? propStatusFilter : localStatusFilter;
   const setStatusFilter = propSetStatusFilter !== undefined ? propSetStatusFilter : setLocalStatusFilter;
 
@@ -225,9 +226,157 @@ export default function CoordinatorDashboard({
             >
               En Revisión
             </button>
+            <button 
+              onClick={() => setStatusFilter('tutorial')} 
+              className={`px-3 py-1.5 rounded-lg font-medium cursor-pointer flex items-center gap-1 ${statusFilter === 'tutorial' ? 'bg-[#0196C1] text-white font-bold' : 'bg-white hover:bg-slate-50 border border-slate-100 text-slate-700'}`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              Tutorial / Guía
+            </button>
           </div>
 
-          {/* List of Work Orders */}
+          {/* Tutorial / Guía view for Coordinator */}
+          {statusFilter === 'tutorial' ? (
+            <div className="space-y-6 text-left">
+              {/* Header Banner */}
+              <div className="bg-gradient-to-r from-[#282829] to-slate-800 text-white p-6 rounded-2xl shadow-md border-l-4 border-[#0196C1] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-[#0196C1]/20 rounded-lg text-[#0196C1] text-xs font-extrabold uppercase tracking-wide">
+                    <BookOpen className="w-4 h-4" /> Manual del Rol Coordinador
+                  </div>
+                  <h2 className="text-xl font-black text-white">Guía de Operaciones y Control de Servicio</h2>
+                  <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                    Aprende el ciclo de vida completo de las Órdenes de Trabajo: desde la creación y asignación a técnicos en campo, hasta la validación de firmas, descuento de inventario y generación de reportes PDF.
+                  </p>
+                </div>
+                <div className="bg-white/10 px-4 py-2.5 rounded-xl border border-white/10 backdrop-blur-xs text-right">
+                  <span className="block text-[10px] text-slate-300 uppercase tracking-wider font-semibold">Perfil Activo</span>
+                  <span className="text-sm font-bold text-sky-400">Coordinador de Servicio</span>
+                </div>
+              </div>
+
+              {/* Step by Step Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                {/* 1. Monitoreo y Filtros de Estado */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-3">
+                  <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                    <div className="w-9 h-9 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center font-bold">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-extrabold text-slate-800">1. Filtrar y Organizar Órdenes de Trabajo</h3>
+                      <p className="text-[11px] text-slate-400 font-medium">Visualización en tiempo real del estado de cada servicio</p>
+                    </div>
+                  </div>
+                  <ul className="space-y-2 text-xs text-slate-600 leading-relaxed">
+                    <li className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">A</span>
+                      <span><strong>Asignadas (Pendientes):</strong> Órdenes programadas que aún no han sido iniciadas por el técnico.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">B</span>
+                      <span><strong>En Campo (Activas):</strong> Compresores en proceso de mantenimiento o revisión técnica activa.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">C</span>
+                      <span><strong>Por Aprobar (Revisión):</strong> Trabajos terminados por el técnico en espera de tu validación final.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">D</span>
+                      <span><strong>Finalizadas (Cerradas):</strong> Servicios aprobados, firmados por el cliente y guardados en el historial.</span>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* 2. Crear Nueva Orden de Trabajo */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-3">
+                  <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                    <div className="w-9 h-9 bg-[#0196C1]/10 text-[#0196C1] rounded-xl flex items-center justify-center font-bold">
+                      <Plus className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-extrabold text-slate-800">2. Crear y Asignar Nueva OT</h3>
+                      <p className="text-[11px] text-slate-400 font-medium">Proceso para programar una visita técnica</p>
+                    </div>
+                  </div>
+                  <ol className="space-y-2 text-xs text-slate-600 leading-relaxed list-decimal pl-4">
+                    <li>Haz clic en el botón azul <strong>"+ Nueva OT"</strong>.</li>
+                    <li>Selecciona el <strong>Tipo de Servicio</strong>: <em>Mantenimiento Preventivo</em> o <em>Reparación Correctiva</em>.</li>
+                    <li>Elige el <strong>Equipo / Compresor</strong> de la lista desplegable (se llenará solo el cliente y la planta).</li>
+                    <li>Selecciona al <strong>Técnico Responsable</strong> de tu equipo.</li>
+                    <li>Indica la <strong>Fecha Programada</strong> y escribe instrucciones especiales para el técnico.</li>
+                    <li>Presiona <strong>"Guardar y Asignar OT"</strong>.</li>
+                  </ol>
+                </div>
+
+                {/* 3. Aprobación y Descuento de Inventario */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-3">
+                  <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                    <div className="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-extrabold text-slate-800">3. Revisión y Aprobación Técnica</h3>
+                      <p className="text-[11px] text-slate-400 font-medium">Validación de evidencia y afectación automática de stock</p>
+                    </div>
+                  </div>
+                  <ul className="space-y-2 text-xs text-slate-600 leading-relaxed">
+                    <li className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                      <span>Cuando el técnico completa el trabajo, la OT aparecerá con el distintivo <strong>"Por Aprobar"</strong>.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                      <span>Haz clic en la orden para verificar las fotografías de "Antes y Después", horómetro y firma del cliente.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                      <span>Presiona <strong>"Aprobar y Cerrar OT"</strong>. Al hacerlo, el sistema descontará automáticamente del inventario global las refacciones utilizadas (filtros, aceites, sellos).</span>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* 4. Descarga de Reportes PDF */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-3">
+                  <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                    <div className="w-9 h-9 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center font-bold">
+                      <Eye className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-extrabold text-slate-800">4. Generar y Descargar Reporte PDF</h3>
+                      <p className="text-[11px] text-slate-400 font-medium">Documento oficial con membrete, firmas y fotos</p>
+                    </div>
+                  </div>
+                  <ul className="space-y-2 text-xs text-slate-600 leading-relaxed">
+                    <li className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                      <span>Ubica cualquier orden en la lista y presiona el ícono de <strong>Ojo / Documento (PDF)</strong>.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                      <span>Se abrirá el visor del informe oficial técnico con el logotipo de MVL, datos de la planta, horómetro, lista de cotejo, refacciones e imágenes.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                      <span>Presiona <strong>"Imprimir / Guardar PDF"</strong> para entregarlo al cliente por correo o WhatsApp.</span>
+                    </li>
+                  </ul>
+                </div>
+
+              </div>
+
+              {/* Tip box */}
+              <div className="bg-sky-50 p-4 rounded-2xl border border-sky-200/60 flex items-start gap-3">
+                <Lightbulb className="w-5 h-5 text-[#0196C1] shrink-0 mt-0.5" />
+                <div className="text-xs text-sky-900 leading-relaxed">
+                  <strong className="block font-bold">Consejo de Coordinación:</strong>
+                  Si un cliente reporta una falla urgente desde su portal, la solicitud aparecerá automáticamente en tu panel como una OT de tipo <em>Correctivo</em> asignada para atender a la brevedad.
+                </div>
+              </div>
+            </div>
+          ) : (
+          /* List of Work Orders */
           <div className="space-y-3">
             {filteredOrders.length === 0 ? (
               <div className="bg-white p-8 rounded-2xl text-center border border-slate-100 text-slate-400 text-xs italic">
@@ -294,6 +443,7 @@ export default function CoordinatorDashboard({
               })
             )}
           </div>
+          )}
         </div>
 
         {/* --- Right Column: Real-time Field Monitors --- */}
