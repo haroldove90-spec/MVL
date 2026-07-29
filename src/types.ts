@@ -3,7 +3,82 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type UserRole = 'admin' | 'coordinator' | 'technician' | 'client';
+export type UserRole = 'admin' | 'coordinator' | 'accounting' | 'technician' | 'client' | 'socios' | 'ventas';
+
+export interface Supplier {
+  id: string;
+  name: string;
+  rfc: string;
+  contactName: string;
+  phone: string;
+  email: string;
+  whatsapp?: string;
+  website?: string;
+  onlineShop?: string;
+  orderLink?: string;
+  creditDays: number;
+}
+
+export interface SupplierInvoice {
+  id: string;
+  supplierId: string;
+  invoiceNumber: string;
+  date: string;
+  dueDate: string;
+  concept: string;
+  subtotal: number;
+  tax: number;
+  total: number;
+  creditDays: number;
+  status: 'pending' | 'paid' | 'overdue';
+}
+
+export interface PersonalDoc {
+  id: string;
+  staffId: string;
+  staffName: string;
+  docType: 'DC-3' | 'IMSS' | 'CSF' | 'Identificación' | 'Examen Médico';
+  fileName: string;
+  issueDate: string;
+  expiryDate: string;
+  status: 'valid' | 'warning' | 'expired';
+}
+
+export interface CriticalPendingTask {
+  id: string;
+  title: string;
+  category: 'operational' | 'administrative' | 'billing' | 'legal';
+  priority: 'high' | 'medium' | 'low';
+  dueDate: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  assignedTo?: string;
+}
+
+export interface Quote {
+  id: string;
+  folNum: string; // COT-2026-001
+  clientId: string;
+  clientName: string;
+  date: string;
+  validUntil: string;
+  concept: string;
+  subtotal: number;
+  tax: number;
+  total: number;
+  status: 'draft' | 'sent' | 'approved' | 'rejected' | 'discount_requested';
+  discountRequested?: number;
+  mvlDocsRequested?: boolean; // Solicitar a Contabilidad documentos fiscales de MVL
+}
+
+export interface CompanyTaxDoc {
+  id: string;
+  title: string;
+  category: 'CSF' | 'Opinión SAT' | 'Acta Constitutiva' | 'Comprobante Domicilio' | 'Póliza Seguro';
+  period: string; // e.g. "Julio 2026 - Semana 1"
+  uploadDate: string;
+  status: 'valid' | 'renewal_needed' | 'missing';
+  fileUrl?: string;
+}
 
 export interface Plant {
   id: string;

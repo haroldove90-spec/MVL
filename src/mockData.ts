@@ -3,7 +3,208 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Client, Equipment, HistoryItem, InventoryItem, Staff, WorkOrder, PurchaseOrder, ExpenseControl } from './types';
+import { Client, Equipment, HistoryItem, InventoryItem, Staff, WorkOrder, PurchaseOrder, ExpenseControl, Supplier, SupplierInvoice, PersonalDoc, CriticalPendingTask, Quote, CompanyTaxDoc } from './types';
+
+export const INITIAL_SUPPLIERS: Supplier[] = [
+  {
+    id: 'sup1',
+    name: 'Compressores Kaeser México S.A. de C.V.',
+    rfc: 'CKM980514HP8',
+    contactName: 'Ing. Carlos Mendoza',
+    phone: '81-8123-9900',
+    email: 'ventas@kaeser.com.mx',
+    whatsapp: '81-8123-9900',
+    website: 'https://www.kaeser.com.mx',
+    onlineShop: 'https://tienda.kaeser.com.mx',
+    orderLink: 'https://tienda.kaeser.com.mx/pedidos/mvl',
+    creditDays: 30
+  },
+  {
+    id: 'sup2',
+    name: 'Atlas Copco Mexicana S.A.',
+    rfc: 'ACM750219LK2',
+    contactName: 'Lic. Ana Sofía Reyes',
+    phone: '55-5358-6000',
+    email: 'contacto.mexico@atlascopco.com',
+    whatsapp: '55-5358-6001',
+    website: 'https://www.atlascopco.com/es-mx',
+    creditDays: 45
+  },
+  {
+    id: 'sup3',
+    name: 'Refacciones y Aceites Industriales S.A.',
+    rfc: 'RAI040910AA1',
+    contactName: 'Roberto Treviño',
+    phone: '81-8340-2211',
+    email: 'ventas@aceitesindustriales.com',
+    whatsapp: '81-1900-3344',
+    creditDays: 15
+  }
+];
+
+export const INITIAL_SUPPLIER_INVOICES: SupplierInvoice[] = [
+  {
+    id: 'si1',
+    supplierId: 'sup1',
+    invoiceNumber: 'FAC-KAE-8841',
+    date: '2026-07-05',
+    dueDate: '2026-08-04',
+    concept: 'Lote Filtros Separadores y Aceite Sigma S-460',
+    subtotal: 45000,
+    tax: 7200,
+    total: 52200,
+    creditDays: 30,
+    status: 'pending'
+  },
+  {
+    id: 'si2',
+    supplierId: 'sup2',
+    invoiceNumber: 'FAC-ATL-1092',
+    date: '2026-06-15',
+    dueDate: '2026-07-30',
+    concept: 'Sensores de Temperatura y Válvulas de Retención GA75',
+    subtotal: 28000,
+    tax: 4480,
+    total: 32480,
+    creditDays: 45,
+    status: 'pending'
+  }
+];
+
+export const INITIAL_PERSONAL_DOCS: PersonalDoc[] = [
+  {
+    id: 'pd1',
+    staffId: 'st1',
+    staffName: 'Ing. Alejandro Martínez',
+    docType: 'DC-3',
+    fileName: 'DC3_TrabajoEnAlturas_Alejandro.pdf',
+    issueDate: '2025-08-10',
+    expiryDate: '2026-08-10',
+    status: 'warning'
+  },
+  {
+    id: 'pd2',
+    staffId: 'st2',
+    staffName: 'Tec. Javier Hernández',
+    docType: 'IMSS',
+    fileName: 'Alta_IMSS_Javier.pdf',
+    issueDate: '2026-01-01',
+    expiryDate: '2026-12-31',
+    status: 'valid'
+  },
+  {
+    id: 'pd3',
+    staffId: 'st3',
+    staffName: 'Tec. Miguel Ángel Torres',
+    docType: 'Examen Médico',
+    fileName: 'ExamenClinico_Miguel.pdf',
+    issueDate: '2025-07-01',
+    expiryDate: '2026-07-01',
+    status: 'expired'
+  }
+];
+
+export const INITIAL_CRITICAL_TASKS: CriticalPendingTask[] = [
+  {
+    id: 'cpt1',
+    title: 'Autorizar pase de acceso IMSS/DC-3 para Planta Apodaca (Grupo Monterrey)',
+    category: 'legal',
+    priority: 'high',
+    dueDate: '2026-07-30',
+    status: 'pending',
+    assignedTo: 'Coordinación'
+  },
+  {
+    id: 'cpt2',
+    title: 'Enviar Factura #571 aprobada a portal de cobro de Metso',
+    category: 'billing',
+    priority: 'high',
+    dueDate: '2026-07-29',
+    status: 'pending',
+    assignedTo: 'Contabilidad'
+  },
+  {
+    id: 'cpt3',
+    title: 'Confirmar recepción de Cotización COT-2026-004 con Lácteos del Norte',
+    category: 'administrative',
+    priority: 'medium',
+    dueDate: '2026-08-01',
+    status: 'in_progress',
+    assignedTo: 'Ventas'
+  }
+];
+
+export const INITIAL_QUOTES: Quote[] = [
+  {
+    id: 'q1',
+    folNum: 'COT-2026-001',
+    clientId: 'c1',
+    clientName: 'Grupo Industrial Monterrey',
+    date: '2026-07-20',
+    validUntil: '2026-08-20',
+    concept: 'Mantenimiento Mayor 8000 hrs Compresor Kaeser BSD50',
+    subtotal: 38500,
+    tax: 6160,
+    total: 44660,
+    status: 'approved',
+    mvlDocsRequested: true
+  },
+  {
+    id: 'q2',
+    folNum: 'COT-2026-002',
+    clientId: 'c2',
+    clientName: 'Lácteos del Norte',
+    date: '2026-07-25',
+    validUntil: '2026-08-25',
+    concept: 'Reemplazo de Válvula de Admisión y Filtros de Aire Atlas Copco',
+    subtotal: 19200,
+    tax: 3072,
+    total: 22272,
+    status: 'sent',
+    mvlDocsRequested: false
+  },
+  {
+    id: 'q3',
+    folNum: 'COT-2026-003',
+    clientId: 'c1',
+    clientName: 'Grupo Industrial Monterrey',
+    date: '2026-07-26',
+    validUntil: '2026-08-26',
+    concept: 'Auditoría de Fugas Neumáticas y Calibración de Presiones',
+    subtotal: 12000,
+    tax: 1920,
+    total: 13920,
+    status: 'discount_requested',
+    discountRequested: 10
+  }
+];
+
+export const INITIAL_COMPANY_TAX_DOCS: CompanyTaxDoc[] = [
+  {
+    id: 'ctd1',
+    title: 'Constancia de Situación Fiscal MVL 2026',
+    category: 'CSF',
+    period: 'Julio 2026',
+    uploadDate: '2026-07-01',
+    status: 'valid'
+  },
+  {
+    id: 'ctd2',
+    title: 'Opinión de Cumplimiento SAT 32D (Positiva)',
+    category: 'Opinión SAT',
+    period: 'Julio 2026 - Semana 2',
+    uploadDate: '2026-07-14',
+    status: 'valid'
+  },
+  {
+    id: 'ctd3',
+    title: 'Póliza de Responsabilidad Civil Industrial',
+    category: 'Póliza Seguro',
+    period: 'Año 2026',
+    uploadDate: '2026-01-10',
+    status: 'valid'
+  }
+];
 
 export const INITIAL_CLIENTS: Client[] = [
   {

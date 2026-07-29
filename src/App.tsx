@@ -9,7 +9,7 @@ import {
   UserCog, CalendarCheck2, Hammer, Building2, 
   ArrowLeft, LogOut, Check, Sparkles, AlertCircle, RefreshCw,
   LayoutGrid, DollarSign, Users, Layers, Package, Clock,
-  FileText, Calendar, AlertOctagon, BookOpen
+  FileText, Calendar, AlertOctagon, BookOpen, FileCheck
 } from 'lucide-react';
 
 // Data models & Storage helpers
@@ -24,6 +24,7 @@ import AdminDashboard from './components/AdminDashboard';
 import CoordinatorDashboard from './components/CoordinatorDashboard';
 import TechnicianDashboard from './components/TechnicianDashboard';
 import ClientDashboard from './components/ClientDashboard';
+import AccountingDashboard from './components/AccountingDashboard';
 import PDFReportView from './components/PDFReportView';
 import PWAInstallBtn from './components/PWAInstallBtn';
 
@@ -177,9 +178,10 @@ export default function App() {
               <img src="https://appdesignproyectos.com/mvl.png" alt="MVL Logo" className="h-8 object-contain bg-white/5 p-1 rounded-lg" />
               <div className="hidden sm:block border-l border-slate-600/50 pl-3">
                 <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider">
-                  {activeRole === 'admin' ? 'Socio Administrador' :
-                   activeRole === 'coordinator' ? 'Coordinador de Operaciones' :
-                   activeRole === 'technician' ? 'Técnico Móvil' : 'Portal del Cliente'}
+                  {activeRole === 'admin' ? '👑 Socios / Dirección General' :
+                   activeRole === 'coordinator' ? '💼 Vendedor / Coordinador' :
+                   activeRole === 'accounting' ? '📊 Contabilidad & Salud Fiscal' :
+                   activeRole === 'technician' ? '🛠️ Técnico / Campo' : '🏢 Cliente Industrial'}
                 </span>
                 <span className="text-[10px] text-[#0196C1] font-bold">Panel de Control Activo</span>
               </div>
@@ -216,9 +218,9 @@ export default function App() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.25 }}
-              className="max-w-2xl w-full mx-auto text-center space-y-8 py-8"
+              className="max-w-4xl w-full mx-auto text-center space-y-8 py-6"
             >
-              {/* Prominent MVL Logo as requested */}
+              {/* Prominent MVL Logo */}
               <div className="flex justify-center">
                 <img 
                   src="https://appdesignproyectos.com/mvl.png" 
@@ -230,71 +232,84 @@ export default function App() {
               {/* Sub-heading banner */}
               <div className="space-y-2">
                 <h2 className="text-xl md:text-2xl font-extrabold text-[#282829] tracking-tight">
-                  MVL Control y Mantenimiento
+                  MVL Control y Mantenimiento Industrial
                 </h2>
                 <p className="text-xs text-slate-400 max-w-md mx-auto">
-                  Seleccione su perfil de acceso a la plataforma industrial.
+                  Seleccione su rol de proceso para acceder al sistema minimalista.
                 </p>
               </div>
 
-              {/* Roles selectors with icons and labels - exactly as requested */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 w-full max-w-4xl mx-auto px-2 sm:px-4">
+              {/* 5 Process Roles Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5 w-full mx-auto px-1">
                 
-                {/* 1. Administrador */}
+                {/* 1. Socios / Dirección */}
                 <button
                   id="role-btn-admin"
                   onClick={() => handleSelectRole('admin')}
-                  className="bg-white rounded-[20px] py-4 px-3 sm:py-8 sm:px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
+                  className="bg-white rounded-[20px] py-4 px-3 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
                 >
-                  <div className="w-12 h-12 sm:w-[70px] sm:h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 sm:mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
-                    <UserCog className="w-5 h-5 sm:w-7 sm:h-7" />
+                  <div className="w-12 h-12 bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
+                    <UserCog className="w-6 h-6" />
                   </div>
-                  <p className="font-bold text-xs sm:text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Administrador</p>
-                  <span className="text-[10px] sm:text-[11px] text-slate-500 mt-1 sm:mt-2 leading-relaxed">Control total y reportes financieros.</span>
+                  <p className="font-bold text-xs uppercase tracking-tight text-[#282829] m-0">1. Socios</p>
+                  <span className="text-[10px] text-slate-500 mt-1 leading-tight">Dirección, Finanzas & Legal</span>
                 </button>
 
-                {/* 2. Coordinador */}
+                {/* 2. Vendedor / Coordinador */}
                 <button
                   id="role-btn-coordinator"
                   onClick={() => handleSelectRole('coordinator')}
-                  className="bg-white rounded-[20px] py-4 px-3 sm:py-8 sm:px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
+                  className="bg-white rounded-[20px] py-4 px-3 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
                 >
-                  <div className="w-12 h-12 sm:w-[70px] sm:h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 sm:mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
-                    <CalendarCheck2 className="w-5 h-5 sm:w-7 sm:h-7" />
+                  <div className="w-12 h-12 bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
+                    <CalendarCheck2 className="w-6 h-6" />
                   </div>
-                  <p className="font-bold text-xs sm:text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Coordinador</p>
-                  <span className="text-[10px] sm:text-[11px] text-slate-500 mt-1 sm:mt-2 leading-relaxed">Gestión de agenda y supervisión.</span>
+                  <p className="font-bold text-xs uppercase tracking-tight text-[#282829] m-0">2. Ventas</p>
+                  <span className="text-[10px] text-slate-500 mt-1 leading-tight">CRM, Cotizaciones & OC</span>
                 </button>
 
-                {/* 3. Técnico */}
+                {/* 3. Contabilidad */}
+                <button
+                  id="role-btn-accounting"
+                  onClick={() => handleSelectRole('accounting')}
+                  className="bg-white rounded-[20px] py-4 px-3 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
+                >
+                  <div className="w-12 h-12 bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
+                    <FileCheck className="w-6 h-6" />
+                  </div>
+                  <p className="font-bold text-xs uppercase tracking-tight text-[#282829] m-0">3. Contabilidad</p>
+                  <span className="text-[10px] text-slate-500 mt-1 leading-tight">Expediente SAT & Facturas</span>
+                </button>
+
+                {/* 4. Técnico */}
                 <button
                   id="role-btn-technician"
                   onClick={() => handleSelectRole('technician')}
-                  className="bg-white rounded-[20px] py-4 px-3 sm:py-8 sm:px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
+                  className="bg-white rounded-[20px] py-4 px-3 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
                 >
-                  <div className="w-12 h-12 sm:w-[70px] sm:h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 sm:mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
-                    <Hammer className="w-5 h-5 sm:w-7 sm:h-7" />
+                  <div className="w-12 h-12 bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
+                    <Hammer className="w-6 h-6" />
                   </div>
-                  <p className="font-bold text-xs sm:text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Técnico</p>
-                  <span className="text-[10px] sm:text-[11px] text-slate-500 mt-1 sm:mt-2 leading-relaxed">Ejecución y reportes de campo.</span>
+                  <p className="font-bold text-xs uppercase tracking-tight text-[#282829] m-0">4. Técnico</p>
+                  <span className="text-[10px] text-slate-500 mt-1 leading-tight">Agenda, Reportes & Fotos</span>
                 </button>
 
-                {/* 4. Cliente */}
+                {/* 5. Cliente */}
                 <button
                   id="role-btn-client"
                   onClick={() => handleSelectRole('client')}
-                  className="bg-white rounded-[20px] py-4 px-3 sm:py-8 sm:px-5 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
+                  className="bg-white rounded-[20px] py-4 px-3 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group col-span-2 sm:col-span-1"
                 >
-                  <div className="w-12 h-12 sm:w-[70px] sm:h-[70px] bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 sm:mb-5 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
-                    <Building2 className="w-5 h-5 sm:w-7 sm:h-7" />
+                  <div className="w-12 h-12 bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
+                    <Building2 className="w-6 h-6" />
                   </div>
-                  <p className="font-bold text-xs sm:text-sm uppercase tracking-[0.5px] text-[#282829] m-0">Cliente</p>
-                  <span className="text-[10px] sm:text-[11px] text-slate-500 mt-1 sm:mt-2 leading-relaxed">Historial de activos y solicitudes.</span>
+                  <p className="font-bold text-xs uppercase tracking-tight text-[#282829] m-0">5. Cliente</p>
+                  <span className="text-[10px] text-slate-500 mt-1 leading-tight">Equipos, IoT & Historial</span>
                 </button>
 
               </div>
 
-              {/* Install PWA Button as requested */}
+              {/* Install PWA Button */}
               <div className="pt-6 flex flex-col items-center gap-4 border-t border-slate-200/60 max-w-sm mx-auto">
                 <PWAInstallBtn />
                 
@@ -348,6 +363,14 @@ export default function App() {
                   onOpenReport={handleOpenReport}
                   statusFilter={coordFilter}
                   setStatusFilter={setCoordFilter}
+                />
+              )}
+
+              {activeRole === 'accounting' && (
+                <AccountingDashboard
+                  clients={clients}
+                  setClients={setClients}
+                  workOrders={workOrders}
                 />
               )}
 
