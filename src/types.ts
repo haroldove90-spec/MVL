@@ -54,6 +54,27 @@ export interface CriticalPendingTask {
   assignedTo?: string;
 }
 
+export interface PlantAccessRequirements {
+  imssPayment: boolean;
+  imssRightsValidity: boolean;
+  medicalCertificates: boolean;
+  riskAssessmentForm: boolean;
+  others?: string;
+  requestedByVendorDate?: string;
+  approvedByRH?: boolean;
+}
+
+export interface QuoteItem {
+  partida: number;
+  description: string;
+  brand: string;
+  quantity: number;
+  partNumber: string;
+  catalogPrice: number;
+  total: number;
+  deliveryTime: string;
+}
+
 export interface Quote {
   id: string;
   folNum: string; // COT-2026-001
@@ -65,9 +86,30 @@ export interface Quote {
   subtotal: number;
   tax: number;
   total: number;
-  status: 'draft' | 'sent' | 'approved' | 'rejected' | 'discount_requested';
+  status: 'draft' | 'sent' | 'approved' | 'rejected' | 'discount_requested' | 'denied';
+  quoteType?: 'vendedor' | 'cliente' | 'publico';
+  publicClientName?: string; // Para Venta Público
   discountRequested?: number;
   mvlDocsRequested?: boolean; // Solicitar a Contabilidad documentos fiscales de MVL
+  reasonDenied?: 'cambio_admin' | 'no_contesto' | 'cambio_maquina' | 'otros';
+  deniedReasonDetails?: string;
+  missingPricesList?: { description: string; partNumber?: string; requestedPrice?: number }[];
+  plantAccessReqs?: PlantAccessRequirements;
+  poPdfUrl?: string;
+  clientPoNumber?: string;
+  agentName?: string;
+  plantName?: string;
+  crmGiro?: string;
+  whatsapp?: string;
+  itemsTable?: QuoteItem[];
+  equipmentDetails?: {
+    brand: string;
+    model: string;
+    serialNumber: string;
+    capacity: string;
+    serviceType: 'preventivo_2000' | 'preventivo_4000' | 'preventivo_6000' | 'correctivo' | 'otros';
+    mode: 'venta' | 'renta';
+  };
 }
 
 export interface CompanyTaxDoc {
@@ -101,8 +143,12 @@ export interface Client {
   rfc: string;
   email: string;
   phone: string;
+  whatsapp?: string;
   plants: Plant[];
   contacts: Contact[];
+  isIndependent?: boolean; // Particular Independiente
+  taxDocUrl?: string; // Constancia Fiscal PDF
+  industryGiro?: string;
 }
 
 export interface Equipment {
@@ -114,12 +160,17 @@ export interface Equipment {
   model: string;
   serialNumber: string;
   oilType: string;
-  capacity: string;
+  capacity: string; // e.g. 50 HP / 37 kW
   filtersRequired: string;
   status: 'active' | 'warning' | 'maintenance';
   lastMaintenance: string;
   nextMaintenance: string;
   engineHours: number;
+  voltage?: string;
+  type?: 'compresor' | 'secador' | 'otros';
+  mode?: 'venta' | 'renta';
+  dataPlatePhotoUrl?: string;
+  compatibleParts?: string[];
   telemetry?: {
     psi: number;
     temp: number;
@@ -152,7 +203,7 @@ export interface WorkOrder {
   equipmentId: string;
   clientId: string;
   plantId: string;
-  type: 'preventive' | 'corrective';
+  type: 'preventive' | 'corrective' | 'instalacion' | 'predictivo';
   status: 'pending' | 'in_progress' | 'review' | 'completed';
   scheduledDate: string;
   engineHours: number;
@@ -167,6 +218,12 @@ export interface WorkOrder {
   signatureName?: string;
   dateCompleted?: string;
   approvedByCoordinator?: boolean;
+  partsAvailable?: boolean;
+  plantAccessDocsValid?: boolean;
+  toolsReady?: boolean;
+  technicianAvailable?: boolean;
+  clientPoNumber?: string;
+  quoteFolNum?: string;
   clientFeedback?: {
     rating: number; // 1 to 5
     nps: number; // 0 to 10
@@ -180,20 +237,54 @@ export interface InventoryItem {
   id: string;
   code: string;
   name: string;
-  category: 'electronic' | 'pneumatic' | 'refrigeration' | 'consumable';
+  category: 'electronic' | 'pneumatic' | 'refrigeration' | 'consumable' | 'filtros' | 'aceites' | 'otros';
+  brand?: string;
+  partNumber?: string;
   stock: number;
   minStock: number;
   price: number;
+  isConsumable?: boolean;
+  cubiculo?: string;
+  createdById?: string;
+  createdByName?: string;
+  specText?: string;
+  compatiblePartNumbers?: string[];
+}
+
+export interface LaborRate {
+  id: string;
+  serviceCategory: 'instalacion' | 'preventivo' | 'correctivo' | 'predictivo' | 'revision';
+  capacityRange: '5_15kW' | '37_50kW' | '75_120kW' | 'otros';
+  maintenanceHours?: '2000' | '4000' | '6000' | '8000';
+  hourlyPrice: number;
+  distanceKmPrice: number;
 }
 
 export interface Staff {
   id: string;
   name: string;
-  role: 'admin' | 'coordinator' | 'technician';
+  role: 'admin' | 'coordinator' | 'technician' | 'sales' | 'rh' | 'warehouse';
+  customJobTitle?: string; // Vendedor, RH, Almacenista, etc.
   email: string;
   phone: string;
+  personalPhone?: string;
+  age?: number;
   active: boolean;
   avatar?: string;
+  monthlyMedicalCertMonth?: string;
+  medicalCertFileName?: string;
+  quotesGenerated?: number;
+  salesClosed?: number;
+}
+
+export interface FailureIndicator {
+  id: string;
+  equipmentName: string;
+  brand: string;
+  failureType: 'temperatura' | 'presión' | 'electrica' | 'fuga' | 'mecanica';
+  frequency: number;
+  lastOccurrence: string;
+  recommendation: string;
 }
 
 export interface FinancialMetric {
@@ -239,6 +330,8 @@ export interface ExpenseControl {
   expenses: number; // Gastos
   utility: number; // Utilidad
   savings: number; // ahorro 20%
+  quoteFolNum?: string;
+  clientPoNumber?: string;
 }
 
 

@@ -3,7 +3,45 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Client, Equipment, HistoryItem, InventoryItem, Staff, WorkOrder, PurchaseOrder, ExpenseControl, Supplier, SupplierInvoice, PersonalDoc, CriticalPendingTask, Quote, CompanyTaxDoc } from './types';
+import { Client, Equipment, HistoryItem, InventoryItem, Staff, WorkOrder, PurchaseOrder, ExpenseControl, Supplier, SupplierInvoice, PersonalDoc, CriticalPendingTask, Quote, CompanyTaxDoc, FailureIndicator, LaborRate } from './types';
+
+export const INITIAL_FAILURE_INDICATORS: FailureIndicator[] = [
+  {
+    id: 'fi1',
+    equipmentName: 'Compresor Kaeser BSD 50',
+    brand: 'Kaeser',
+    failureType: 'temperatura',
+    frequency: 4,
+    lastOccurrence: '2026-07-10',
+    recommendation: 'Limpieza de radiador sustitución de aceite Sigma S-460'
+  },
+  {
+    id: 'fi2',
+    equipmentName: 'Secador Atlas Copco FX12',
+    brand: 'Atlas Copco',
+    failureType: 'fuga',
+    frequency: 2,
+    lastOccurrence: '2026-06-28',
+    recommendation: 'Reemplazo de purga electrónica temporizada'
+  },
+  {
+    id: 'fi3',
+    equipmentName: 'Compresor Sullair 3700',
+    brand: 'Sullair',
+    failureType: 'electrica',
+    frequency: 3,
+    lastOccurrence: '2026-07-04',
+    recommendation: 'Revisar contactores de arranque estrella-triángulo'
+  }
+];
+
+export const INITIAL_LABOR_RATES: LaborRate[] = [
+  { id: 'lr1', serviceCategory: 'preventivo', capacityRange: '5_15kW', maintenanceHours: '2000', hourlyPrice: 850, distanceKmPrice: 15 },
+  { id: 'lr2', serviceCategory: 'preventivo', capacityRange: '37_50kW', maintenanceHours: '4000', hourlyPrice: 1200, distanceKmPrice: 18 },
+  { id: 'lr3', serviceCategory: 'correctivo', capacityRange: '75_120kW', maintenanceHours: '8000', hourlyPrice: 1600, distanceKmPrice: 22 },
+  { id: 'lr4', serviceCategory: 'instalacion', capacityRange: '37_50kW', hourlyPrice: 1400, distanceKmPrice: 20 },
+  { id: 'lr5', serviceCategory: 'predictivo', capacityRange: 'otros', hourlyPrice: 1800, distanceKmPrice: 25 }
+];
 
 export const INITIAL_SUPPLIERS: Supplier[] = [
   {
@@ -348,9 +386,81 @@ export const INITIAL_INVENTORY: InventoryItem[] = [
 ];
 
 export const INITIAL_STAFF: Staff[] = [
-  { id: 's1', name: 'Ing. Carlos Mendoza', role: 'coordinator', email: 'carlos.mendoza@mvl.com', phone: '81-8181-9922', active: true },
-  { id: 's2', name: 'Roberto Sánchez', role: 'technician', email: 'roberto.sanchez@mvl.com', phone: '81-2233-4455', active: true },
-  { id: 's3', name: 'Alejandro Torres', role: 'technician', email: 'alejandro.torres@mvl.com', phone: '81-4455-6677', active: true }
+  { 
+    id: 's1', 
+    name: 'Ing. Carlos Mendoza', 
+    role: 'coordinator', 
+    customJobTitle: 'Coordinador General de Ventas', 
+    email: 'carlos.mendoza@mvl.com', 
+    phone: '81-8181-9922', 
+    personalPhone: '81-9988-7766',
+    age: 38,
+    active: true,
+    monthlyMedicalCertMonth: '2026-07',
+    medicalCertFileName: 'Certificado_Medico_Carlos_Julio2026.pdf',
+    quotesGenerated: 18,
+    salesClosed: 14
+  },
+  { 
+    id: 's2', 
+    name: 'Roberto Sánchez', 
+    role: 'technician', 
+    customJobTitle: 'Técnico Especialista Kaeser', 
+    email: 'roberto.sanchez@mvl.com', 
+    phone: '81-2233-4455', 
+    personalPhone: '81-1122-3344',
+    age: 32,
+    active: true,
+    monthlyMedicalCertMonth: '2026-07',
+    medicalCertFileName: 'Certificado_Medico_Roberto_Julio2026.pdf',
+    quotesGenerated: 0,
+    salesClosed: 0
+  },
+  { 
+    id: 's3', 
+    name: 'Alejandro Torres', 
+    role: 'technician', 
+    customJobTitle: 'Técnico Atlas Copco & Clima', 
+    email: 'alejandro.torres@mvl.com', 
+    phone: '81-4455-6677', 
+    personalPhone: '81-5566-7788',
+    age: 29,
+    active: true,
+    monthlyMedicalCertMonth: '2026-06',
+    medicalCertFileName: 'Certificado_Medico_Alejandro_Junio2026.pdf',
+    quotesGenerated: 0,
+    salesClosed: 0
+  },
+  { 
+    id: 's4', 
+    name: 'Lic. Mariana Valdez', 
+    role: 'sales', 
+    customJobTitle: 'Ejecutiva de Ventas Senior', 
+    email: 'mariana.valdez@mvl.com', 
+    phone: '81-3344-5566', 
+    personalPhone: '81-6677-8899',
+    age: 30,
+    active: true,
+    monthlyMedicalCertMonth: '2026-07',
+    medicalCertFileName: 'Certificado_Medico_Mariana_Julio2026.pdf',
+    quotesGenerated: 24,
+    salesClosed: 19
+  },
+  { 
+    id: 's5', 
+    name: 'Sofía Gutiérrez', 
+    role: 'rh', 
+    customJobTitle: 'Encargada de RH & Accesos a Planta', 
+    email: 'sofia.rh@mvl.com', 
+    phone: '81-7788-9900', 
+    personalPhone: '81-2244-6688',
+    age: 34,
+    active: true,
+    monthlyMedicalCertMonth: '2026-07',
+    medicalCertFileName: 'Certificado_Medico_Sofia_Julio2026.pdf',
+    quotesGenerated: 0,
+    salesClosed: 0
+  }
 ];
 
 export const DEFAULT_CHECKLIST = [
