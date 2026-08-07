@@ -349,4 +349,24 @@ export interface ExpenseControl {
   clientPoNumber?: string;
 }
 
+export interface OemCatalogItem {
+  id: string;
+  clientName: string; // e.g. ANDREA
+  equipmentName: string; // e.g. COMPRESOR
+  brand: string; // KAISER
+  model: string; // AS 30 T
+  serialNumber: string; // 1030
+  partDescription: string; // F.AIRE, F ACEITE, F. SEPARADOR, etc.
+  partNumberOriginal: string; // 6.2000.0, 6.1985.0, 6.1963.0, 4.7333.0
+  quantity: string | number; // 1, 40 LTS
+  oemGenericBrandPart: string; // KC160-017, KL320-014, MV110-003, KAOA467C-05
+  price: number; // 84.35
+  suggestedPrice?: number; // 533.00
+  incrementPercent?: number; // 5%
+  publicPrice?: number; // 559.65
+  currency: 'USD' | 'MXN';
+  date: string; // 25/06/2026
+}
+
+
 

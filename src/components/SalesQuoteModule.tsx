@@ -148,6 +148,23 @@ export default function SalesQuoteModule({
     setNewMissingPartNum('');
   };
 
+  const handleLoadAndreaExcelParts = () => {
+    const andreaItems: QuoteItem[] = [
+      { partida: 1, description: 'F.AIRE (Filtro de aire)', brand: 'KC160-017 (OEM KAISER)', quantity: 1, partNumber: '6.2000.0', catalogPrice: 1645.00, total: 1645.00, deliveryTime: 'Inmediata' },
+      { partida: 2, description: 'F ACEITE (Filtro de aceite)', brand: 'KL320-014 (OEM KAISER)', quantity: 1, partNumber: '6.1985.0', catalogPrice: 395.00, total: 395.00, deliveryTime: 'Inmediata' },
+      { partida: 3, description: 'F. SEPARADOR (Filtro separador)', brand: 'MV110-003 (OEM KAISER)', quantity: 1, partNumber: '6.1963.0', catalogPrice: 2668.00, total: 2668.00, deliveryTime: 'Inmediata' },
+      { partida: 4, description: 'V. PRES MIN (Válvula de presión mínima)', brand: 'KAISER / KAESER', quantity: 1, partNumber: '4.7333.0', catalogPrice: 1850.00, total: 1850.00, deliveryTime: 'Inmediata' },
+      { partida: 5, description: 'V. ANTI RETORNO (Válvula anti retorno)', brand: 'KAISER / KAESER', quantity: 1, partNumber: '2.0701.0', catalogPrice: 1250.00, total: 1250.00, deliveryTime: 'Inmediata' },
+      { partida: 6, description: 'V. TERMOSTATICA (Válvula termostática)', brand: 'KAISER / KAESER', quantity: 1, partNumber: '7.0399.0', catalogPrice: 2100.00, total: 2100.00, deliveryTime: 'Inmediata' },
+      { partida: 7, description: 'V. LINEA BARRIDO', brand: 'KAISER / KAESER', quantity: 1, partNumber: 'S/N', catalogPrice: 650.00, total: 650.00, deliveryTime: 'Inmediata' },
+      { partida: 8, description: 'V. ADMISION', brand: 'KAISER / KAESER', quantity: 1, partNumber: 'S/N', catalogPrice: 3200.00, total: 3200.00, deliveryTime: 'Inmediata' },
+      { partida: 9, description: 'LUBRICANTE SINTÉTICO (40 Litros)', brand: 'KAOA467C-05 (OEM KAISER)', quantity: 1, partNumber: 'KAOA467C-05', catalogPrice: 10353.50, total: 10353.50, deliveryTime: 'Inmediata' }
+    ];
+    setStandardItems(andreaItems);
+    setConcept('Cotización de Refacciones y Consumibles para Compresor KAISER AS 30 T (Serie 1030) - Cliente ANDREA');
+  };
+
+
   const handleSaveQuote = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -552,6 +569,26 @@ export default function SalesQuoteModule({
               />
             </div>
           </div>
+
+          {/* Quick preset for Excel Andrea Kaiser AS 30 T */}
+          {quoteCategory === 'standard' && (
+            <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-200 px-2 py-0.5 rounded">
+                  Plantilla de Carga Rápida (Excel Solicitado)
+                </span>
+                <h4 className="text-xs font-black text-slate-900 mt-1">Refacciones y Equivalencias OEM: Andrea (Kaiser AS 30 T)</h4>
+                <p className="text-[10px] text-slate-600">F.Aire, F.Aceite, F.Separador, Válvulas y Lubricante Sintético 40L</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleLoadAndreaExcelParts}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> [ Cargar 9 Refacciones Andrea ]
+              </button>
+            </div>
+          )}
 
           {/* IF POLIZA TYPE SELECTED */}
           {quoteCategory === 'poliza' && (

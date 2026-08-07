@@ -4,11 +4,11 @@
  */
 
 import React, { useState } from 'react';
-import { Equipment, InventoryItem, LaborRate } from '../types';
-import { INITIAL_LABOR_RATES, loadFromStorage, saveToStorage } from '../mockData';
+import { Equipment, InventoryItem, LaborRate, OemCatalogItem } from '../types';
+import { INITIAL_LABOR_RATES, INITIAL_OEM_PARTS_CATALOG, loadFromStorage, saveToStorage } from '../mockData';
 import { 
   Package, Search, Plus, Layers, Tag, ShieldAlert, CheckCircle2, 
-  Wrench, AlertCircle, Grid, Filter, Edit3, Trash2
+  Wrench, AlertCircle, Grid, Filter, Edit3, Trash2, DollarSign, FileSpreadsheet, Copy, ArrowRightLeft
 } from 'lucide-react';
 
 interface InventoryCatalogModuleProps {
@@ -28,7 +28,28 @@ export default function InventoryCatalogModule({
     loadFromStorage<LaborRate[]>('mvl_labor_rates', INITIAL_LABOR_RATES)
   );
 
-  const [activeSubTab, setActiveSubTab] = useState<'inventory' | 'equipment' | 'labor'>('inventory');
+  const [oemCatalog, setOemCatalog] = useState<OemCatalogItem[]>(() =>
+    loadFromStorage<OemCatalogItem[]>('mvl_oem_catalog', INITIAL_OEM_PARTS_CATALOG)
+  );
+
+  const [exchangeRate, setExchangeRate] = useState<number>(18.50);
+
+  const [activeSubTab, setActiveSubTab] = useState<'inventory' | 'equipment' | 'labor' | 'oem_parts'>('inventory');
+
+  // OEM New Form
+  const [oemClient, setOemClient] = useState('ANDREA');
+  const [oemEqName, setOemEqName] = useState('COMPRESOR');
+  const [oemBrand, setOemBrand] = useState('KAISER');
+  const [oemModel, setOemModel] = useState('AS 30 T');
+  const [oemSerie, setOemSerie] = useState('1030');
+  const [oemPartDesc, setOemPartDesc] = useState('');
+  const [oemPartNum, setOemPartNum] = useState('');
+  const [oemQty, setOemQty] = useState<string | number>(1);
+  const [oemGeneric, setOemGeneric] = useState('');
+  const [oemPrice, setOemPrice] = useState<number>(0);
+  const [oemIncPct, setOemIncPct] = useState<number>(5);
+  const [oemDate, setOemDate] = useState('2026-06-25');
+
 
   // Inventory Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -153,6 +174,34 @@ export default function InventoryCatalogModule({
     saveToStorage('mvl_labor_rates', updated);
   };
 
+  const handleAddOemPart = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newItem: OemCatalogItem = {
+      id: 'oem_' + Date.now(),
+      clientName: oemClient,
+      equipmentName: oemEqName,
+      brand: oemBrand,
+      model: oemModel,
+      serialNumber: oemSerie,
+      partDescription: oemPartDesc,
+      partNumberOriginal: oemPartNum,
+      quantity: oemQty,
+      oemGenericBrandPart: oemGeneric,
+      price: oemPrice,
+      incrementPercent: oemIncPct,
+      currency: 'USD',
+      date: oemDate
+    };
+    const updated = [newItem, ...oemCatalog];
+    setOemCatalog(updated);
+    saveToStorage('mvl_oem_catalog', updated);
+
+    setOemPartDesc('');
+    setOemPartNum('');
+    setOemGeneric('');
+    setOemPrice(0);
+  };
+
   return (
     <div className="space-y-6 text-left">
       {/* Subtab Navigation */}
@@ -180,6 +229,15 @@ export default function InventoryCatalogModule({
           }`}
         >
           3. Tarifas de Mano de Obra & Servicios
+        </button>
+        <button
+          onClick={() => setActiveSubTab('oem_parts')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeSubTab === 'oem_parts' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+          }`}
+        >
+          <FileSpreadsheet className="w-3.5 h-3.5" />
+          4. Matriz Refacciones OEM por Cliente (Excel Andrea)
         </button>
       </div>
 
@@ -584,6 +642,244 @@ export default function InventoryCatalogModule({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* SUBTAB 4: Matriz Refacciones OEM por Cliente (Excel Andrea) */}
+      {activeSubTab === 'oem_parts' && (
+        <div className="space-y-6">
+          {/* Header & TC Exchange Control */}
+          <div className="bg-gradient-to-r from-emerald-900 to-slate-900 text-white p-5 rounded-2xl shadow-sm space-y-3">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/20 text-emerald-300 rounded-lg text-[10px] font-black uppercase tracking-wider mb-1">
+                  <FileSpreadsheet className="w-3.5 h-3.5" /> Matriz de Refacciones & Marcas Genéricas OEM
+                </div>
+                <h3 className="text-base font-black">Cliente: ANDREA | Equipo: COMPRESOR KAISER AS 30 T (Serie 1030)</h3>
+                <p className="text-xs text-slate-300">
+                  Control de equivalencias OEM, precios USD, incrementos del 5% y precios de venta al público.
+                </p>
+              </div>
+
+              {/* TC exchange rate box */}
+              <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/15 flex items-center gap-3">
+                <DollarSign className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <label className="block text-[9px] font-black uppercase text-slate-300">Tipo de Cambio USD / MXN</label>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-bold text-emerald-300">$</span>
+                    <input
+                      type="number"
+                      step="0.10"
+                      value={exchangeRate}
+                      onChange={e => setExchangeRate(Number(e.target.value))}
+                      className="w-20 text-xs font-black p-1 bg-black/40 border border-emerald-400/40 rounded text-white outline-none"
+                    />
+                    <span className="text-[10px] text-slate-300 font-bold">MXN</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Formulario para agregar item a la Matriz OEM */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-3">
+            <h4 className="text-xs font-black text-slate-800 uppercase flex items-center gap-2">
+              <Plus className="w-4 h-4 text-emerald-600" /> Registrar Nueva Refacción OEM en Matriz
+            </h4>
+
+            <form onSubmit={handleAddOemPart} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-[9px] font-extrabold text-slate-400 uppercase mb-1">Cliente</label>
+                <input
+                  type="text"
+                  value={oemClient}
+                  onChange={e => setOemClient(e.target.value)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-extrabold text-slate-400 uppercase mb-1">Marca / Modelo</label>
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    value={oemBrand}
+                    onChange={e => setOemBrand(e.target.value)}
+                    placeholder="KAISER"
+                    className="w-1/2 text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none uppercase font-bold"
+                  />
+                  <input
+                    type="text"
+                    value={oemModel}
+                    onChange={e => setOemModel(e.target.value)}
+                    placeholder="AS 30 T"
+                    className="w-1/2 text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-extrabold text-slate-400 uppercase mb-1">Refacción / Descripción</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. F.AIRE, F ACEITE, LUBRICANTE"
+                  value={oemPartDesc}
+                  onChange={e => setOemPartDesc(e.target.value)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-extrabold text-slate-400 uppercase mb-1">No. Parte Original</label>
+                <input
+                  type="text"
+                  placeholder="Ej. 6.2000.0"
+                  value={oemPartNum}
+                  onChange={e => setOemPartNum(e.target.value)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-extrabold text-slate-400 uppercase mb-1">Cantidad</label>
+                <input
+                  type="text"
+                  value={oemQty}
+                  onChange={e => setOemQty(e.target.value)}
+                  placeholder="1 o 40 LTS"
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-extrabold text-slate-400 uppercase mb-1">OEM / Marca Genérica</label>
+                <input
+                  type="text"
+                  placeholder="Ej. KC160-017, KL320-014"
+                  value={oemGeneric}
+                  onChange={e => setOemGeneric(e.target.value)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-mono text-emerald-700 font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-extrabold text-slate-400 uppercase mb-1">Precio ($ USD)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={oemPrice}
+                  onChange={e => setOemPrice(Number(e.target.value))}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-extrabold text-slate-400 uppercase mb-1">% Incremento</label>
+                <input
+                  type="number"
+                  value={oemIncPct}
+                  onChange={e => setOemIncPct(Number(e.target.value))}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                />
+              </div>
+
+              <div className="col-span-full pt-1">
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs"
+                >
+                  + Agregar Fila a Matriz de Refacciones Andrea
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Tabla Estilo Excel Completa */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-3">
+            <div className="flex justify-between items-center">
+              <h4 className="text-xs font-black text-slate-800 uppercase flex items-center gap-2">
+                <Grid className="w-4 h-4 text-[#0196C1]" /> Refacciones y Equivalencias OEM Registradas ({oemCatalog.length} Ítems)
+              </h4>
+              <button
+                onClick={() => {
+                  const text = oemCatalog.map(item => `${item.clientName}\t${item.equipmentName}\t${item.brand}\t${item.model}\t${item.serialNumber}\t${item.partDescription}\t${item.partNumberOriginal}\t${item.quantity}\t${item.oemGenericBrandPart}\t$${item.price} USD`).join('\n');
+                  navigator.clipboard.writeText(text);
+                  alert('¡Tabla copiada al portapapeles!');
+                }}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5" /> Copiar Tabla Completa
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-800 text-white font-extrabold uppercase text-[10px]">
+                    <th className="py-2.5 px-3 border border-slate-700">CLIENTE</th>
+                    <th className="py-2.5 px-3 border border-slate-700">EQUIPO / MARCA</th>
+                    <th className="py-2.5 px-3 border border-slate-700">MODELO / SERIE</th>
+                    <th className="py-2.5 px-3 border border-slate-700">REFACCIONES</th>
+                    <th className="py-2.5 px-3 border border-slate-700">NO. PARTE ORIG.</th>
+                    <th className="py-2.5 px-3 border border-slate-700">CANT.</th>
+                    <th className="py-2.5 px-3 border border-slate-700 bg-emerald-900 text-emerald-200">OEM / GENÉRICA</th>
+                    <th className="py-2.5 px-3 border border-slate-700 text-right">PRECIO USD</th>
+                    <th className="py-2.5 px-3 border border-slate-700 text-center">% INCR.</th>
+                    <th className="py-2.5 px-3 border border-slate-700 text-right">SUGERIDO USD</th>
+                    <th className="py-2.5 px-3 border border-slate-700 text-right">PÚBLICO USD</th>
+                    <th className="py-2.5 px-3 border border-slate-700 text-right bg-sky-900 text-sky-200">PÚBLICO MXN</th>
+                    <th className="py-2.5 px-3 border border-slate-700 text-center">FECHA</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 text-slate-800">
+                  {oemCatalog.map((item, idx) => {
+                    const pricePublicUsd = item.publicPrice && item.publicPrice > 0 
+                      ? item.publicPrice 
+                      : (item.price * (1 + (item.incrementPercent || 0)/100));
+                    const priceMxn = pricePublicUsd * exchangeRate;
+
+                    return (
+                      <tr key={item.id} className={idx % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/70 hover:bg-slate-100'}>
+                        <td className="py-2 px-3 font-black text-slate-900 border border-slate-200">{item.clientName}</td>
+                        <td className="py-2 px-3 border border-slate-200">
+                          <span className="font-bold text-slate-800">{item.equipmentName}</span> <span className="text-[10px] text-slate-500 font-semibold">({item.brand})</span>
+                        </td>
+                        <td className="py-2 px-3 border border-slate-200 font-mono text-slate-600">
+                          {item.model} <span className="text-slate-400">/ S:{item.serialNumber}</span>
+                        </td>
+                        <td className="py-2 px-3 font-extrabold text-[#0196C1] border border-slate-200">{item.partDescription}</td>
+                        <td className="py-2 px-3 font-mono text-slate-700 border border-slate-200">{item.partNumberOriginal || '-'}</td>
+                        <td className="py-2 px-3 font-bold border border-slate-200">{item.quantity}</td>
+                        <td className="py-2 px-3 font-mono font-bold text-emerald-700 bg-emerald-50/60 border border-slate-200">
+                          {item.oemGenericBrandPart}
+                        </td>
+                        <td className="py-2 px-3 font-bold text-right border border-slate-200">
+                          {item.price > 0 ? `$${item.price.toFixed(2)}` : '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center border border-slate-200 font-bold text-slate-600">
+                          {item.incrementPercent ? `${item.incrementPercent}%` : '-'}
+                        </td>
+                        <td className="py-2 px-3 font-semibold text-right border border-slate-200 text-slate-600">
+                          {item.suggestedPrice && item.suggestedPrice > 0 ? `$${item.suggestedPrice.toFixed(2)}` : '-'}
+                        </td>
+                        <td className="py-2 px-3 font-black text-right border border-slate-200 text-emerald-800">
+                          {pricePublicUsd > 0 ? `$${pricePublicUsd.toFixed(2)}` : '-'}
+                        </td>
+                        <td className="py-2 px-3 font-black text-right border border-slate-200 bg-sky-50 text-sky-900">
+                          {priceMxn > 0 ? `$${priceMxn.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center font-mono text-[10px] text-slate-500 border border-slate-200">
+                          {item.date}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

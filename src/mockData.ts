@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Client, Equipment, HistoryItem, InventoryItem, Staff, WorkOrder, PurchaseOrder, ExpenseControl, Supplier, SupplierInvoice, PersonalDoc, CriticalPendingTask, Quote, CompanyTaxDoc, FailureIndicator, LaborRate } from './types';
+import { Client, Equipment, HistoryItem, InventoryItem, Staff, WorkOrder, PurchaseOrder, ExpenseControl, Supplier, SupplierInvoice, PersonalDoc, CriticalPendingTask, Quote, CompanyTaxDoc, FailureIndicator, LaborRate, OemCatalogItem } from './types';
 
 export const INITIAL_FAILURE_INDICATORS: FailureIndicator[] = [
   {
@@ -353,10 +353,41 @@ export const INITIAL_CLIENTS: Client[] = [
     contacts: [
       { name: 'Lic. Laura Garza', role: 'Supervisora de Operaciones', phone: '87-1122-3344', email: 'l.garza@lacteosnorte.com' }
     ]
+  },
+  {
+    id: 'c_andrea',
+    name: 'ANDREA (CALZADO ANDREA)',
+    companyName: 'CALZADO ANDREA S.A. DE C.V.',
+    rfc: 'CAN920101XX1',
+    email: 'mantenimiento@andrea.com',
+    phone: '477-710-1200',
+    plants: [
+      { id: 'p_andrea_1', name: 'Planta León (Calzado Andrea)', address: 'Blvd. Juan Alonso de Torres #1200', city: 'León, Gto.' }
+    ],
+    contacts: [
+      { name: 'Ing. Andrea / Depto. Mantenimiento', role: 'Supervisión de Planta', phone: '477-710-1200', email: 'mantenimiento@andrea.com' }
+    ]
   }
 ];
 
 export const INITIAL_EQUIPMENT: Equipment[] = [
+  {
+    id: 'eq_andrea_as30t',
+    clientId: 'c_andrea',
+    plantId: 'p_andrea_1',
+    name: 'Compresor Kaiser AS 30 T',
+    brand: 'KAISER / Kaeser',
+    model: 'AS 30 T',
+    serialNumber: '1030',
+    oilType: 'Lubricante Sintético (40L)',
+    capacity: '30 HP',
+    filtersRequired: 'F.Aire 6.2000.0, F.Aceite 6.1985.0, F.Separador 6.1963.0',
+    status: 'active',
+    lastMaintenance: '2026-06-25',
+    nextMaintenance: '2026-12-25',
+    engineHours: 9450,
+    type: 'compresor'
+  },
   {
     id: 'eq1',
     clientId: 'c1',
@@ -1132,6 +1163,156 @@ export const INITIAL_EXPENSE_CONTROL: ExpenseControl[] = [
     expenses: 0.00,
     utility: 29109.98,
     savings: 5822.00
+  }
+];
+
+export const INITIAL_OEM_PARTS_CATALOG: OemCatalogItem[] = [
+  {
+    id: 'oem_andrea_1',
+    clientName: 'ANDREA',
+    equipmentName: 'COMPRESOR',
+    brand: 'KAISER',
+    model: 'AS 30 T',
+    serialNumber: '1030',
+    partDescription: 'F.AIRE',
+    partNumberOriginal: '6.2000.0',
+    quantity: 1,
+    oemGenericBrandPart: 'KC160-017',
+    price: 84.35,
+    suggestedPrice: 0,
+    incrementPercent: 5,
+    publicPrice: 0,
+    currency: 'USD',
+    date: '2026-06-25'
+  },
+  {
+    id: 'oem_andrea_2',
+    clientName: 'ANDREA',
+    equipmentName: 'COMPRESOR',
+    brand: 'KAISER',
+    model: 'AS 30 T',
+    serialNumber: '1030',
+    partDescription: 'F ACEITE',
+    partNumberOriginal: '6.1985.0',
+    quantity: 1,
+    oemGenericBrandPart: 'KL320-014',
+    price: 20.25,
+    suggestedPrice: 0,
+    incrementPercent: 5,
+    publicPrice: 0,
+    currency: 'USD',
+    date: '2026-06-25'
+  },
+  {
+    id: 'oem_andrea_3',
+    clientName: 'ANDREA',
+    equipmentName: 'COMPRESOR',
+    brand: 'KAISER',
+    model: 'AS 30 T',
+    serialNumber: '1030',
+    partDescription: 'F. SEPARADOR',
+    partNumberOriginal: '6.1963.0',
+    quantity: 1,
+    oemGenericBrandPart: 'MV110-003',
+    price: 136.75,
+    suggestedPrice: 0,
+    incrementPercent: 5,
+    publicPrice: 0,
+    currency: 'USD',
+    date: '2026-06-25'
+  },
+  {
+    id: 'oem_andrea_4',
+    clientName: 'ANDREA',
+    equipmentName: 'COMPRESOR',
+    brand: 'KAISER',
+    model: 'AS 30 T',
+    serialNumber: '1030',
+    partDescription: 'V. PRES MIN',
+    partNumberOriginal: '4.7333.0',
+    quantity: 1,
+    oemGenericBrandPart: 'Genérica KAISER',
+    price: 0,
+    currency: 'USD',
+    date: '2026-06-25'
+  },
+  {
+    id: 'oem_andrea_5',
+    clientName: 'ANDREA',
+    equipmentName: 'COMPRESOR',
+    brand: 'KAISER',
+    model: 'AS 30 T',
+    serialNumber: '1030',
+    partDescription: 'V. ANTI RETORNO',
+    partNumberOriginal: '2.0701.0',
+    quantity: 1,
+    oemGenericBrandPart: 'Genérica KAISER',
+    price: 0,
+    currency: 'USD',
+    date: '2026-06-25'
+  },
+  {
+    id: 'oem_andrea_6',
+    clientName: 'ANDREA',
+    equipmentName: 'COMPRESOR',
+    brand: 'KAISER',
+    model: 'AS 30 T',
+    serialNumber: '1030',
+    partDescription: 'V. TERMOSTATICA',
+    partNumberOriginal: '7.0399.0',
+    quantity: 1,
+    oemGenericBrandPart: 'Genérica KAISER',
+    price: 0,
+    currency: 'USD',
+    date: '2026-06-25'
+  },
+  {
+    id: 'oem_andrea_7',
+    clientName: 'ANDREA',
+    equipmentName: 'COMPRESOR',
+    brand: 'KAISER',
+    model: 'AS 30 T',
+    serialNumber: '1030',
+    partDescription: 'V. LINEA BARRIDO',
+    partNumberOriginal: 'N/A',
+    quantity: 1,
+    oemGenericBrandPart: 'Genérica KAISER',
+    price: 0,
+    currency: 'USD',
+    date: '2026-06-25'
+  },
+  {
+    id: 'oem_andrea_8',
+    clientName: 'ANDREA',
+    equipmentName: 'COMPRESOR',
+    brand: 'KAISER',
+    model: 'AS 30 T',
+    serialNumber: '1030',
+    partDescription: 'V. ADMISION',
+    partNumberOriginal: 'N/A',
+    quantity: 1,
+    oemGenericBrandPart: 'Genérica KAISER',
+    price: 0,
+    currency: 'USD',
+    date: '2026-06-25'
+  },
+  {
+    id: 'oem_andrea_9',
+    clientName: 'ANDREA',
+    equipmentName: 'COMPRESOR',
+    brand: 'KAISER',
+    model: 'AS 30 T',
+    serialNumber: '1030',
+    partDescription: 'LUBRICANTE',
+    partNumberOriginal: 'KAOA467C-05',
+    quantity: '40 LTS',
+    oemGenericBrandPart: 'KAOA467C-05',
+    price: 410.00,
+    suggestedPrice: 533.00,
+    incrementPercent: 0,
+    publicPrice: 559.65,
+    currency: 'USD',
+    date: '2026-06-25'
   }
 ];
 
