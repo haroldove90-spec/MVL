@@ -10,18 +10,20 @@ import {
   MapPin, UserCheck, AlertCircle, FileEdit, Eye, Check,
   BookOpen, HelpCircle, Lightbulb, PlayCircle, ChevronRight, Wrench, ShieldCheck
 } from 'lucide-react';
+import SalesQuoteModule from './SalesQuoteModule';
 
 interface CoordinatorDashboardProps {
   workOrders: WorkOrder[];
   setWorkOrders: React.Dispatch<React.SetStateAction<WorkOrder[]>>;
   staff: Staff[];
   clients: Client[];
+  setClients?: React.Dispatch<React.SetStateAction<Client[]>>;
   equipment: Equipment[];
   inventory: InventoryItem[];
   setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
   onOpenReport: (ot: WorkOrder) => void;
-  statusFilter?: 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial';
-  setStatusFilter?: (val: 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial') => void;
+  statusFilter?: 'quotes' | 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial';
+  setStatusFilter?: (val: 'quotes' | 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial') => void;
 }
 
 export default function CoordinatorDashboard({
@@ -29,6 +31,7 @@ export default function CoordinatorDashboard({
   setWorkOrders,
   staff,
   clients,
+  setClients,
   equipment,
   inventory,
   setInventory,
@@ -46,7 +49,7 @@ export default function CoordinatorDashboard({
   const [observations, setObservations] = useState('');
 
   // Active filter with parent-control fallback
-  const [localStatusFilter, setLocalStatusFilter] = useState<'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial'>('all');
+  const [localStatusFilter, setLocalStatusFilter] = useState<'quotes' | 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial'>('all');
   const statusFilter = propStatusFilter !== undefined ? propStatusFilter : localStatusFilter;
   const setStatusFilter = propSetStatusFilter !== undefined ? propSetStatusFilter : setLocalStatusFilter;
 
@@ -132,6 +135,18 @@ export default function CoordinatorDashboard({
       return o;
     }));
   };
+
+  if (statusFilter === 'quotes') {
+    return (
+      <SalesQuoteModule
+        clients={clients}
+        setClients={setClients || (() => {})}
+        equipment={equipment}
+        inventory={inventory}
+        staff={staff}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

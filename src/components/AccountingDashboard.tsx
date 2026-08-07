@@ -8,21 +8,27 @@ import { Client, CompanyTaxDoc, Quote, WorkOrder } from '../types';
 import { INITIAL_COMPANY_TAX_DOCS, INITIAL_QUOTES, loadFromStorage, saveToStorage } from '../mockData';
 import { 
   FileCheck, ShieldAlert, Upload, CheckCircle2, AlertTriangle, 
-  Building2, Plus, Send, FileText, Clock, Calendar, Check, Search, Download
+  Building2, Plus, Send, FileText, Clock, Calendar, Check, Search, Download, BookOpen
 } from 'lucide-react';
 
 interface AccountingDashboardProps {
   clients: Client[];
   setClients: React.Dispatch<React.SetStateAction<Client[]>>;
   workOrders: WorkOrder[];
+  activeTab?: 'fiscal_mvl' | 'billing' | 'clients_fiscal' | 'tutorial';
+  setActiveTab?: (val: 'fiscal_mvl' | 'billing' | 'clients_fiscal' | 'tutorial') => void;
 }
 
 export default function AccountingDashboard({
   clients,
   setClients,
-  workOrders
+  workOrders,
+  activeTab: propActiveTab,
+  setActiveTab: propSetActiveTab
 }: AccountingDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'fiscal_mvl' | 'billing' | 'clients_fiscal'>('fiscal_mvl');
+  const [localActiveTab, setLocalActiveTab] = useState<'fiscal_mvl' | 'billing' | 'clients_fiscal' | 'tutorial'>('fiscal_mvl');
+  const activeTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
+  const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
 
   // Company Tax Documents State
   const [taxDocs, setTaxDocs] = useState<CompanyTaxDoc[]>(() => 
@@ -120,45 +126,6 @@ export default function AccountingDashboard({
             <span>Expediente Fiscal 100% Al Día</span>
           </div>
         )}
-      </div>
-
-      {/* Navigation Tabs */}
-      <div className="flex border-b border-slate-200 gap-2 overflow-x-auto pb-1">
-        <button
-          onClick={() => setActiveTab('fiscal_mvl')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'fiscal_mvl'
-              ? 'bg-white border-t-2 border-x border-[#0196C1] text-[#0196C1] shadow-xs'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <FileCheck className="w-4 h-4" />
-          Módulo 3.1: Expediente Fiscal MVL
-        </button>
-
-        <button
-          onClick={() => setActiveTab('billing')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'billing'
-              ? 'bg-white border-t-2 border-x border-[#0196C1] text-[#0196C1] shadow-xs'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          Módulo 3.2: Facturación & Cotizaciones/OC
-        </button>
-
-        <button
-          onClick={() => setActiveTab('clients_fiscal')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'clients_fiscal'
-              ? 'bg-white border-t-2 border-x border-[#0196C1] text-[#0196C1] shadow-xs'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          Alta Fiscal de Clientes & Crédito
-        </button>
       </div>
 
       {/* Tab 3.1: Expediente Fiscal MVL */}
@@ -363,6 +330,39 @@ export default function AccountingDashboard({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 3.4: Tutorial & Guía Contable */}
+      {activeTab === 'tutorial' && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-4">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+            <div className="p-2.5 bg-[#0196C1]/10 rounded-xl text-[#0196C1]">
+              <BookOpen className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-slate-800">Guía del Módulo Contable & SAT</h3>
+              <p className="text-xs text-slate-500">Manejo de opiniones del SAT, emisión de comprobantes fiscales y gestión crediticia.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/70 space-y-2">
+              <span className="text-[10px] font-black uppercase text-[#0196C1] bg-sky-100 px-2 py-0.5 rounded">Paso 1</span>
+              <h4 className="text-xs font-bold text-slate-800">1. Expediente Fiscal MVL</h4>
+              <p className="text-[11px] text-slate-600">Mantenga vigentes las opiniones de cumplimiento del SAT, constancias RFC y pólizas de seguro de responsabilidad.</p>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/70 space-y-2">
+              <span className="text-[10px] font-black uppercase text-[#0196C1] bg-sky-100 px-2 py-0.5 rounded">Paso 2</span>
+              <h4 className="text-xs font-bold text-slate-800">2. Facturación sobre OT / Cotización</h4>
+              <p className="text-[11px] text-slate-600">Generación y timbrado directo de facturas ligadas a folios aprobados por coordinadores y dirección.</p>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/70 space-y-2">
+              <span className="text-[10px] font-black uppercase text-[#0196C1] bg-sky-100 px-2 py-0.5 rounded">Paso 3</span>
+              <h4 className="text-xs font-bold text-slate-800">3. Control de Crédito y Pagos</h4>
+              <p className="text-[11px] text-slate-600">Verifique los días de crédito autorizados y el estatus de las facturas timbradas por cliente.</p>
+            </div>
           </div>
         </div>
       )}
