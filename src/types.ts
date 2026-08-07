@@ -88,6 +88,8 @@ export interface Quote {
   total: number;
   status: 'draft' | 'sent' | 'approved' | 'rejected' | 'discount_requested' | 'denied';
   quoteType?: 'vendedor' | 'cliente' | 'publico';
+  quoteCategory?: 'standard' | 'poliza' | 'suministro_instalacion';
+  policyType?: 'poliza_a' | 'poliza_b';
   publicClientName?: string; // Para Venta Público
   discountRequested?: number;
   mvlDocsRequested?: boolean; // Solicitar a Contabilidad documentos fiscales de MVL
@@ -102,6 +104,19 @@ export interface Quote {
   crmGiro?: string;
   whatsapp?: string;
   itemsTable?: QuoteItem[];
+  supplyInstallationDetails?: {
+    equipmentItems: QuoteItem[];
+    electricalItems: QuoteItem[];
+    scopeList: string[];
+  };
+  policyDetails?: {
+    policyType: 'poliza_a' | 'poliza_b';
+    visitsPerYear: number;
+    priorityHighHours: number;
+    priorityMidHours: number;
+    priorityLowDays: number;
+    scopeList?: string[];
+  };
   equipmentDetails?: {
     brand: string;
     model: string;

@@ -185,7 +185,100 @@ export const INITIAL_QUOTES: Quote[] = [
     tax: 6160,
     total: 44660,
     status: 'approved',
-    mvlDocsRequested: true
+    mvlDocsRequested: true,
+    quoteCategory: 'standard'
+  },
+  {
+    id: 'q_poliza_sample',
+    folNum: '040326GNG',
+    clientId: 'c2',
+    clientName: 'GUALA DISPENSING MEXICO SA DE CV',
+    date: '2026-03-04',
+    validUntil: '2026-04-14',
+    concept: 'Cotización de Póliza de Mantenimiento Anual Equipos de Climatización (Póliza Tipo A)',
+    subtotal: 112122,
+    tax: 17939.52,
+    total: 130061.52,
+    status: 'approved',
+    quoteType: 'vendedor',
+    quoteCategory: 'poliza',
+    policyType: 'poliza_a',
+    agentName: 'Ing. Leonardo Daniel Torres',
+    plantName: 'Planta Silao',
+    policyDetails: {
+      policyType: 'poliza_a',
+      visitsPerYear: 3,
+      priorityHighHours: 12,
+      priorityMidHours: 72,
+      priorityLowDays: 20
+    },
+    itemsTable: [
+      { partida: 1, description: 'Mantenimiento preventivo Minisplit 1 a 1.5 TR Alta prioridad', brand: 'Kaeser / Clima', quantity: 3, partNumber: 'POL-01', catalogPrice: 1550, total: 13950, deliveryTime: 'A programar' },
+      { partida: 2, description: 'Mantenimiento preventivo Minisplit 2 a 3 TR Alta prioridad', brand: 'Kaeser / Clima', quantity: 1, partNumber: 'POL-02', catalogPrice: 1900, total: 5700, deliveryTime: 'A programar' },
+      { partida: 3, description: 'Mantenimiento preventivo UPA de 4 a 10 TR Alta prioridad', brand: 'Clima Ind', quantity: 2, partNumber: 'POL-03', catalogPrice: 3262, total: 19572, deliveryTime: 'A programar' },
+      { partida: 4, description: 'Mantenimiento preventivo Minisplit 1 a 1.5 TR Baja prioridad', brand: 'Kaeser / Clima', quantity: 14, partNumber: 'POL-04', catalogPrice: 1200, total: 33600, deliveryTime: 'A programar' },
+      { partida: 5, description: 'Mantenimiento preventivo Minisplit 2 a 3 TR Baja prioridad', brand: 'Kaeser / Clima', quantity: 5, partNumber: 'POL-05', catalogPrice: 1680, total: 16800, deliveryTime: 'A programar' },
+      { partida: 6, description: 'Mantenimiento preventivo UPA de 4 a 10 TR Baja prioridad', brand: 'Clima Ind', quantity: 5, partNumber: 'POL-06', catalogPrice: 2250, total: 22500, deliveryTime: 'A programar' }
+    ]
+  },
+  {
+    id: 'q_suministro_sample',
+    folNum: 'M2-1326-GNG',
+    clientId: 'c2',
+    clientName: 'GUALA DISPENSING / Ing. Sergio Molina',
+    date: '2026-05-13',
+    validUntil: '2026-06-13',
+    concept: 'Cotización de Suministro e Instalación de Mini Split YORK 1 TR Frío 220VAC & Canalización Eléctrica',
+    subtotal: 71639,
+    tax: 11462.24,
+    total: 83101.24,
+    status: 'approved',
+    quoteType: 'vendedor',
+    quoteCategory: 'suministro_instalacion',
+    agentName: 'Ing. Leonardo Daniel Torres',
+    plantName: 'Planta Silao / Oficina Compras',
+    supplyInstallationDetails: {
+      equipmentItems: [
+        { partida: 1, description: 'Suministro minisplit 1 TR frío 220vac', brand: 'YORK', quantity: 1, partNumber: 'SOLO FRIO', catalogPrice: 17409.28, total: 17409.28, deliveryTime: '1 a 4 semanas' },
+        { partida: 2, description: 'Suministro de bomba de dren de condensados', brand: 'COLDTEK', quantity: 1, partNumber: 'N/A', catalogPrice: 2500, total: 2500, deliveryTime: '1 a 4 semanas' },
+        { partida: 3, description: 'Instalación y preparación para bomba de dren', brand: 'MVL', quantity: 1, partNumber: 'N/A', catalogPrice: 1600, total: 1600, deliveryTime: 'INMEDIATO' },
+        { partida: 4, description: 'Instalación de unidad evaporadora y condensadora', brand: 'MVL', quantity: 1, partNumber: 'N/A', catalogPrice: 5000, total: 5000, deliveryTime: 'INMEDIATO' },
+        { partida: 5, description: 'Servicio de presurización con nitrógeno', brand: 'MVL', quantity: 1, partNumber: 'N/A', catalogPrice: 1200, total: 1200, deliveryTime: 'INMEDIATO' },
+        { partida: 6, description: 'Revisión de estanquedad', brand: 'MVL', quantity: 1, partNumber: 'N/A', catalogPrice: 500, total: 500, deliveryTime: 'INMEDIATO' },
+        { partida: 7, description: 'Compensación de gas refrigerante R-32', brand: 'MVL', quantity: 2, partNumber: 'N/A', catalogPrice: 1500, total: 3000, deliveryTime: 'INMEDIATO' },
+        { partida: 8, description: 'Ajuste de cálculo sobrecalentamiento y subenfriamiento', brand: 'MVL', quantity: 1, partNumber: 'N/A', catalogPrice: 850, total: 850, deliveryTime: 'INMEDIATO' },
+        { partida: 9, description: 'Servicio de tubería de cobre y canalización', brand: 'MIRAGE', quantity: 2, partNumber: 'N/A', catalogPrice: 1500, total: 3000, deliveryTime: 'INMEDIATO' },
+        { partida: 10, description: 'Ménsula pared para condensador e instalación', brand: 'MVL', quantity: 1, partNumber: 'N/A', catalogPrice: 3350, total: 3350, deliveryTime: 'INMEDIATO' }
+      ],
+      electricalItems: [
+        { partida: 1, description: 'Tubería 3/4 pared delgada', brand: 'OMEGA', quantity: 24, partNumber: 'N/A', catalogPrice: 209.04, total: 5016.96, deliveryTime: 'INMEDIATO' },
+        { partida: 2, description: 'Cable eléctrico 10 AWG 160 mts', brand: 'INDIANA', quantity: 1, partNumber: 'N/A', catalogPrice: 5270, total: 5270, deliveryTime: 'INMEDIATO' },
+        { partida: 3, description: 'Cable eléctrico 12 AWG 80 mts', brand: 'INDIANA', quantity: 1, partNumber: 'N/A', catalogPrice: 2100, total: 2100, deliveryTime: 'INMEDIATO' },
+        { partida: 4, description: 'Condulet OLB 13 mm pared delgada', brand: 'OMEGA', quantity: 12, partNumber: 'N/A', catalogPrice: 260, total: 3120, deliveryTime: 'INMEDIATO' },
+        { partida: 5, description: 'Cople y Conector 13 mm pared delgada (24 pzas c/u)', brand: 'OMEGA', quantity: 2, partNumber: 'N/A', catalogPrice: 1020, total: 2040, deliveryTime: 'INMEDIATO' },
+        { partida: 6, description: 'Interruptor 20 amp 2 polos SQD y Condulet C', brand: 'SQD/OMEGA', quantity: 1, partNumber: 'N/A', catalogPrice: 2096.56, total: 2096.56, deliveryTime: 'INMEDIATO' },
+        { partida: 7, description: 'Soportería e insumos', brand: 'N/A', quantity: 1, partNumber: 'N/A', catalogPrice: 1500, total: 1500, deliveryTime: '1 a 2 días' },
+        { partida: 8, description: 'Canalización y mano de obra eléctrica', brand: 'MVL', quantity: 1, partNumber: 'N/A', catalogPrice: 12086.20, total: 12086.20, deliveryTime: '1 semana' }
+      ],
+      scopeList: [
+        '1. Suministro de equipo mini-split.',
+        '2. Instalación de evaporadora.',
+        '3. Instalación de condensadora.',
+        '4. Instalación de bomba de condensados.',
+        '5. Canalización de servicio de dren de condensados.',
+        '6. Canalización de servicio de tubería cobre.',
+        '7. Canalización de servicio eléctrico.',
+        '8. Pruebas de hermeticidad de tubería con nitrógeno.',
+        '9. Procedimiento de alto vacío en tubería para asegurar y alargar la vida útil del equipo hasta 250 Micrones.',
+        '10. Compensación de gas refrigerante con cálculos de sobre calentamiento y sub enfriamiento.',
+        '11. Pruebas de flujo de aire con anemómetro y termómetro.',
+        '12. Recomendaciones de servicios preventivos posteriores.',
+        '13. Canalización e instalación de tubería eléctrica pared delgada.',
+        '14. Suministro e instalación de termomagnético 20 * 2 SQUARED.',
+        '15. Canalización de cable eléctrico 10 AWG en tubería con tierra física 3 hilos.',
+        '16. Conexión de uso rudo a mini Split. Condulet LB'
+      ]
+    }
   },
   {
     id: 'q2',
@@ -199,21 +292,8 @@ export const INITIAL_QUOTES: Quote[] = [
     tax: 3072,
     total: 22272,
     status: 'sent',
-    mvlDocsRequested: false
-  },
-  {
-    id: 'q3',
-    folNum: 'COT-2026-003',
-    clientId: 'c1',
-    clientName: 'Grupo Industrial Monterrey',
-    date: '2026-07-26',
-    validUntil: '2026-08-26',
-    concept: 'Auditoría de Fugas Neumáticas y Calibración de Presiones',
-    subtotal: 12000,
-    tax: 1920,
-    total: 13920,
-    status: 'discount_requested',
-    discountRequested: 10
+    mvlDocsRequested: false,
+    quoteCategory: 'standard'
   }
 ];
 
