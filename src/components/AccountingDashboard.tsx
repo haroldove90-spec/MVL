@@ -231,47 +231,73 @@ export default function AccountingDashboard({
       {/* Tab 3.2: Facturación & Cotizaciones / OC */}
       {activeTab === 'billing' && (
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-5">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3">
             <div>
-              <h3 className="text-sm font-extrabold text-slate-800">Emisión y Registro de Facturas a Clientes</h3>
-              <p className="text-[11px] text-slate-400">Enlazado directamente con Cotizaciones y Órdenes de Compra (OC)</p>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-[#0196C1] uppercase bg-sky-50 px-2 py-0.5 rounded">
+                  Módulo 4: Integración Posventa
+                </span>
+                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-lg">
+                  {sentInvoices.length} Facturas Timbradas
+                </span>
+              </div>
+              <h3 className="text-sm font-extrabold text-slate-800 mt-1">Bandeja de Solicitudes Previas de Facturación & Emisión SAT</h3>
+              <p className="text-[11px] text-slate-400">Recepción automática de cotizaciones aprobadas con desglose de partidas, RFC y condiciones de crédito.</p>
             </div>
-            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg">
-              {sentInvoices.length} Facturas Emitidas
-            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {quotes.map(q => {
               const client = clients.find(c => c.id === q.clientId);
               const sentInv = sentInvoices.find(si => si.quoteId === q.id);
+              const isApproved = q.status === 'approved' || !!q.preBillingRequest;
 
               return (
-                <div key={q.id} className="p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80 space-y-3">
+                <div key={q.id} className={`p-4 rounded-2xl border space-y-3 transition-all ${
+                  isApproved && !sentInv ? 'bg-sky-50/40 border-[#0196C1]/40 shadow-xs' : 'bg-slate-50/70 border-slate-200/80'
+                }`}>
                   <div className="flex justify-between items-start">
                     <div>
-                      <span className="text-[10px] font-extrabold text-[#0196C1] uppercase bg-sky-50 px-2 py-0.5 rounded">
-                        {q.folNum}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-black text-[#0196C1] uppercase bg-white border border-[#0196C1]/30 px-2 py-0.5 rounded">
+                          {q.folNum}
+                        </span>
+                        {isApproved && !sentInv && (
+                          <span className="text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded animate-pulse">
+                            ⚡ Solicitud Previa Activa
+                          </span>
+                        )}
+                      </div>
                       <h4 className="text-sm font-bold text-slate-800 mt-1">{q.concept}</h4>
-                      <p className="text-xs text-slate-600 font-medium">Cliente: {q.clientName}</p>
+                      <p className="text-xs text-slate-600 font-medium">Cliente: <strong>{q.clientName}</strong></p>
                     </div>
                     <div className="text-right">
-                      <span className="text-sm font-extrabold text-slate-800 block">${q.total.toLocaleString('es-MX')} MXN</span>
-                      <span className="text-[10px] text-slate-400">IVA Inc.</span>
+                      <span className="text-sm font-black text-slate-800 block">${q.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
+                      <span className="text-[9px] text-slate-400">IVA Inc. (Subtotal: ${q.subtotal.toLocaleString('es-MX')})</span>
                     </div>
                   </div>
 
-                  <div className="text-xs text-slate-500 border-t border-slate-200/60 pt-2 flex justify-between items-center">
-                    <span>RFC Cliente: <strong>{client?.rfc || 'GIM920412H89'}</strong></span>
-                    <span>Estatus Cotización: <strong className="uppercase text-[#0196C1]">{q.status}</strong></span>
+                  <div className="text-xs text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200/70 grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="block text-[9px] font-bold text-slate-400 uppercase">RFC Facturación:</span>
+                      <strong className="text-slate-800 font-mono">{client?.rfc || 'XAXX010101000'}</strong>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] font-bold text-slate-400 uppercase">Crédito Comercial:</span>
+                      <strong className="text-slate-800">30 Días (Orden de Compra)</strong>
+                    </div>
+                    {q.itemsTable && q.itemsTable.length > 0 && (
+                      <div className="col-span-2 pt-1 border-t border-slate-100 text-[10px] text-slate-500">
+                        <span>Partidas a Facturar: <strong>{q.itemsTable.length} conceptos</strong> ({q.itemsTable.map(i => i.description).slice(0, 2).join(', ')}{q.itemsTable.length > 2 ? '...' : ''})</span>
+                      </div>
+                    )}
                   </div>
 
                   {sentInv ? (
                     <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl flex justify-between items-center text-xs text-emerald-900 font-bold">
                       <div className="flex items-center gap-1.5">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>Factura Emitida: {sentInv.invoiceNum}</span>
+                        <span>Factura Timbrada: {sentInv.invoiceNum}</span>
                       </div>
                       <span className="text-[10px] text-emerald-700">Vence: {sentInv.dueDate}</span>
                     </div>
@@ -279,9 +305,9 @@ export default function AccountingDashboard({
                     <div className="pt-1 flex gap-2">
                       <button
                         onClick={() => handleIssueInvoice(q)}
-                        className="flex-1 py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                        className="flex-1 py-2.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-black rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-1.5 transition-all"
                       >
-                        <Send className="w-3.5 h-3.5" /> Generar & Enviar Factura SAT
+                        <Send className="w-3.5 h-3.5" /> Timbrar y Enviar Factura CFDI al Cliente
                       </button>
                     </div>
                   )}

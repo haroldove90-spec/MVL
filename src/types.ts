@@ -69,10 +69,14 @@ export interface QuoteItem {
   description: string;
   brand: string;
   quantity: number;
+  unit?: string; // pza, lts, kit, servicio, etc.
   partNumber: string;
   catalogPrice: number;
   total: number;
   deliveryTime: string;
+  inStock?: boolean;
+  stockQty?: number;
+  isCustomPriceRequest?: boolean;
 }
 
 export interface Quote {
@@ -88,14 +92,20 @@ export interface Quote {
   total: number;
   status: 'draft' | 'sent' | 'approved' | 'rejected' | 'discount_requested' | 'denied';
   quoteType?: 'vendedor' | 'cliente' | 'publico';
+  quoteOrigin?: 'nuevo' | 'registrado' | 'publico_general';
   quoteCategory?: 'standard' | 'poliza' | 'suministro_instalacion';
   policyType?: 'poliza_a' | 'poliza_b';
+  serviceTypeCategory?: 'preventivo' | 'correctivo' | 'predictivo' | 'suministro_refacciones' | 'personalizado';
+  customServicePriceRequested?: boolean;
   publicClientName?: string; // Para Venta Público
   discountRequested?: number;
+  discountApproved?: boolean;
   mvlDocsRequested?: boolean; // Solicitar a Contabilidad documentos fiscales de MVL
+  commercialConditions?: string;
+  deliveryLeadTime?: string;
   reasonDenied?: 'cambio_admin' | 'no_contesto' | 'cambio_maquina' | 'otros';
   deniedReasonDetails?: string;
-  missingPricesList?: { description: string; partNumber?: string; requestedPrice?: number }[];
+  missingPricesList?: { description: string; partNumber?: string; requestedPrice?: number; approved?: boolean }[];
   plantAccessReqs?: PlantAccessRequirements;
   poPdfUrl?: string;
   clientPoNumber?: string;
@@ -103,6 +113,7 @@ export interface Quote {
   plantName?: string;
   crmGiro?: string;
   whatsapp?: string;
+  clientEmail?: string;
   itemsTable?: QuoteItem[];
   supplyInstallationDetails?: {
     equipmentItems: QuoteItem[];
@@ -118,12 +129,21 @@ export interface Quote {
     scopeList?: string[];
   };
   equipmentDetails?: {
+    equipmentType?: 'Compresor' | 'Secador' | 'Aire Acondicionado' | 'Otros';
     brand: string;
     model: string;
-    serialNumber: string;
-    capacity: string;
-    serviceType: 'preventivo_2000' | 'preventivo_4000' | 'preventivo_6000' | 'correctivo' | 'otros';
-    mode: 'venta' | 'renta';
+    serialNumber?: string;
+    capacity?: string;
+    voltage?: string; // 220V, 440V, 110V
+    serviceType?: string;
+    mode?: 'venta' | 'renta' | 'servicio';
+  };
+  preBillingRequest?: {
+    requestedAt: string;
+    status: 'pending' | 'invoiced';
+    invoiceNumber?: string;
+    invoiceDate?: string;
+    creditDays: number;
   };
 }
 
