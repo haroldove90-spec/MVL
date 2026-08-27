@@ -64,18 +64,33 @@ export interface PlantAccessRequirements {
   approvedByRH?: boolean;
 }
 
+export interface IssuerPartner {
+  id: string;
+  name: string;
+  businessName: string; // Razón Social oficial
+  rfc: string;
+  taxRegime: string;
+  address: string;
+  phone: string;
+  email: string;
+  logoUrl?: string;
+  digitalSignatureUrl?: string;
+  roleDescription: string;
+}
+
 export interface QuoteItem {
   partida: number;
   description: string;
   brand: string;
   quantity: number;
-  unit?: string; // pza, lts, kit, servicio, etc.
+  unit?: string; // pza, lts, kit, servicio, tramo, cubeta, etc.
   partNumber: string;
   catalogPrice: number;
   total: number;
   deliveryTime: string;
   inStock?: boolean;
   stockQty?: number;
+  compatibleCodes?: { code: string; brand: string }[];
   isCustomPriceRequest?: boolean;
 }
 
@@ -93,9 +108,10 @@ export interface Quote {
   status: 'draft' | 'sent' | 'approved' | 'rejected' | 'discount_requested' | 'denied';
   quoteType?: 'vendedor' | 'cliente' | 'publico';
   quoteOrigin?: 'nuevo' | 'registrado' | 'publico_general';
-  quoteCategory?: 'standard' | 'poliza' | 'suministro_instalacion';
+  quoteCategory?: 'standard' | 'poliza' | 'suministro_instalacion' | 'personalizado';
   policyType?: 'poliza_a' | 'poliza_b';
   serviceTypeCategory?: 'preventivo' | 'correctivo' | 'predictivo' | 'suministro_refacciones' | 'personalizado';
+  serviceHours?: '2k' | '4k' | '6k' | '8k' | '16k' | 'otro';
   customServicePriceRequested?: boolean;
   publicClientName?: string; // Para Venta Público
   discountRequested?: number;
@@ -109,6 +125,8 @@ export interface Quote {
   plantAccessReqs?: PlantAccessRequirements;
   poPdfUrl?: string;
   clientPoNumber?: string;
+  poApprovalDate?: string;
+  poApprovalStatus?: 'approved' | 'rejected' | 'pending';
   agentName?: string;
   plantName?: string;
   crmGiro?: string;
@@ -137,7 +155,14 @@ export interface Quote {
     voltage?: string; // 220V, 440V, 110V
     serviceType?: string;
     mode?: 'venta' | 'renta' | 'servicio';
+    dataPlatePhotoUrl?: string;
+    manualPdfUrl?: string;
   };
+  issuerPartnerId?: string;
+  issuerPartnerName?: string;
+  issuerPartnerRfc?: string;
+  issuerPartnerBusinessName?: string;
+  issuerSignatureName?: string;
   preBillingRequest?: {
     requestedAt: string;
     status: 'pending' | 'invoiced';
@@ -145,6 +170,9 @@ export interface Quote {
     invoiceDate?: string;
     creditDays: number;
   };
+  monthClosed?: boolean;
+  monthClosedPeriod?: string;
+  projectExpenses?: { id: string; concept: string; amount: number; category: string; date: string }[];
 }
 
 export interface CompanyTaxDoc {
@@ -284,6 +312,8 @@ export interface InventoryItem {
   createdByName?: string;
   specText?: string;
   compatiblePartNumbers?: string[];
+  compatibleCodes?: { code: string; brand: string; notes?: string }[];
+  unit?: string;
 }
 
 export interface LaborRate {
@@ -299,7 +329,7 @@ export interface Staff {
   id: string;
   name: string;
   role: 'admin' | 'coordinator' | 'technician' | 'sales' | 'rh' | 'warehouse';
-  customJobTitle?: string; // Vendedor, RH, Almacenista, etc.
+  customJobTitle?: string; // Vendedor, RH, Almacenista, etc. (libre)
   email: string;
   phone: string;
   personalPhone?: string;
@@ -316,10 +346,37 @@ export interface FailureIndicator {
   id: string;
   equipmentName: string;
   brand: string;
+  clientId?: string;
+  clientName?: string;
+  plantName?: string;
   failureType: 'temperatura' | 'presión' | 'electrica' | 'fuga' | 'mecanica';
   frequency: number;
   lastOccurrence: string;
   recommendation: string;
+}
+
+export interface MonthlyClosing {
+  id: string;
+  period: string; // e.g. "Agosto 2026"
+  year: number;
+  month: number;
+  closedAt: string;
+  closedBy: string;
+  totalIncome: number;
+  totalExpenses: number;
+  netProfit: number;
+  savingsAmount: number;
+  closedProjectsCount: number;
+  pendingProjectsCount: number;
+  projects: {
+    quoteFolNum: string;
+    clientName: string;
+    concept: string;
+    income: number;
+    expenses: number;
+    utility: number;
+    status: 'closed' | 'in_progress';
+  }[];
 }
 
 export interface FinancialMetric {

@@ -3,22 +3,67 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Client, Equipment, HistoryItem, InventoryItem, Staff, WorkOrder, PurchaseOrder, ExpenseControl, Supplier, SupplierInvoice, PersonalDoc, CriticalPendingTask, Quote, CompanyTaxDoc, FailureIndicator, LaborRate, OemCatalogItem } from './types';
+import { Client, Equipment, HistoryItem, InventoryItem, Staff, WorkOrder, PurchaseOrder, ExpenseControl, Supplier, SupplierInvoice, PersonalDoc, CriticalPendingTask, Quote, CompanyTaxDoc, FailureIndicator, LaborRate, OemCatalogItem, IssuerPartner, MonthlyClosing } from './types';
+
+export const INITIAL_ISSUER_PARTNERS: IssuerPartner[] = [
+  {
+    id: 'partner_1',
+    name: 'Víctor Pedro Ramírez Barrios',
+    businessName: 'VÍCTOR PEDRO RAMÍREZ BARRIOS',
+    rfc: 'RABV891002TF6',
+    taxRegime: '612 - Personas Físicas con Actividades Empresariales y Profesionales',
+    address: 'Blvd. Juan Alonso de Torres Pte. 1435, Col. Panorama, C.P. 37160, León, Gto.',
+    phone: '477-390-8812',
+    email: 'victor.ramirez@mvlmaquinaria.com',
+    roleDescription: 'Socio Fundador & Dirección Operativa',
+    digitalSignatureUrl: 'https://api.dicebear.com/7.x/initials/svg?seed=VR'
+  },
+  {
+    id: 'partner_2',
+    name: 'Ing. Leonardo Daniel Torres',
+    businessName: 'ING. LEONARDO DANIEL TORRES',
+    rfc: 'TODL850415AA2',
+    taxRegime: '612 - Personas Físicas con Actividades Empresariales',
+    address: 'Av. Paseo del Moral 214, Jardines del Moral, C.P. 37160, León, Gto.',
+    phone: '477-845-9920',
+    email: 'leonardo.torres@mvlmaquinaria.com',
+    roleDescription: 'Socio Director Técnico & Proyectos',
+    digitalSignatureUrl: 'https://api.dicebear.com/7.x/initials/svg?seed=LT'
+  },
+  {
+    id: 'partner_3',
+    name: 'MVL Maquinaria y Servicios Industriales S.A. de C.V.',
+    businessName: 'MVL MAQUINARIA Y SERVICIOS INDUSTRIALES S.A. DE C.V.',
+    rfc: 'MMS190320TK4',
+    taxRegime: '601 - General de Ley Personas Morales',
+    address: 'Parque Industrial Las Colinas, Calle Silao 402, C.P. 36275, Silao / León, Gto.',
+    phone: '477-710-9900',
+    email: 'administracion@mvlmaquinaria.com',
+    roleDescription: 'Razón Social Corporativa / Dirección General',
+    digitalSignatureUrl: 'https://api.dicebear.com/7.x/initials/svg?seed=MVL'
+  }
+];
 
 export const INITIAL_FAILURE_INDICATORS: FailureIndicator[] = [
   {
     id: 'fi1',
     equipmentName: 'Compresor Kaeser BSD 50',
     brand: 'Kaeser',
+    clientId: 'c1',
+    clientName: 'Grupo Industrial Monterrey',
+    plantName: 'Planta Apodaca',
     failureType: 'temperatura',
     frequency: 4,
     lastOccurrence: '2026-07-10',
-    recommendation: 'Limpieza de radiador sustitución de aceite Sigma S-460'
+    recommendation: 'Limpieza de radiador y sustitución de aceite Sigma S-460'
   },
   {
     id: 'fi2',
     equipmentName: 'Secador Atlas Copco FX12',
     brand: 'Atlas Copco',
+    clientId: 'c1',
+    clientName: 'Grupo Industrial Monterrey',
+    plantName: 'Planta Apodaca',
     failureType: 'fuga',
     frequency: 2,
     lastOccurrence: '2026-06-28',
@@ -28,10 +73,25 @@ export const INITIAL_FAILURE_INDICATORS: FailureIndicator[] = [
     id: 'fi3',
     equipmentName: 'Compresor Sullair 3700',
     brand: 'Sullair',
+    clientId: 'c2',
+    clientName: 'Lácteos del Norte',
+    plantName: 'Planta Principal Torreón',
     failureType: 'electrica',
     frequency: 3,
     lastOccurrence: '2026-07-04',
     recommendation: 'Revisar contactores de arranque estrella-triángulo'
+  },
+  {
+    id: 'fi4',
+    equipmentName: 'Compresor Kaiser AS 30 T',
+    brand: 'Kaeser',
+    clientId: 'c_andrea',
+    clientName: 'ANDREA (CALZADO ANDREA)',
+    plantName: 'Planta León (Calzado Andrea)',
+    failureType: 'presión',
+    frequency: 1,
+    lastOccurrence: '2026-08-15',
+    recommendation: 'Revisión y ajuste de válvula termostática y separador'
   }
 ];
 
@@ -487,13 +547,162 @@ export const INITIAL_HISTORY: HistoryItem[] = [
 ];
 
 export const INITIAL_INVENTORY: InventoryItem[] = [
-  { id: 'i1', code: 'FIL-KAE-50', name: 'Filtro de Aire Kaeser 6.2012.0', category: 'consumable', stock: 12, minStock: 3, price: 1250 },
-  { id: 'i2', code: 'FIL-KAE-OIL', name: 'Filtro de Aceite Kaeser 6.1981.1', category: 'consumable', stock: 8, minStock: 3, price: 950 },
-  { id: 'i3', code: 'FIL-ATL-GA', name: 'Filtro Aire Atlas Copco 1613-8720-00', category: 'consumable', stock: 2, minStock: 4, price: 1850 }, // Low Stock Alert!
-  { id: 'i4', code: 'ACE-SIG-S46', name: 'Aceite Sigma Fluid S-460 (Cubeta 19L)', category: 'consumable', stock: 15, minStock: 5, price: 5400 },
-  { id: 'i5', code: 'VAL-SOL-24V', name: 'Válvula Solenoide de Admisión 24V', category: 'pneumatic', stock: 3, minStock: 2, price: 3200 },
-  { id: 'i6', code: 'PRE-SENS-150', name: 'Sensor de Presión 0-150 PSI 4-20mA', category: 'electronic', stock: 1, minStock: 2, price: 4100 }, // Low Stock Alert!
-  { id: 'i7', code: 'VAL-PUR-TMP', name: 'Válvula de Purga Temporizada 1/2"', category: 'refrigeration', stock: 5, minStock: 2, price: 1950 }
+  { 
+    id: 'i1', 
+    code: '6.2012.0', 
+    name: 'Filtro de Aire Kaeser 6.2012.0', 
+    brand: 'Kaeser',
+    category: 'filtros', 
+    stock: 12, 
+    minStock: 3, 
+    price: 1250, 
+    unit: 'pza',
+    compatibleCodes: [
+      { code: 'KC160-017', brand: 'Genérico OEM Kaeser', notes: 'Reemplazo directo' },
+      { code: 'FIL-KAE-50', brand: 'MVL Interno' }
+    ]
+  },
+  { 
+    id: 'i2', 
+    code: '6.1981.1', 
+    name: 'Filtro de Aceite Kaeser 6.1981.1', 
+    brand: 'Kaeser',
+    category: 'filtros', 
+    stock: 8, 
+    minStock: 3, 
+    price: 950, 
+    unit: 'pza',
+    compatibleCodes: [
+      { code: '6.1985.0', brand: 'Kaeser OEM' },
+      { code: 'KL320-014', brand: 'Genérico OEM' }
+    ]
+  },
+  { 
+    id: 'i3', 
+    code: '1613-8720-00', 
+    name: 'Filtro Aire Atlas Copco 1613-8720-00', 
+    brand: 'Atlas Copco',
+    category: 'filtros', 
+    stock: 2, 
+    minStock: 4, 
+    price: 1850, 
+    unit: 'pza',
+    compatibleCodes: [
+      { code: 'FIL-ATL-GA', brand: 'Atlas Copco Alterno' },
+      { code: 'SA-18720', brand: 'Sure Filter' }
+    ]
+  },
+  { 
+    id: 'i4', 
+    code: 'S-460', 
+    name: 'Aceite Sigma Fluid S-460 (Cubeta 19L)', 
+    brand: 'Kaeser',
+    category: 'aceites', 
+    stock: 15, 
+    minStock: 5, 
+    price: 5400, 
+    unit: 'cubeta',
+    compatibleCodes: [
+      { code: 'KAOA467C-05', brand: 'Kaeser Sintético OEM 40L' },
+      { code: 'ACE-SIG-S46', brand: 'Sigma Fluid' }
+    ]
+  },
+  { 
+    id: 'i5', 
+    code: 'VAL-SOL-24V', 
+    name: 'Válvula Solenoide de Admisión 24V', 
+    brand: 'Kaeser / Sullair',
+    category: 'pneumatic', 
+    stock: 3, 
+    minStock: 2, 
+    price: 3200, 
+    unit: 'pza',
+    compatibleCodes: [
+      { code: '4.7333.0', brand: 'Kaeser OEM' }
+    ]
+  },
+  { 
+    id: 'i6', 
+    code: 'PRE-SENS-150', 
+    name: 'Sensor de Presión 0-150 PSI 4-20mA', 
+    brand: 'Danfoss / Kaeser',
+    category: 'electronic', 
+    stock: 1, 
+    minStock: 2, 
+    price: 4100, 
+    unit: 'pza'
+  },
+  { 
+    id: 'i7', 
+    code: 'VAL-PUR-TMP', 
+    name: 'Válvula de Purga Temporizada 1/2"', 
+    brand: 'Jorc / Atlas Copco',
+    category: 'refrigeration', 
+    stock: 5, 
+    minStock: 2, 
+    price: 1950, 
+    unit: 'pza'
+  },
+  {
+    id: 'i8',
+    code: '6.1963.0',
+    name: 'Filtro Separador Kaeser 6.1963.0',
+    brand: 'Kaeser',
+    category: 'filtros',
+    stock: 4,
+    minStock: 2,
+    price: 2668,
+    unit: 'pza',
+    compatibleCodes: [
+      { code: 'MV110-003', brand: 'OEM Kaeser' }
+    ]
+  }
+];
+
+export const INITIAL_MONTHLY_CLOSINGS: MonthlyClosing[] = [
+  {
+    id: 'mc_2026_07',
+    period: 'Julio 2026',
+    year: 2026,
+    month: 7,
+    closedAt: '2026-07-31T18:00:00Z',
+    closedBy: 'Víctor Pedro Ramírez Barrios',
+    totalIncome: 485000,
+    totalExpenses: 295000,
+    netProfit: 190000,
+    savingsAmount: 38000,
+    closedProjectsCount: 8,
+    pendingProjectsCount: 3,
+    projects: [
+      {
+        quoteFolNum: 'COT-2026-001',
+        clientName: 'Grupo Industrial Monterrey',
+        concept: 'Mantenimiento Preventivo 4,000 Horas Compresor Kaeser BSD 50',
+        income: 28500,
+        expenses: 16200,
+        utility: 12300,
+        status: 'closed'
+      },
+      {
+        quoteFolNum: 'COT-2026-002',
+        clientName: 'Lácteos del Norte',
+        concept: 'Reparación de Secador Frigorífico y Purga Temporizada',
+        income: 14200,
+        expenses: 8100,
+        utility: 6100,
+        status: 'closed'
+      },
+      {
+        quoteFolNum: '887201GNG',
+        clientName: 'CALZADO ANDREA S.A. DE C.V.',
+        concept: 'Suministro de 9 Refacciones y Filtros OEM Compresor Kaiser AS 30 T',
+        income: 38500,
+        expenses: 24000,
+        utility: 14500,
+        status: 'closed'
+      }
+    ]
+  }
 ];
 
 export const INITIAL_STAFF: Staff[] = [

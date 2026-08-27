@@ -4,13 +4,14 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Client, Equipment, InventoryItem, Quote, QuoteItem, Staff } from '../types';
-import { INITIAL_QUOTES, loadFromStorage, saveToStorage } from '../mockData';
+import { Client, Equipment, InventoryItem, Quote, QuoteItem, Staff, IssuerPartner } from '../types';
+import { INITIAL_QUOTES, INITIAL_ISSUER_PARTNERS, loadFromStorage, saveToStorage } from '../mockData';
 import { 
   FileText, Plus, UserPlus, Send, CheckCircle2, Clock, XCircle, 
   AlertTriangle, Phone, Mail, MessageSquare, Building2, Upload, 
   FileCheck, Shield, DollarSign, Wrench, ChevronRight, Eye, Printer, X, Sparkles,
-  Copy, Search, Filter, ArrowUpRight, Check, RefreshCw, Cpu, Zap, ShoppingCart
+  Copy, Search, Filter, ArrowUpRight, Check, RefreshCw, Cpu, Zap, ShoppingCart,
+  Camera, FileDown, Layers, Award
 } from 'lucide-react';
 
 interface SalesQuoteModuleProps {
@@ -35,13 +36,17 @@ export default function SalesQuoteModule({
   const [activeView, setActiveView] = useState<'list' | 'new_quote' | 'new_client'>('list');
   const [selectedQuoteForPreview, setSelectedQuoteForPreview] = useState<Quote | null>(null);
 
-  // Quote Category: standard | poliza | suministro_instalacion
-  const [quoteCategory, setQuoteCategory] = useState<'standard' | 'poliza' | 'suministro_instalacion'>('standard');
+  // Quote Category: standard | poliza | suministro_instalacion | personalizado
+  const [quoteCategory, setQuoteCategory] = useState<'standard' | 'poliza' | 'suministro_instalacion' | 'personalizado'>('standard');
 
   // Filter & Search states for Quotes List
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'approved' | 'discount_requested' | 'rejected'>('all');
   const [clientFilter, setClientFilter] = useState<string>('all');
+
+  // 3 Socios de MVL (Emisor Fiscal Seleccionable)
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>('partner_1');
+  const selectedPartner = INITIAL_ISSUER_PARTNERS.find(p => p.id === selectedPartnerId) || INITIAL_ISSUER_PARTNERS[0];
 
   // Origin & Client Selection State
   const [quoteOrigin, setQuoteOrigin] = useState<'registrado' | 'nuevo' | 'publico_general'>('registrado');
@@ -56,12 +61,13 @@ export default function SalesQuoteModule({
   const [agentName, setAgentName] = useState('Ing. Leonardo Daniel Torres');
   const [discountPercent, setDiscountPercent] = useState(0);
 
-  // Service Type Definition
+  // Service Type Definition & Horometers (2k, 4k, 6k, 8k, 16k)
   const [serviceTypeCategory, setServiceTypeCategory] = useState<'preventivo' | 'correctivo' | 'predictivo' | 'suministro_refacciones' | 'personalizado'>('preventivo');
+  const [serviceHours, setServiceHours] = useState<'2k' | '4k' | '6k' | '8k' | '16k' | 'otro'>('4k');
   const [customServicePriceRequested, setCustomServicePriceRequested] = useState(false);
   const [customServiceNotes, setCustomServiceNotes] = useState('');
 
-  // Equipment Technical Data
+  // Equipment Technical Data & Attachments (Photo of Plate & Manual PDF)
   const [eqType, setEqType] = useState<'Compresor' | 'Secador' | 'Aire Acondicionado' | 'Otros'>('Compresor');
   const [eqBrand, setEqBrand] = useState('Kaeser');
   const [eqModel, setEqModel] = useState('BSD 50');
@@ -70,6 +76,8 @@ export default function SalesQuoteModule({
   const [eqVoltage, setEqVoltage] = useState('220V 3F');
   const [eqMode, setEqMode] = useState<'venta' | 'renta' | 'servicio'>('servicio');
   const [isNewEquipmentOnTheFly, setIsNewEquipmentOnTheFly] = useState(false);
+  const [dataPlatePhotoUrl, setDataPlatePhotoUrl] = useState<string | null>(null);
+  const [manualPdfUrl, setManualPdfUrl] = useState<string | null>(null);
 
   // Policy Form State
   const [policyType, setPolicyType] = useState<'poliza_a' | 'poliza_b'>('poliza_a');
@@ -296,6 +304,19 @@ export default function SalesQuoteModule({
       setPolicyVisitsPerYear(q.policyDetails.visitsPerYear || 3);
     }
 
+    if (q.issuerPartnerId) {
+      setSelectedPartnerId(q.issuerPartnerId);
+    }
+    if (q.serviceHours) {
+      setServiceHours(q.serviceHours as any);
+    }
+    if (q.equipmentPlatePhotoUrl) {
+      setDataPlatePhotoUrl(q.equipmentPlatePhotoUrl);
+    }
+    if (q.equipmentManualPdfUrl) {
+      setManualPdfUrl(q.equipmentManualPdfUrl);
+    }
+
     setActiveView('new_quote');
   };
 
@@ -305,7 +326,7 @@ export default function SalesQuoteModule({
     let subtotal = 0;
     let itemsToSave: QuoteItem[] = [];
 
-    if (quoteCategory === 'standard') {
+    if (quoteCategory === 'standard' || quoteCategory === 'personalizado') {
       itemsToSave = standardItems;
       subtotal = standardItems.reduce((sum, item) => sum + item.total, 0);
     } else if (quoteCategory === 'poliza') {
@@ -328,7 +349,7 @@ export default function SalesQuoteModule({
       ? `Cotización de Póliza de Mantenimiento Anual Equipos de Climatización (${policyType === 'poliza_a' ? 'Póliza Tipo A - Reparaciones no incluidas' : 'Póliza Tipo B - Reparaciones incluidas'})`
       : quoteCategory === 'suministro_instalacion'
       ? `Cotización de Suministro e Instalación de Mini Split YORK y Canalización Eléctrica`
-      : `Servicio ${serviceTypeCategory.toUpperCase()} - ${eqType} ${eqBrand} ${eqModel}`;
+      : `Servicio ${serviceTypeCategory.toUpperCase()} (${serviceTypeCategory === 'preventivo' ? serviceHours + ' Horas' : 'Especial'}) - ${eqType} ${eqBrand} ${eqModel}`;
 
     const newQ: Quote = {
       id: 'q_' + Date.now(),
@@ -345,6 +366,14 @@ export default function SalesQuoteModule({
       quoteType,
       quoteOrigin,
       quoteCategory,
+      issuerPartnerId: selectedPartner.id,
+      issuerPartnerName: selectedPartner.name,
+      issuerPartnerRfc: selectedPartner.rfc,
+      issuerPartnerBusinessName: selectedPartner.businessName,
+      issuerSignatureName: selectedPartner.signatureTitle,
+      serviceHours: serviceTypeCategory === 'preventivo' ? serviceHours : undefined,
+      equipmentPlatePhotoUrl: dataPlatePhotoUrl || undefined,
+      equipmentManualPdfUrl: manualPdfUrl || undefined,
       policyType,
       serviceTypeCategory,
       customServicePriceRequested,
@@ -625,11 +654,11 @@ export default function SalesQuoteModule({
             </button>
           </div>
 
-          {/* 1. SELECCIÓN DE ORIGEN & TIPO DE CLIENTE */}
+          {/* 1. SELECCIÓN DE ORIGEN, TIPO DE CLIENTE & SOCIO EMISOR */}
           <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-3">
             <div className="flex justify-between items-center">
               <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
-                <Building2 className="w-4 h-4 text-[#0196C1]" /> 1. Selección y Clasificación de Cliente
+                <Building2 className="w-4 h-4 text-[#0196C1]" /> 1. Socio Emisor MVL & Clasificación de Cliente
               </label>
               <button
                 type="button"
@@ -638,6 +667,34 @@ export default function SalesQuoteModule({
               >
                 <Plus className="w-3 h-3" /> Registrar Nuevo Cliente al Vuelo
               </button>
+            </div>
+
+            {/* Selector de Razón Social / Socio Emisor */}
+            <div className="p-3 bg-white rounded-xl border border-slate-200">
+              <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 flex items-center gap-1">
+                <Award className="w-3.5 h-3.5 text-[#0196C1]" /> Razón Social Emisora (3 Socios Registrados):
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {INITIAL_ISSUER_PARTNERS.map(partner => (
+                  <button
+                    key={partner.id}
+                    type="button"
+                    onClick={() => setSelectedPartnerId(partner.id)}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                      selectedPartnerId === partner.id
+                        ? 'bg-sky-50/60 border-[#0196C1] text-slate-900 ring-1 ring-[#0196C1]'
+                        : 'bg-slate-50/50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-slate-900">{partner.name}</span>
+                      {selectedPartnerId === partner.id && <Check className="w-3.5 h-3.5 text-[#0196C1]" />}
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-500 block">RFC: {partner.rfc}</span>
+                    <span className="text-[9px] text-slate-400 block truncate">{partner.taxRegime}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -728,7 +785,7 @@ export default function SalesQuoteModule({
               </div>
 
               <div>
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Asesor / Socio Emisor</label>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Asesor Responsable</label>
                 <input
                   type="text"
                   value={agentName}
@@ -739,19 +796,19 @@ export default function SalesQuoteModule({
             </div>
           </div>
 
-          {/* 2. DEFINICIÓN DEL SERVICIO Y REQUERIMIENTO */}
+          {/* 2. DEFINICIÓN DEL SERVICIO, REQUERIMIENTO & HORAS DE SERVICIO */}
           <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-3">
             <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-[#0196C1]" /> 2. Tipo de Servicio & Requerimiento Técnico
+              <Zap className="w-4 h-4 text-[#0196C1]" /> 2. Tipo de Servicio & Horómetro de Operación
             </label>
 
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {[
-                { id: 'preventivo', label: 'Preventivo', desc: '2k / 4k / 6k hrs' },
+                { id: 'preventivo', label: 'Preventivo', desc: 'Horómetros programados' },
                 { id: 'correctivo', label: 'Correctivo', desc: 'Reparación / Falla' },
                 { id: 'predictivo', label: 'Predictivo', desc: 'Termografía / Aceite' },
                 { id: 'suministro_refacciones', label: 'Suministro', desc: 'Venta de refacciones' },
-                { id: 'personalizado', label: 'Personalizado', desc: 'Tarifa especial' }
+                { id: 'personalizado', label: 'Personalizado', desc: 'Tarifa especial libre' }
               ].map(st => (
                 <button
                   key={st.id}
@@ -767,11 +824,43 @@ export default function SalesQuoteModule({
               ))}
             </div>
 
+            {/* Selector de Horómetros para Servicio Preventivo (2k, 4k, 6k, 8k, 16k hrs) */}
+            {serviceTypeCategory === 'preventivo' && (
+              <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                <span className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-[#0196C1]" /> Horas de Servicio del Equipo:
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { id: '2k', label: '2,000 hrs', desc: 'Filtros y Aceite Básico' },
+                    { id: '4k', label: '4,000 hrs', desc: 'Mantenimiento Preventivo Menor' },
+                    { id: '6k', label: '6,000 hrs', desc: 'Preventivo + Válvula Termostática' },
+                    { id: '8k', label: '8,000 hrs', desc: 'Mantenimiento Mayor / Kit Válvulas' },
+                    { id: '16k', label: '16,000 hrs', desc: 'Overhaul Integral y Rodamientos' }
+                  ].map(h => (
+                    <button
+                      key={h.id}
+                      type="button"
+                      onClick={() => setServiceHours(h.id as any)}
+                      className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer flex flex-col items-start ${
+                        serviceHours === h.id
+                          ? 'bg-sky-50 border-[#0196C1] text-[#0196C1] ring-1 ring-[#0196C1]'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>{h.label}</span>
+                      <span className="text-[9px] font-normal text-slate-400">{h.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {serviceTypeCategory === 'personalizado' && (
               <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs space-y-2">
                 <div className="flex items-center gap-2 text-amber-900 font-bold">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <span>Servicio fuera de catálogo / Precio sujeto a cotización interna de Gerencia:</span>
+                  <span>Servicio libre / Personalizado con captura de partidas directas:</span>
                 </div>
                 <input
                   type="text"
@@ -784,11 +873,11 @@ export default function SalesQuoteModule({
             )}
           </div>
 
-          {/* 3. ASIGNACIÓN Y DATOS DE EQUIPOS */}
+          {/* 3. ASIGNACIÓN, DATOS DE EQUIPOS Y ADJUNTOS (FOTO DE PLACA & MANUAL PDF) */}
           <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-3">
             <div className="flex justify-between items-center">
               <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
-                <Cpu className="w-4 h-4 text-[#0196C1]" /> 3. Datos Técnicos del Equipo
+                <Cpu className="w-4 h-4 text-[#0196C1]" /> 3. Datos Técnicos del Equipo & Adjuntos
               </label>
               <button
                 type="button"
@@ -856,6 +945,91 @@ export default function SalesQuoteModule({
                   placeholder="220V 3F, 440V, 110V..."
                   className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none"
                 />
+              </div>
+            </div>
+
+            {/* ADJUNTOS TÉCNICOS: Foto de Placa de Datos y Manual PDF */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+              {/* Foto de Placa */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black text-slate-700 uppercase flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-[#0196C1]" /> Foto de Placa de Datos
+                  </span>
+                  {dataPlatePhotoUrl && (
+                    <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Check className="w-2.5 h-2.5" /> Placa Adjunta
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 border-dashed rounded-xl cursor-pointer text-center text-[10px] font-bold text-slate-600 flex items-center justify-center gap-1.5 transition-all">
+                    <Upload className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{dataPlatePhotoUrl ? 'Cambiar Foto de Placa' : 'Subir Foto de Placa (JPG/PNG)'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setDataPlatePhotoUrl(URL.createObjectURL(file));
+                        }
+                      }}
+                    />
+                  </label>
+                  {dataPlatePhotoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setDataPlatePhotoUrl(null)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
+                      title="Eliminar foto"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Manual Técnico PDF */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black text-slate-700 uppercase flex items-center gap-1.5">
+                    <FileDown className="w-3.5 h-3.5 text-[#0196C1]" /> Manual Técnico / Guía de Partes PDF
+                  </span>
+                  {manualPdfUrl && (
+                    <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Check className="w-2.5 h-2.5" /> PDF Vinculado
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 border-dashed rounded-xl cursor-pointer text-center text-[10px] font-bold text-slate-600 flex items-center justify-center gap-1.5 transition-all">
+                    <Upload className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{manualPdfUrl ? 'Cambiar Manual Técnico PDF' : 'Adjuntar Manual / Despiece (PDF)'}</span>
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setManualPdfUrl(`manuales/${file.name}`);
+                        }
+                      }}
+                    />
+                  </label>
+                  {manualPdfUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setManualPdfUrl(null)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
+                      title="Eliminar manual"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1283,14 +1457,18 @@ export default function SalesQuoteModule({
               {/* PDF HEADER */}
               <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 bg-[#0196C1] rounded-xl flex items-center justify-center text-white font-black text-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-[#0196C1] rounded-xl flex items-center justify-center text-white font-black text-xl shadow-xs">
                       MVL
                     </div>
                     <div>
-                      <h1 className="text-base font-black text-slate-900">MVL Control y Mantenimiento</h1>
-                      <p className="text-[10px] text-slate-500 font-bold">Razón social: Víctor Pedro Ramírez Barrios | RFC: RABV891002TF6</p>
-                      <p className="text-[10px] text-slate-400">RÉGIMEN FISCAL: 612 Personas Físicas con Actividades Empresariales y Profesionales</p>
+                      <h1 className="text-base font-black text-slate-900">
+                        {selectedQuoteForPreview.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'}
+                      </h1>
+                      <p className="text-[10px] text-slate-700 font-bold">
+                        Razón Social: {selectedQuoteForPreview.issuerPartnerName || 'Víctor Pedro Ramírez Barrios'} | RFC: <span className="font-mono">{selectedQuoteForPreview.issuerPartnerRfc || 'RABV891002TF6'}</span>
+                      </p>
+                      <p className="text-[10px] text-slate-400">RÉGIMEN FISCAL: 612 Personas Físicas con Actividades Empresariales y Profesionales / MVL Maquinaria</p>
                       <p className="text-[10px] text-slate-400">José Pérez Marañón #118 B, San José del Consuelo II, CP 37217, León, Guanajuato</p>
                     </div>
                   </div>
@@ -1303,8 +1481,8 @@ export default function SalesQuoteModule({
                 </div>
               </div>
 
-              {/* CLIENT INFO BOX */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {/* CLIENT & SERVICE INFO BOX */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Cliente / Razón Social</span>
                   <span className="text-xs font-bold text-slate-800">{selectedQuoteForPreview.clientName}</span>
@@ -1314,10 +1492,35 @@ export default function SalesQuoteModule({
                   <span className="text-xs font-bold text-slate-800">{selectedQuoteForPreview.plantName || 'Planta Principal'}</span>
                 </div>
                 <div>
+                  <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Horómetro / Servicio</span>
+                  <span className="text-xs font-bold text-[#0196C1]">
+                    {selectedQuoteForPreview.serviceHours ? `${selectedQuoteForPreview.serviceHours} Horas Operación` : (selectedQuoteForPreview.serviceTypeCategory?.toUpperCase() || 'Estándar')}
+                  </span>
+                </div>
+                <div>
                   <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Tiempo de Entrega</span>
                   <span className="text-xs font-bold text-emerald-700">{selectedQuoteForPreview.deliveryLeadTime || 'Inmediata'}</span>
                 </div>
               </div>
+
+              {/* TECHNICAL ATTACHMENTS BADGES (IF ANY) */}
+              {(selectedQuoteForPreview.equipmentPlatePhotoUrl || selectedQuoteForPreview.equipmentManualPdfUrl) && (
+                <div className="flex flex-wrap gap-2 p-2.5 bg-sky-50/50 rounded-xl border border-sky-100 text-xs">
+                  <span className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-1">
+                    <FileCheck className="w-3.5 h-3.5 text-[#0196C1]" /> Anexos Técnicos:
+                  </span>
+                  {selectedQuoteForPreview.equipmentPlatePhotoUrl && (
+                    <span className="px-2 py-0.5 bg-white border border-slate-200 text-slate-700 rounded-md text-[10px] font-bold flex items-center gap-1">
+                      <Camera className="w-3 h-3 text-[#0196C1]" /> Foto de Placa de Equipo Validada
+                    </span>
+                  )}
+                  {selectedQuoteForPreview.equipmentManualPdfUrl && (
+                    <span className="px-2 py-0.5 bg-white border border-slate-200 text-slate-700 rounded-md text-[10px] font-bold flex items-center gap-1">
+                      <FileDown className="w-3 h-3 text-purple-600" /> Manual Técnico / Guía de Despiece en Expediente
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* OFFER TITLE */}
               <div className="bg-[#0196C1]/10 p-4 rounded-xl border border-[#0196C1]/30 text-center space-y-1">
