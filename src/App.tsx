@@ -593,6 +593,7 @@ export default function App() {
                     clients={clients}
                     setClients={setClients}
                     equipment={equipment}
+                    setEquipment={setEquipment}
                     inventory={inventory}
                     setInventory={setInventory}
                     onOpenReport={handleOpenReport}

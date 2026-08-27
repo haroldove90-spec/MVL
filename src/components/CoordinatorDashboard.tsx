@@ -19,6 +19,7 @@ interface CoordinatorDashboardProps {
   clients: Client[];
   setClients?: React.Dispatch<React.SetStateAction<Client[]>>;
   equipment: Equipment[];
+  setEquipment?: React.Dispatch<React.SetStateAction<Equipment[]>>;
   inventory: InventoryItem[];
   setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
   onOpenReport: (ot: WorkOrder) => void;
@@ -33,6 +34,7 @@ export default function CoordinatorDashboard({
   clients,
   setClients,
   equipment,
+  setEquipment,
   inventory,
   setInventory,
   onOpenReport,
@@ -142,8 +144,11 @@ export default function CoordinatorDashboard({
         clients={clients}
         setClients={setClients || (() => {})}
         equipment={equipment}
+        setEquipment={setEquipment}
         inventory={inventory}
         staff={staff}
+        workOrders={workOrders}
+        setWorkOrders={setWorkOrders}
       />
     );
   }

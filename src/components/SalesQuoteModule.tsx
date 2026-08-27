@@ -4,33 +4,89 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Client, Equipment, InventoryItem, Quote, QuoteItem, Staff, IssuerPartner } from '../types';
+import { Client, Equipment, InventoryItem, Quote, QuoteItem, Staff, WorkOrder, IssuerPartner } from '../types';
 import { INITIAL_QUOTES, INITIAL_ISSUER_PARTNERS, loadFromStorage, saveToStorage } from '../mockData';
 import { 
   FileText, Plus, UserPlus, Send, CheckCircle2, Clock, XCircle, 
   AlertTriangle, Phone, Mail, MessageSquare, Building2, Upload, 
   FileCheck, Shield, DollarSign, Wrench, ChevronRight, Eye, Printer, X, Sparkles,
   Copy, Search, Filter, ArrowUpRight, Check, RefreshCw, Cpu, Zap, ShoppingCart,
-  Camera, FileDown, Layers, Award
+  Camera, FileDown, Layers, Award, BookmarkPlus, FolderCheck, Hash
 } from 'lucide-react';
 
 interface SalesQuoteModuleProps {
   clients: Client[];
   setClients: React.Dispatch<React.SetStateAction<Client[]>>;
   equipment: Equipment[];
+  setEquipment?: React.Dispatch<React.SetStateAction<Equipment[]>>;
   inventory: InventoryItem[];
   staff: Staff[];
+  workOrders?: WorkOrder[];
+  setWorkOrders?: React.Dispatch<React.SetStateAction<WorkOrder[]>>;
 }
+
+interface QuickTemplate {
+  id: string;
+  name: string;
+  category: 'standard' | 'poliza' | 'suministro_instalacion' | 'personalizado';
+  concept: string;
+  brand?: string;
+  model?: string;
+  items: QuoteItem[];
+}
+
+const DEFAULT_TEMPLATES: QuickTemplate[] = [
+  {
+    id: 'tmpl_andrea',
+    name: 'Andrea - Kaeser AS 30 T (9 Refacciones OEM)',
+    category: 'standard',
+    concept: 'Cotización de Refacciones y Consumibles para Compresor KAISER AS 30 T (Serie 1030) - Cliente ANDREA',
+    brand: 'Kaeser',
+    model: 'AS 30 T',
+    items: [
+      { partida: 1, description: 'F.AIRE (Filtro de aire)', brand: 'KC160-017 (OEM KAISER)', quantity: 1, unit: 'pza', partNumber: '6.2000.0', catalogPrice: 1645.00, total: 1645.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 5 },
+      { partida: 2, description: 'F ACEITE (Filtro de aceite)', brand: 'KL320-014 (OEM KAISER)', quantity: 1, unit: 'pza', partNumber: '6.1985.0', catalogPrice: 395.00, total: 395.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 10 },
+      { partida: 3, description: 'F. SEPARADOR (Filtro separador)', brand: 'MV110-003 (OEM KAISER)', quantity: 1, unit: 'pza', partNumber: '6.1963.0', catalogPrice: 2668.00, total: 2668.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 4 },
+      { partida: 4, description: 'V. PRES MIN (Válvula de presión mínima)', brand: 'KAISER / KAESER', quantity: 1, unit: 'pza', partNumber: '4.7333.0', catalogPrice: 1850.00, total: 1850.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 3 },
+      { partida: 5, description: 'V. ANTI RETORNO (Válvula anti retorno)', brand: 'KAISER / KAESER', quantity: 1, unit: 'pza', partNumber: '2.0701.0', catalogPrice: 1250.00, total: 1250.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 2 },
+      { partida: 6, description: 'V. TERMOSTATICA (Válvula termostática)', brand: 'KAISER / KAESER', quantity: 1, unit: 'pza', partNumber: '7.0399.0', catalogPrice: 2100.00, total: 2100.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 2 },
+      { partida: 7, description: 'V. LINEA BARRIDO', brand: 'KAISER / KAESER', quantity: 1, unit: 'pza', partNumber: 'S/N', catalogPrice: 650.00, total: 650.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 6 },
+      { partida: 8, description: 'V. ADMISION', brand: 'KAISER / KAESER', quantity: 1, unit: 'pza', partNumber: 'S/N', catalogPrice: 3200.00, total: 3200.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 2 },
+      { partida: 9, description: 'LUBRICANTE SINTÉTICO (40 Litros)', brand: 'KAOA467C-05 (OEM KAISER)', quantity: 1, unit: 'cubeta 40L', partNumber: 'KAOA467C-05', catalogPrice: 10353.50, total: 10353.50, deliveryTime: 'Inmediata', inStock: true, stockQty: 15 }
+    ]
+  },
+  {
+    id: 'tmpl_kaeser_4k',
+    name: 'Preventivo 4,000 hrs Kaeser BSD 50',
+    category: 'standard',
+    concept: 'Mantenimiento Preventivo 4,000 Horas Kaeser BSD 50',
+    brand: 'Kaeser',
+    model: 'BSD 50',
+    items: [
+      { partida: 1, description: 'Filtro de Aire Kaeser 6.2012.0', brand: 'Kaeser', quantity: 1, unit: 'pza', partNumber: '6.2012.0', catalogPrice: 1250, total: 1250, deliveryTime: 'Inmediata', inStock: true, stockQty: 8 },
+      { partida: 2, description: 'Filtro de Aceite Kaeser 6.1985.0', brand: 'Kaeser', quantity: 1, unit: 'pza', partNumber: '6.1985.0', catalogPrice: 420, total: 420, deliveryTime: 'Inmediata', inStock: true, stockQty: 10 },
+      { partida: 3, description: 'Filtro Separador Kaeser 6.1963.0', brand: 'Kaeser', quantity: 1, unit: 'pza', partNumber: '6.1963.0', catalogPrice: 2650, total: 2650, deliveryTime: 'Inmediata', inStock: true, stockQty: 4 },
+      { partida: 4, description: 'Aceite Sigma Fluid S-460 (19L)', brand: 'Kaeser', quantity: 2, unit: 'cubeta', partNumber: 'S-460', catalogPrice: 5400, total: 10800, deliveryTime: 'Inmediata', inStock: true, stockQty: 12 }
+    ]
+  }
+];
 
 export default function SalesQuoteModule({
   clients,
   setClients,
   equipment,
+  setEquipment,
   inventory,
-  staff
+  staff,
+  workOrders = [],
+  setWorkOrders
 }: SalesQuoteModuleProps) {
   const [quotes, setQuotes] = useState<Quote[]>(() =>
     loadFromStorage<Quote[]>('mvl_quotes', INITIAL_QUOTES)
+  );
+
+  const [quickTemplates, setQuickTemplates] = useState<QuickTemplate[]>(() =>
+    loadFromStorage<QuickTemplate[]>('mvl_quick_templates', DEFAULT_TEMPLATES)
   );
 
   const [activeView, setActiveView] = useState<'list' | 'new_quote' | 'new_client'>('list');
@@ -41,7 +97,7 @@ export default function SalesQuoteModule({
 
   // Filter & Search states for Quotes List
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'approved' | 'discount_requested' | 'rejected'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'approved' | 'discount_requested' | 'rejected' | 'pending_inventory'>('all');
   const [clientFilter, setClientFilter] = useState<string>('all');
 
   // 3 Socios de MVL (Emisor Fiscal Seleccionable)
@@ -61,9 +117,9 @@ export default function SalesQuoteModule({
   const [agentName, setAgentName] = useState('Ing. Leonardo Daniel Torres');
   const [discountPercent, setDiscountPercent] = useState(0);
 
-  // Service Type Definition & Horometers (2k, 4k, 6k, 8k, 16k)
+  // Service Type Definition & Horometers (2k, 4k, 6k, 8k, 16k, 24k)
   const [serviceTypeCategory, setServiceTypeCategory] = useState<'preventivo' | 'correctivo' | 'predictivo' | 'suministro_refacciones' | 'personalizado'>('preventivo');
-  const [serviceHours, setServiceHours] = useState<'2k' | '4k' | '6k' | '8k' | '16k' | 'otro'>('4k');
+  const [serviceHours, setServiceHours] = useState<'2k' | '4k' | '6k' | '8k' | '16k' | '24k' | 'otro'>('4k');
   const [customServicePriceRequested, setCustomServicePriceRequested] = useState(false);
   const [customServiceNotes, setCustomServiceNotes] = useState('');
 
@@ -71,7 +127,7 @@ export default function SalesQuoteModule({
   const [eqType, setEqType] = useState<'Compresor' | 'Secador' | 'Aire Acondicionado' | 'Otros'>('Compresor');
   const [eqBrand, setEqBrand] = useState('Kaeser');
   const [eqModel, setEqModel] = useState('BSD 50');
-  const [eqSerial, setEqSerial] = useState('');
+  const [eqSerial, setEqSerial] = useState('1030');
   const [eqCapacity, setEqCapacity] = useState('50 HP');
   const [eqVoltage, setEqVoltage] = useState('220V 3F');
   const [eqMode, setEqMode] = useState<'venta' | 'renta' | 'servicio'>('servicio');
@@ -116,7 +172,7 @@ export default function SalesQuoteModule({
     { partida: 8, description: 'Canalización y mano de obra eléctrica', brand: 'MVL', quantity: 1, unit: 'servicio', partNumber: 'N/A', catalogPrice: 12086.20, total: 12086.20, deliveryTime: '1 semana', inStock: true }
   ]);
 
-  const [supplyScopeList, setSupplyScopeList] = useState<string[]>([
+  const [supplyScopeList] = useState<string[]>([
     '1. Suministro de equipo mini-split.',
     '2. Instalación de evaporadora.',
     '3. Instalación de condensadora.',
@@ -128,11 +184,7 @@ export default function SalesQuoteModule({
     '9. Procedimiento de alto vacío en tubería para asegurar y alargar la vida útil del equipo hasta 250 Micrones.',
     '10. Compensación de gas refrigerante con cálculos de sobre calentamiento y sub enfriamiento.',
     '11. Pruebas de flujo de aire con anemómetro y termómetro.',
-    '12. Recomendaciones de servicios preventivos posteriores.',
-    '13. Canalización e instalación de tubería eléctrica pared delgada.',
-    '14. Suministro e instalación de termomagnético 20 * 2 SQUARED.',
-    '15. Canalización de cable eléctrico 10 AWG en tubería con tierra física 3 hilos.',
-    '16. Conexión de uso rudo a mini Split. Condulet LB'
+    '12. Recomendaciones de servicios preventivos posteriores.'
   ]);
 
   // Standard Quote Items Linked to Inventory
@@ -154,20 +206,17 @@ export default function SalesQuoteModule({
   const [commercialConditions, setCommercialConditions] = useState<string>(
     '1. Precios en Moneda Nacional (MXN) más 16% de IVA.\n2. Tiempo de entrega: DDP en planta cliente (según disponibilidad de inventario).\n3. Condiciones de pago: Crédito 30 días con Orden de Compra autorizada.\n4. Vigencia de la cotización: 30 días naturales a partir de su emisión.\n5. Garantía: 12 meses en refacciones originales instaladas por MVL y 90 días en mano de obra.'
   );
-  const [deliveryLeadTimeOption, setDeliveryLeadTimeOption] = useState<'auto' | 'inmediato' | 'sobre_pedido' | 'programar'>('auto');
-  const [manualDeliveryTime, setManualDeliveryTime] = useState('Inmediata (En Almacén)');
+  const [deliveryLeadTimeOption, setDeliveryLeadTimeOption] = useState<'auto' | 'inmediato' | 'sobre_pedido' | 'manual'>('auto');
+  const [manualDeliveryTime, setManualDeliveryTime] = useState('Inmediata (Existencia en Almacén)');
 
   // Missing prices list & triggers
   const [missingPrices, setMissingPrices] = useState<{ description: string; partNumber: string; requestedPrice: number }[]>([]);
-  const [newMissingDesc, setNewMissingDesc] = useState('');
-  const [newMissingPartNum, setNewMissingPartNum] = useState('');
 
   // Plant Access Reqs
-  const [imssPayment, setImssPayment] = useState(true);
-  const [imssValidity, setImssValidity] = useState(true);
-  const [medicalCerts, setMedicalCerts] = useState(true);
-  const [riskAssessment, setRiskAssessment] = useState(true);
-  const [otherAccessReqs, setOtherAccessReqs] = useState('');
+  const [imssPayment] = useState(true);
+  const [imssValidity] = useState(true);
+  const [medicalCerts] = useState(true);
+  const [riskAssessment] = useState(true);
 
   // New Client Modal Form
   const [newClientName, setNewClientName] = useState('');
@@ -176,22 +225,52 @@ export default function SalesQuoteModule({
   const [newClientPhone, setNewClientPhone] = useState('');
   const [isParticular, setIsParticular] = useState(false);
 
+  // PO Approval Modal State
+  const [poApprovalModalQuote, setPoApprovalModalQuote] = useState<Quote | null>(null);
+  const [enteredPoNumber, setEnteredPoNumber] = useState('');
+  const [poPdfFileName, setPoPdfFileName] = useState('');
+  const [autoGenerateOt, setAutoGenerateOt] = useState(true);
+
+  // Save Template Modal State
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+
   const selectedClient = clients.find(c => c.id === selectedClientId);
+
+  // Live Inventory Matching suggestions when typing description or part number
+  const inventoryMatches = useMemo(() => {
+    if (!customItemDesc && !customItemPartNo) return [];
+    const query = (customItemDesc || customItemPartNo).toLowerCase().trim();
+    if (query.length < 2) return [];
+    return inventory.filter(i => 
+      i.name.toLowerCase().includes(query) || 
+      i.code.toLowerCase().includes(query) ||
+      (i.compatibleCodes && i.compatibleCodes.some(c => c.code.toLowerCase().includes(query)))
+    ).slice(0, 5);
+  }, [customItemDesc, customItemPartNo, inventory]);
 
   // Auto-calculated Delivery Time based on item stock status
   const calculatedDeliveryTime = useMemo(() => {
-    if (deliveryLeadTimeOption !== 'auto') {
-      if (deliveryLeadTimeOption === 'inmediato') return 'Inmediata (En Stock)';
-      if (deliveryLeadTimeOption === 'sobre_pedido') return '3 a 5 días hábiles (Sobre Pedido)';
-      return manualDeliveryTime;
-    }
-    const currentItems = quoteCategory === 'standard' ? standardItems :
+    if (deliveryLeadTimeOption === 'inmediato') return 'Inmediata (En Stock Almacén)';
+    if (deliveryLeadTimeOption === 'sobre_pedido') return '3 a 5 días hábiles (Sobre Pedido)';
+    if (deliveryLeadTimeOption === 'manual') return manualDeliveryTime || 'A convenir';
+
+    const currentItems = quoteCategory === 'standard' || quoteCategory === 'personalizado' ? standardItems :
                          quoteCategory === 'poliza' ? policyItems :
                          [...supplyEquipmentItems, ...supplyElectricalItems];
     
-    const hasOutOfStock = currentItems.some(i => i.inStock === false);
-    return hasOutOfStock ? '3 a 5 días hábiles (Piezas sobre pedido)' : 'Inmediata (Existencia en almacén)';
+    const hasOutOfStock = currentItems.some(i => i.inStock === false || (i.stockQty !== undefined && i.stockQty < i.quantity));
+    return hasOutOfStock ? '3 a 5 días hábiles (Piezas sobre pedido)' : 'Entrega Inmediata (Stock en Almacén)';
   }, [deliveryLeadTimeOption, manualDeliveryTime, quoteCategory, standardItems, policyItems, supplyEquipmentItems, supplyElectricalItems]);
+
+  // Select Item from Inventory Match
+  const handleSelectInventoryMatch = (invItem: InventoryItem) => {
+    setCustomItemDesc(invItem.name);
+    setCustomItemPartNo(invItem.code);
+    setCustomItemPrice(invItem.price || 0);
+    setCustomItemBrand(invItem.code.includes('K') ? 'Kaeser' : 'MVL');
+    setSelectedInventoryId(invItem.id);
+  };
 
   // Handle Add Item from Catalog/Inventory
   const handleAddPartFromInventory = () => {
@@ -205,31 +284,38 @@ export default function SalesQuoteModule({
         quantity: customItemQty || 1,
         unit: customItemUnit || 'pza',
         partNumber: invItem.code,
-        catalogPrice: invItem.price || 0, // standard catalog price
+        catalogPrice: invItem.price || 0,
         total: (invItem.price || 0) * (customItemQty || 1),
-        deliveryTime: invItem.stock > 0 ? 'Inmediata' : '3 a 5 días',
-        inStock: invItem.stock > 0,
+        deliveryTime: invItem.stock >= (customItemQty || 1) ? 'Inmediata (Stock)' : '3 a 5 días (Sobre Pedido)',
+        inStock: invItem.stock >= (customItemQty || 1),
         stockQty: invItem.stock
       };
       setStandardItems([...standardItems, newItem]);
       setSelectedInventoryId('');
+      setCustomItemDesc('');
+      setCustomItemPartNo('');
+      setCustomItemPrice(0);
       setCustomItemQty(1);
     } else if (customItemDesc) {
+      // Check if description exists in inventory
+      const matched = inventory.find(i => i.name.toLowerCase() === customItemDesc.toLowerCase() || i.code.toLowerCase() === customItemPartNo.toLowerCase());
+      const hasStock = matched ? matched.stock >= (customItemQty || 1) : false;
       const newItem: QuoteItem = {
         partida: standardItems.length + 1,
         description: customItemDesc,
         brand: customItemBrand,
         quantity: customItemQty || 1,
         unit: customItemUnit || 'pza',
-        partNumber: customItemPartNo || 'S/N',
-        catalogPrice: Number(customItemPrice) || 0,
-        total: (Number(customItemPrice) || 0) * (customItemQty || 1),
-        deliveryTime: 'A cotizar / Sobre pedido',
-        inStock: false,
-        isCustomPriceRequest: Number(customItemPrice) === 0
+        partNumber: customItemPartNo || (matched?.code || 'S/N'),
+        catalogPrice: Number(customItemPrice) || (matched?.price || 0),
+        total: (Number(customItemPrice) || (matched?.price || 0)) * (customItemQty || 1),
+        deliveryTime: hasStock ? 'Inmediata (Stock)' : 'A cotizar / Sobre pedido',
+        inStock: hasStock,
+        stockQty: matched?.stock || 0,
+        isCustomPriceRequest: Number(customItemPrice) === 0 && (!matched || matched.price === 0)
       };
       setStandardItems([...standardItems, newItem]);
-      if (Number(customItemPrice) === 0) {
+      if (Number(customItemPrice) === 0 && (!matched || matched.price === 0)) {
         setMissingPrices([...missingPrices, { description: customItemDesc, partNumber: customItemPartNo, requestedPrice: 0 }]);
       }
       setCustomItemDesc('');
@@ -244,35 +330,37 @@ export default function SalesQuoteModule({
     setStandardItems(updated);
   };
 
-  const handleAddMissingPrice = () => {
-    if (!newMissingDesc) return;
-    setMissingPrices([...missingPrices, { description: newMissingDesc, partNumber: newMissingPartNum, requestedPrice: 0 }]);
-    setNewMissingDesc('');
-    setNewMissingPartNum('');
+  // Load a Quick Template
+  const handleLoadTemplate = (tmpl: QuickTemplate) => {
+    setQuoteCategory(tmpl.category);
+    setStandardItems(tmpl.items.map((it, idx) => ({ ...it, partida: idx + 1 })));
+    setConcept(tmpl.concept);
+    if (tmpl.brand) setEqBrand(tmpl.brand);
+    if (tmpl.model) setEqModel(tmpl.model);
   };
 
-  const handleLoadAndreaExcelParts = () => {
-    const andreaItems: QuoteItem[] = [
-      { partida: 1, description: 'F.AIRE (Filtro de aire)', brand: 'KC160-017 (OEM KAISER)', quantity: 1, unit: 'pza', partNumber: '6.2000.0', catalogPrice: 1645.00, total: 1645.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 5 },
-      { partida: 2, description: 'F ACEITE (Filtro de aceite)', brand: 'KL320-014 (OEM KAISER)', quantity: 1, unit: 'pza', partNumber: '6.1985.0', catalogPrice: 395.00, total: 395.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 10 },
-      { partida: 3, description: 'F. SEPARADOR (Filtro separador)', brand: 'MV110-003 (OEM KAISER)', quantity: 1, unit: 'pza', partNumber: '6.1963.0', catalogPrice: 2668.00, total: 2668.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 4 },
-      { partida: 4, description: 'V. PRES MIN (Válvula de presión mínima)', brand: 'KAISER / KAESER', quantity: 1, unit: 'pza', partNumber: '4.7333.0', catalogPrice: 1850.00, total: 1850.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 3 },
-      { partida: 5, description: 'V. ANTI RETORNO (Válvula anti retorno)', brand: 'KAISER / KAESER', quantity: 1, unit: 'pza', partNumber: '2.0701.0', catalogPrice: 1250.00, total: 1250.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 2 },
-      { partida: 6, description: 'V. TERMOSTATICA (Válvula termostática)', brand: 'KAISER / KAESER', quantity: 1, unit: 'pza', partNumber: '7.0399.0', catalogPrice: 2100.00, total: 2100.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 2 },
-      { partida: 7, description: 'V. LINEA BARRIDO', brand: 'KAISER / KAESER', quantity: 1, unit: 'pza', partNumber: 'S/N', catalogPrice: 650.00, total: 650.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 6 },
-      { partida: 8, description: 'V. ADMISION', brand: 'KAISER / KAESER', quantity: 1, unit: 'pza', partNumber: 'S/N', catalogPrice: 3200.00, total: 3200.00, deliveryTime: 'Inmediata', inStock: true, stockQty: 2 },
-      { partida: 9, description: 'LUBRICANTE SINTÉTICO (40 Litros)', brand: 'KAOA467C-05 (OEM KAISER)', quantity: 1, unit: 'cubeta 40L', partNumber: 'KAOA467C-05', catalogPrice: 10353.50, total: 10353.50, deliveryTime: 'Inmediata', inStock: true, stockQty: 15 }
-    ];
-    setStandardItems(andreaItems);
-    setConcept('Cotización de Refacciones y Consumibles para Compresor KAISER AS 30 T (Serie 1030) - Cliente ANDREA');
-    setEqBrand('Kaeser');
-    setEqModel('AS 30 T');
-    setEqCapacity('30 HP');
-    setEqVoltage('220V 3F');
+  // Save current quote as a new Quick Template
+  const handleSaveAsTemplate = () => {
+    if (!newTemplateName.trim()) return;
+    const newTmpl: QuickTemplate = {
+      id: 'tmpl_' + Date.now(),
+      name: newTemplateName.trim(),
+      category: quoteCategory,
+      concept: concept || `Plantilla ${newTemplateName}`,
+      brand: eqBrand,
+      model: eqModel,
+      items: quoteCategory === 'standard' || quoteCategory === 'personalizado' ? standardItems :
+             quoteCategory === 'poliza' ? policyItems :
+             [...supplyEquipmentItems, ...supplyElectricalItems]
+    };
+    const updated = [newTmpl, ...quickTemplates];
+    setQuickTemplates(updated);
+    saveToStorage('mvl_quick_templates', updated);
+    setShowSaveTemplateModal(false);
+    setNewTemplateName('');
   };
 
   const handleDuplicateQuote = (q: Quote) => {
-    // Fill all form states from target quote
     setQuoteCategory(q.quoteCategory || 'standard');
     setQuoteOrigin(q.quoteOrigin || 'registrado');
     setQuoteType(q.quoteType || 'vendedor');
@@ -287,7 +375,7 @@ export default function SalesQuoteModule({
     if (q.equipmentDetails) {
       setEqBrand(q.equipmentDetails.brand || 'Kaeser');
       setEqModel(q.equipmentDetails.model || 'BSD 50');
-      setEqSerial(q.equipmentDetails.serialNumber || '');
+      setEqSerial(q.equipmentDetails.serialNumber || '1030');
       setEqCapacity(q.equipmentDetails.capacity || '50 HP');
       setEqVoltage(q.equipmentDetails.voltage || '220V 3F');
     }
@@ -320,24 +408,25 @@ export default function SalesQuoteModule({
     setActiveView('new_quote');
   };
 
-  const handleSaveQuote = (e: React.FormEvent) => {
+  const handleSaveQuote = (e: React.FormEvent, isDraftOrPendingInventory = false) => {
     e.preventDefault();
 
-    let subtotal = 0;
+    let rawSubtotal = 0;
     let itemsToSave: QuoteItem[] = [];
 
     if (quoteCategory === 'standard' || quoteCategory === 'personalizado') {
       itemsToSave = standardItems;
-      subtotal = standardItems.reduce((sum, item) => sum + item.total, 0);
+      rawSubtotal = standardItems.reduce((sum, item) => sum + item.total, 0);
     } else if (quoteCategory === 'poliza') {
       itemsToSave = policyItems;
-      subtotal = policyItems.reduce((sum, item) => sum + item.total, 0);
+      rawSubtotal = policyItems.reduce((sum, item) => sum + item.total, 0);
     } else if (quoteCategory === 'suministro_instalacion') {
       itemsToSave = [...supplyEquipmentItems, ...supplyElectricalItems];
-      subtotal = itemsToSave.reduce((sum, item) => sum + item.total, 0);
+      rawSubtotal = itemsToSave.reduce((sum, item) => sum + item.total, 0);
     }
 
-    const subtotalWithDiscount = subtotal * (1 - discountPercent / 100);
+    const discountAmount = rawSubtotal * (discountPercent / 100);
+    const subtotalWithDiscount = rawSubtotal - discountAmount;
     const tax = subtotalWithDiscount * 0.16;
     const total = subtotalWithDiscount + tax;
 
@@ -351,6 +440,10 @@ export default function SalesQuoteModule({
       ? `Cotización de Suministro e Instalación de Mini Split YORK y Canalización Eléctrica`
       : `Servicio ${serviceTypeCategory.toUpperCase()} (${serviceTypeCategory === 'preventivo' ? serviceHours + ' Horas' : 'Especial'}) - ${eqType} ${eqBrand} ${eqModel}`;
 
+    const finalStatus: Quote['status'] = isDraftOrPendingInventory 
+      ? 'pending_inventory' 
+      : discountPercent > 5 ? 'discount_requested' : 'sent';
+
     const newQ: Quote = {
       id: 'q_' + Date.now(),
       folNum,
@@ -362,7 +455,7 @@ export default function SalesQuoteModule({
       subtotal: subtotalWithDiscount,
       tax,
       total,
-      status: discountPercent > 5 ? 'discount_requested' : 'sent',
+      status: finalStatus,
       quoteType,
       quoteOrigin,
       quoteCategory,
@@ -370,7 +463,7 @@ export default function SalesQuoteModule({
       issuerPartnerName: selectedPartner.name,
       issuerPartnerRfc: selectedPartner.rfc,
       issuerPartnerBusinessName: selectedPartner.businessName,
-      issuerSignatureName: selectedPartner.signatureTitle,
+      issuerSignatureName: selectedPartner.roleDescription,
       serviceHours: serviceTypeCategory === 'preventivo' ? serviceHours : undefined,
       equipmentPlatePhotoUrl: dataPlatePhotoUrl || undefined,
       equipmentManualPdfUrl: manualPdfUrl || undefined,
@@ -379,6 +472,7 @@ export default function SalesQuoteModule({
       customServicePriceRequested,
       publicClientName,
       discountRequested: discountPercent > 0 ? discountPercent : undefined,
+      discountAmount: discountAmount > 0 ? discountAmount : undefined,
       commercialConditions,
       deliveryLeadTime: calculatedDeliveryTime,
       agentName,
@@ -403,8 +497,7 @@ export default function SalesQuoteModule({
         imssPayment,
         imssRightsValidity: imssValidity,
         medicalCertificates: medicalCerts,
-        riskAssessmentForm: riskAssessment,
-        others: otherAccessReqs
+        riskAssessmentForm: riskAssessment
       },
       equipmentDetails: {
         equipmentType: eqType,
@@ -419,6 +512,33 @@ export default function SalesQuoteModule({
       missingPricesList: missingPrices.length > 0 ? missingPrices : undefined
     };
 
+    // If "Dar de alta nuevo equipo al vuelo" or new equipment specs, register equipment
+    if (isNewEquipmentOnTheFly && setEquipment) {
+      const newEq: Equipment = {
+        id: 'eq_' + Date.now(),
+        clientId: selectedClientId,
+        plantId: selectedClient?.plants?.[0]?.id || 'p_1',
+        name: `${eqBrand} ${eqModel}`,
+        brand: eqBrand,
+        model: eqModel,
+        serialNumber: eqSerial || `SN-${Date.now().toString().slice(-4)}`,
+        capacity: eqCapacity,
+        voltage: eqVoltage,
+        filtersRequired: 'Kit estándar',
+        engineHours: serviceHours === '2k' ? 2000 : serviceHours === '4k' ? 4000 : serviceHours === '6k' ? 6000 : serviceHours === '8k' ? 8000 : serviceHours === '16k' ? 16000 : serviceHours === '24k' ? 24000 : 1000,
+        oilType: 'Sintético S-460',
+        lastMaintenance: new Date().toISOString().split('T')[0],
+        nextMaintenance: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
+        status: 'active',
+        dataPlatePhotoUrl: dataPlatePhotoUrl || undefined
+      };
+      setEquipment(prev => {
+        const updatedEq = [newEq, ...prev];
+        saveToStorage('mvl_equipment', updatedEq);
+        return updatedEq;
+      });
+    }
+
     const updated = [newQ, ...quotes];
     setQuotes(updated);
     saveToStorage('mvl_quotes', updated);
@@ -427,24 +547,78 @@ export default function SalesQuoteModule({
   };
 
   // Change quote status & trigger pre-billing request if approved
-  const handleUpdateQuoteStatus = (quoteId: string, newStatus: Quote['status']) => {
+  const handleConfirmPoApproval = () => {
+    if (!poApprovalModalQuote) return;
+
+    const quoteId = poApprovalModalQuote.id;
+    const poNum = enteredPoNumber.trim() || `OC-${Date.now().toString().slice(-5)}`;
+    const poUrl = poPdfFileName ? `ordenes_compra/${poPdfFileName}` : 'ordenes_compra/OC_FIRMADA_CLIENTE.pdf';
+
     const updated = quotes.map(q => {
       if (q.id === quoteId) {
-        const isApproved = newStatus === 'approved';
         return {
           ...q,
-          status: newStatus,
-          preBillingRequest: isApproved ? {
+          status: 'approved' as const,
+          clientPoNumber: poNum,
+          poPdfUrl: poUrl,
+          poApprovalDate: new Date().toISOString().split('T')[0],
+          poApprovalStatus: 'approved' as const,
+          preBillingRequest: {
             requestedAt: new Date().toISOString().split('T')[0],
             status: 'pending' as const,
             creditDays: 30
-          } : q.preBillingRequest
+          }
         };
       }
       return q;
     });
+
     setQuotes(updated);
     saveToStorage('mvl_quotes', updated);
+
+    // Auto-generate Work Order (OT)
+    if (autoGenerateOt && setWorkOrders) {
+      const q = poApprovalModalQuote;
+      const targetEq = equipment.find(eq => eq.clientId === q.clientId) || equipment[0];
+      const newOTCode = `OT-${1000 + (workOrders?.length || 0) + 1}`;
+
+      const newOT: WorkOrder = {
+        id: `ot_${Date.now()}`,
+        code: newOTCode,
+        equipmentId: targetEq?.id || 'eq1',
+        clientId: q.clientId,
+        plantId: targetEq?.plantId || 'p_1',
+        type: q.serviceTypeCategory === 'correctivo' ? 'corrective' : 'preventive',
+        status: 'pending',
+        scheduledDate: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
+        engineHours: q.serviceHours === '2k' ? 2000 : q.serviceHours === '4k' ? 4000 : q.serviceHours === '6k' ? 6000 : q.serviceHours === '8k' ? 8000 : q.serviceHours === '16k' ? 16000 : q.serviceHours === '24k' ? 24000 : 3500,
+        assignedTechnicianId: staff[1]?.id || 's2',
+        assignedTechnicianName: staff[1]?.name || 'Ing. Roberto Sánchez',
+        checklist: [
+          { id: 'c1', task: `Inspección física y validación de No. Serie (${q.equipmentDetails?.serialNumber || '1030'})`, checked: false },
+          { id: 'c2', task: `Sustitución de refacciones autorizadas bajo ${q.folNum} (OC: ${poNum})`, checked: false },
+          { id: 'c3', task: 'Lectura de controladores, presiones y temperatura de descarga', checked: false },
+          { id: 'c4', task: 'Prueba de arranque y toma de firmas con cliente', checked: false }
+        ],
+        observations: `OT generada automáticamente desde Cotización ${q.folNum} (Orden de Compra: ${poNum}). Concepto: ${q.concept}`,
+        partsUsed: q.itemsTable?.map(item => ({
+          itemId: 'inv1',
+          name: item.description,
+          quantity: item.quantity,
+          price: item.catalogPrice
+        })) || []
+      };
+
+      setWorkOrders(prev => {
+        const nextOTs = [newOT, ...prev];
+        saveToStorage('mvl_work_orders', nextOTs);
+        return nextOTs;
+      });
+    }
+
+    setPoApprovalModalQuote(null);
+    setEnteredPoNumber('');
+    setPoPdfFileName('');
   };
 
   const handleCreateClient = (e: React.FormEvent) => {
@@ -468,6 +642,34 @@ export default function SalesQuoteModule({
     setQuoteOrigin('registrado');
     setActiveView('new_quote');
     setNewClientName('');
+  };
+
+  // WhatsApp Message Generator
+  const generateWhatsAppUrl = (q: Quote) => {
+    const phone = (q.whatsapp || '4774047421').replace(/\D/g, '');
+    const cleanPhone = phone.length === 10 ? `52${phone}` : phone;
+    const msg = `*MVL CONTROL INDUSTRIAL - COTIZACIÓN OFICIAL*\n\n` +
+      `Estimado cliente: *${q.clientName}*\n` +
+      `Folio: *${q.folNum}*\n` +
+      `Concepto: *${q.concept}*\n` +
+      `Total: *$${q.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN* (IVA Incluido)\n` +
+      `Tiempo de Entrega: *${q.deliveryLeadTime || 'Inmediata'}*\n` +
+      `Asesor: *${q.agentName || 'Ing. Leonardo Daniel Torres'}*\n` +
+      `Razón Social: *${q.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'}*\n\n` +
+      `Consulte el expediente digital y formato oficial en nuestra plataforma web.`;
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+  };
+
+  // Download PDF with custom filename [Numero_Cotizacion]_[Descripcion].pdf
+  const handleDownloadPdf = (q: Quote) => {
+    const sanitizedConcept = q.concept.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
+    const fileName = `${q.folNum}_${sanitizedConcept}.pdf`;
+    const prevTitle = document.title;
+    document.title = fileName;
+    window.print();
+    setTimeout(() => {
+      document.title = prevTitle;
+    }, 1000);
   };
 
   // Filtered quotes list
@@ -579,7 +781,7 @@ export default function SalesQuoteModule({
                 <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Teléfono / WhatsApp</label>
                 <input
                   type="text"
-                  placeholder="81-8123-4567"
+                  placeholder="477-123-4567"
                   value={newClientPhone}
                   onChange={e => setNewClientPhone(e.target.value)}
                   className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-1 focus:ring-[#0196C1] outline-none"
@@ -588,7 +790,7 @@ export default function SalesQuoteModule({
             </div>
 
             <div>
-              <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Correo Electrónico para Envío</label>
+              <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Correo Electrónico de Facturación / Contacto</label>
               <input
                 type="email"
                 placeholder="compras@cliente.com"
@@ -601,57 +803,87 @@ export default function SalesQuoteModule({
             <div className="flex items-center gap-2 pt-1">
               <input
                 type="checkbox"
-                id="particular_check"
+                id="isPart"
                 checked={isParticular}
                 onChange={e => setIsParticular(e.target.checked)}
-                className="rounded text-[#0196C1] focus:ring-[#0196C1]"
+                className="rounded text-[#0196C1]"
               />
-              <label htmlFor="particular_check" className="text-xs font-bold text-slate-700 cursor-pointer">
-                Marcar como "Particular Independiente / Venta Mostrador" (Sin RFC fiscal requerido)
-              </label>
+              <label htmlFor="isPart" className="text-xs text-slate-600 font-medium">Cliente particular / No requiere factura comercial</label>
             </div>
 
-            <div className="pt-3 flex gap-2">
+            <div className="flex gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setActiveView('list')}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Cancelar
+              </button>
               <button
                 type="submit"
                 className="flex-1 py-2.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
               >
-                Guardar Cliente e Iniciar Cotización
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveView('list')}
-                className="py-2.5 px-4 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl cursor-pointer"
-              >
-                Cancelar
+                Guardar Cliente y Cotizar
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* VIEW: New / Edit Quote Form */}
+      {/* VIEW: Create New Dynamic Quote */}
       {activeView === 'new_quote' && (
-        <form onSubmit={handleSaveQuote} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+        <form onSubmit={e => handleSaveQuote(e, false)} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-md space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-4">
             <div>
-              <span className="text-[10px] font-black uppercase text-[#0196C1] bg-sky-50 px-2 py-0.5 rounded">
-                Plantilla Activa: {quoteCategory === 'poliza' ? 'Póliza Anual de Climatización' : quoteCategory === 'suministro_instalacion' ? 'Suministro e Instalación HVAC' : 'Cotización Estándar de Refacciones'}
+              <span className="text-[10px] font-black uppercase text-[#0196C1] tracking-wider">
+                {quoteCategory === 'standard' ? 'Cotización Estándar de Refacciones & Servicio' :
+                 quoteCategory === 'poliza' ? 'Cotización de Póliza Anual HVAC' :
+                 quoteCategory === 'suministro_instalacion' ? 'Cotización Suministro e Instalación YORK' : 'Cotización Personalizada'}
               </span>
-              <h3 className="text-base font-black text-slate-800 flex items-center gap-2 mt-1">
-                <FileText className="w-5 h-5 text-[#0196C1]" /> 
-                {quoteCategory === 'poliza' ? 'Cotizador de Póliza Anual de Mantenimiento' :
-                 quoteCategory === 'suministro_instalacion' ? 'Cotizador de Suministro e Instalación (Equipos y Canalización)' :
-                 'Generador de Cotización Industrial Estándar'}
+              <h3 className="text-base font-black text-slate-800">
+                Nueva Propuesta Económica & Cotización Formal MVL
               </h3>
             </div>
-            <button
-              type="button"
-              onClick={() => setActiveView('list')}
-              className="text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer flex items-center gap-1"
-            >
-              ← Volver al Historial
-            </button>
+            
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSaveTemplateModal(true)}
+                className="px-3 py-1.5 bg-sky-50 text-[#0196C1] border border-sky-200 rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-sky-100 cursor-pointer"
+              >
+                <BookmarkPlus className="w-3.5 h-3.5" /> Guardar como Plantilla
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView('list')}
+                className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg bg-slate-100 cursor-pointer"
+              >
+                Cerrar Formulario
+              </button>
+            </div>
+          </div>
+
+          {/* Plantillas Rápidas Dinámicas */}
+          <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-2">
+            <div className="flex justify-between items-center">
+              <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#0196C1]" /> Plantillas Rápidas & Historial de Partidas
+              </label>
+              <span className="text-[10px] text-slate-500 font-bold">{quickTemplates.length} plantillas disponibles</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {quickTemplates.map(tmpl => (
+                <button
+                  key={tmpl.id}
+                  type="button"
+                  onClick={() => handleLoadTemplate(tmpl)}
+                  className="px-3 py-1.5 bg-white hover:bg-sky-50 border border-slate-200 hover:border-[#0196C1] rounded-xl text-xs font-bold text-slate-700 hover:text-[#0196C1] flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-3 h-3 text-[#0196C1]" />
+                  <span>{tmpl.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* 1. SELECCIÓN DE ORIGEN, TIPO DE CLIENTE & SOCIO EMISOR */}
@@ -665,7 +897,7 @@ export default function SalesQuoteModule({
                 onClick={() => setActiveView('new_client')}
                 className="text-[10px] font-extrabold text-[#0196C1] hover:underline flex items-center gap-1 cursor-pointer"
               >
-                <Plus className="w-3 h-3" /> Registrar Nuevo Cliente al Vuelo
+                <Plus className="w-3 h-3" /> + Registrar Nuevo Cliente
               </button>
             </div>
 
@@ -701,65 +933,57 @@ export default function SalesQuoteModule({
               <button
                 type="button"
                 onClick={() => setQuoteOrigin('registrado')}
-                className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer text-left ${
-                  quoteOrigin === 'registrado' ? 'bg-white border-[#0196C1] text-[#0196C1] ring-1 ring-[#0196C1]' : 'bg-white text-slate-600 border-slate-200'
+                className={`p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                  quoteOrigin === 'registrado' ? 'bg-[#0196C1] text-white border-[#0196C1] shadow-xs' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                <span className="block font-black">Cliente Registrado</span>
-                <span className="text-[10px] text-slate-400">Catálogo de empresas con RFC</span>
+                <CheckCircle2 className="w-3.5 h-3.5" /> Cliente Registrado
               </button>
-
               <button
                 type="button"
-                onClick={() => {
-                  setQuoteOrigin('nuevo');
-                  setActiveView('new_client');
-                }}
-                className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer text-left ${
-                  quoteOrigin === 'nuevo' ? 'bg-white border-[#0196C1] text-[#0196C1] ring-1 ring-[#0196C1]' : 'bg-white text-slate-600 border-slate-200'
+                onClick={() => setQuoteOrigin('nuevo')}
+                className={`p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                  quoteOrigin === 'nuevo' ? 'bg-[#0196C1] text-white border-[#0196C1] shadow-xs' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                <span className="block font-black">+ Cliente Nuevo</span>
-                <span className="text-[10px] text-slate-400">Captura directa de datos</span>
+                <UserPlus className="w-3.5 h-3.5" /> + Cliente Nuevo
               </button>
-
               <button
                 type="button"
                 onClick={() => setQuoteOrigin('publico_general')}
-                className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer text-left ${
-                  quoteOrigin === 'publico_general' ? 'bg-white border-[#0196C1] text-[#0196C1] ring-1 ring-[#0196C1]' : 'bg-white text-slate-600 border-slate-200'
+                className={`p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                  quoteOrigin === 'publico_general' ? 'bg-[#0196C1] text-white border-[#0196C1] shadow-xs' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                <span className="block font-black">Venta Público General</span>
-                <span className="text-[10px] text-slate-400">Solo nombre de comprador</span>
+                <Building2 className="w-3.5 h-3.5" /> Venta Público General
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
-              {quoteOrigin === 'publico_general' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+              {quoteOrigin !== 'publico_general' ? (
                 <div>
-                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Nombre del Comprador</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej. Ing. Sergio Molina"
-                    value={publicClientName}
-                    onChange={e => setPublicClientName(e.target.value)}
-                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold"
-                  />
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Seleccionar Cliente</label>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Cliente</label>
                   <select
                     value={selectedClientId}
                     onChange={e => setSelectedClientId(e.target.value)}
                     className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
                   >
                     {clients.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} {c.isIndependent ? '(Particular)' : ''}</option>
+                      <option key={c.id} value={c.id}>{c.name} ({c.rfc})</option>
                     ))}
                   </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Nombre / Razón Social Comprador</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Público General / Nombre del cliente"
+                    value={publicClientName}
+                    onChange={e => setPublicClientName(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold"
+                  />
                 </div>
               )}
 
@@ -824,71 +1048,58 @@ export default function SalesQuoteModule({
               ))}
             </div>
 
-            {/* Selector de Horómetros para Servicio Preventivo (2k, 4k, 6k, 8k, 16k hrs) */}
+            {/* Selector de Horómetros para Servicio Preventivo (2k, 4k, 6k, 8k, 16k, 24k hrs) */}
             {serviceTypeCategory === 'preventivo' && (
               <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
                 <span className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-[#0196C1]" /> Horas de Servicio del Equipo:
+                  <Clock className="w-3.5 h-3.5 text-[#0196C1]" /> Horas de Servicio del Equipo (Horómetro):
                 </span>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                   {[
                     { id: '2k', label: '2,000 hrs', desc: 'Filtros y Aceite Básico' },
                     { id: '4k', label: '4,000 hrs', desc: 'Mantenimiento Preventivo Menor' },
                     { id: '6k', label: '6,000 hrs', desc: 'Preventivo + Válvula Termostática' },
                     { id: '8k', label: '8,000 hrs', desc: 'Mantenimiento Mayor / Kit Válvulas' },
-                    { id: '16k', label: '16,000 hrs', desc: 'Overhaul Integral y Rodamientos' }
+                    { id: '16k', label: '16,000 hrs', desc: 'Overhaul Integral y Rodamientos' },
+                    { id: '24k', label: '24,000 hrs', desc: 'Overhaul Mayor y Rodamientos (24k)' }
                   ].map(h => (
                     <button
                       key={h.id}
                       type="button"
                       onClick={() => setServiceHours(h.id as any)}
-                      className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer flex flex-col items-start ${
+                      className={`p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer flex flex-col items-start ${
                         serviceHours === h.id
                           ? 'bg-sky-50 border-[#0196C1] text-[#0196C1] ring-1 ring-[#0196C1]'
                           : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                       }`}
                     >
-                      <span>{h.label}</span>
-                      <span className="text-[9px] font-normal text-slate-400">{h.desc}</span>
+                      <span className="font-black">{h.label}</span>
+                      <span className="text-[9px] font-normal text-slate-400 leading-tight">{h.desc}</span>
                     </button>
                   ))}
                 </div>
               </div>
             )}
-
-            {serviceTypeCategory === 'personalizado' && (
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs space-y-2">
-                <div className="flex items-center gap-2 text-amber-900 font-bold">
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <span>Servicio libre / Personalizado con captura de partidas directas:</span>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Detallar alcance especial (ej. Rebobinado de motor 75HP, maniobras pesadas)..."
-                  value={customServiceNotes}
-                  onChange={e => setCustomServiceNotes(e.target.value)}
-                  className="w-full text-xs p-2 bg-white border border-amber-300 rounded-lg outline-none"
-                />
-              </div>
-            )}
           </div>
 
-          {/* 3. ASIGNACIÓN, DATOS DE EQUIPOS Y ADJUNTOS (FOTO DE PLACA & MANUAL PDF) */}
+          {/* 3. ASIGNACIÓN, DATOS DE EQUIPOS Y ADJUNTOS (FOTO DE PLACA, SERIE & MANUAL PDF) */}
           <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-3">
             <div className="flex justify-between items-center">
               <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
-                <Cpu className="w-4 h-4 text-[#0196C1]" /> 3. Datos Técnicos del Equipo & Adjuntos
+                <Cpu className="w-4 h-4 text-[#0196C1]" /> 3. Datos Técnicos del Equipo, No. de Serie & Adjuntos
               </label>
               <button
                 type="button"
                 onClick={() => setIsNewEquipmentOnTheFly(!isNewEquipmentOnTheFly)}
-                className="text-[10px] font-extrabold text-[#0196C1] hover:underline flex items-center gap-1 cursor-pointer"
+                className={`text-[10px] font-black px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-all ${
+                  isNewEquipmentOnTheFly ? 'bg-emerald-100 text-emerald-800' : 'bg-sky-50 text-[#0196C1] hover:bg-sky-100'
+                }`}
               >
-                <Plus className="w-3 h-3" /> {isNewEquipmentOnTheFly ? 'Usar equipo base' : 'Dar de alta nuevo equipo al vuelo'}
+                <Plus className="w-3 h-3" /> {isNewEquipmentOnTheFly ? '✓ Guardando en Catálogo de Equipos' : 'Dar de alta nuevo equipo al vuelo'}
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <div>
                 <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Tipo de Equipo</label>
                 <select
@@ -896,9 +1107,9 @@ export default function SalesQuoteModule({
                   onChange={e => setEqType(e.target.value as any)}
                   className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none font-bold text-slate-800"
                 >
-                  <option value="Compresor">Compresor de Tornillo</option>
+                  <option value="Compresor">Compresor Tornillo</option>
                   <option value="Secador">Secador Refrigerativo</option>
-                  <option value="Aire Acondicionado">Aire Acondicionado (HVAC)</option>
+                  <option value="Aire Acondicionado">Aire Acondicionado</option>
                   <option value="Otros">Bomba Vacío / Chiller</option>
                 </select>
               </div>
@@ -909,8 +1120,8 @@ export default function SalesQuoteModule({
                   type="text"
                   value={eqBrand}
                   onChange={e => setEqBrand(e.target.value)}
-                  placeholder="Kaeser, York, Carrier..."
-                  className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none"
+                  placeholder="Kaeser, York..."
+                  className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none font-bold"
                 />
               </div>
 
@@ -921,36 +1132,48 @@ export default function SalesQuoteModule({
                   value={eqModel}
                   onChange={e => setEqModel(e.target.value)}
                   placeholder="BSD 50, AS 30 T..."
-                  className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none"
+                  className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none font-bold"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Capacidad / Toneladas</label>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                  <Hash className="w-3 h-3 text-[#0196C1]" /> No. de Serie / Placa
+                </label>
+                <input
+                  type="text"
+                  value={eqSerial}
+                  onChange={e => setEqSerial(e.target.value)}
+                  placeholder="Ej. 1030, SN-88921"
+                  className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none font-mono font-bold text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Capacidad</label>
                 <input
                   type="text"
                   value={eqCapacity}
                   onChange={e => setEqCapacity(e.target.value)}
-                  placeholder="50 HP / 1.5 TR..."
+                  placeholder="50 HP / 1.5 TR"
                   className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Voltaje / Alimentación</label>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Voltaje</label>
                 <input
                   type="text"
                   value={eqVoltage}
                   onChange={e => setEqVoltage(e.target.value)}
-                  placeholder="220V 3F, 440V, 110V..."
+                  placeholder="220V 3F, 440V"
                   className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none"
                 />
               </div>
             </div>
 
-            {/* ADJUNTOS TÉCNICOS: Foto de Placa de Datos y Manual PDF */}
+            {/* ADJUNTOS TÉCNICOS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200">
-              {/* Foto de Placa */}
               <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] font-black text-slate-700 uppercase flex items-center gap-1.5">
@@ -991,11 +1214,10 @@ export default function SalesQuoteModule({
                 </div>
               </div>
 
-              {/* Manual Técnico PDF */}
               <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] font-black text-slate-700 uppercase flex items-center gap-1.5">
-                    <FileDown className="w-3.5 h-3.5 text-[#0196C1]" /> Manual Técnico / Guía de Partes PDF
+                    <FileDown className="w-3.5 h-3.5 text-[#0196C1]" /> Manual Técnico / Guía PDF
                   </span>
                   {manualPdfUrl && (
                     <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -1034,81 +1256,62 @@ export default function SalesQuoteModule({
             </div>
           </div>
 
-          {/* Quick preset for Excel Andrea Kaiser AS 30 T */}
-          {quoteCategory === 'standard' && (
-            <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div>
-                <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-200 px-2 py-0.5 rounded">
-                  Plantilla Rápida Predefinida
-                </span>
-                <h4 className="text-xs font-black text-slate-900 mt-1">Paquete de 9 Refacciones OEM: Andrea (Kaiser AS 30 T)</h4>
-                <p className="text-[10px] text-slate-600">Filtros de Aire/Aceite/Separador, Válvulas y Lubricante Sintético 40L</p>
-              </div>
-              <button
-                type="button"
-                onClick={handleLoadAndreaExcelParts}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0"
-              >
-                <Sparkles className="w-3.5 h-3.5" /> [ Cargar 9 Refacciones Andrea ]
-              </button>
-            </div>
-          )}
-
-          {/* 4. PARTIDAS DE REFACCIONES & LINKEADO A INVENTARIO */}
+          {/* 4. PARTIDAS DE REFACCIONES & LINKEADO AUTOMÁTICO A INVENTARIO */}
           {quoteCategory === 'standard' && (
             <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-4">
               <div className="flex justify-between items-center">
                 <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
-                  <ShoppingCart className="w-4 h-4 text-[#0196C1]" /> 4. Partidas de Refacciones (Validación en Almacén / Stock)
+                  <ShoppingCart className="w-4 h-4 text-[#0196C1]" /> 4. Partidas de Refacciones (Búsqueda Automática en Stock)
                 </label>
                 <span className="text-[10px] font-extrabold text-[#0196C1] bg-sky-50 px-2 py-0.5 rounded">
                   {standardItems.length} Partidas agregadas
                 </span>
               </div>
 
-              {/* Selector de Inventario / Captura */}
+              {/* Captura con Auto-Complete en Inventario */}
               <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-3">
-                <span className="text-[10px] font-bold text-slate-500 uppercase block">Agregar Ítem desde Almacén o Alta Personalizada:</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase block">Escribe descripción o No. de Parte para verificar en Almacén:</span>
                 <div className="grid grid-cols-1 sm:grid-cols-6 gap-2">
-                  <div className="sm:col-span-2">
-                    <select
-                      value={selectedInventoryId}
-                      onChange={e => {
-                        setSelectedInventoryId(e.target.value);
-                        if (e.target.value) {
-                          const item = inventory.find(i => i.id === e.target.value);
-                          if (item) {
-                            setCustomItemDesc(item.name);
-                            setCustomItemPartNo(item.code);
-                            setCustomItemPrice(item.price || 0);
-                          }
-                        }
-                      }}
-                      className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-medium"
-                    >
-                      <option value="">-- Buscar en Inventario MVL --</option>
-                      {inventory.map(inv => (
-                        <option key={inv.id} value={inv.id}>
-                          {inv.code} - {inv.name} (Stock: {inv.stock})
-                        </option>
-                      ))}
-                    </select>
+                  <div className="sm:col-span-2 relative">
+                    <input
+                      type="text"
+                      placeholder="Ej. Filtro de aire, aceite, válvula..."
+                      value={customItemDesc}
+                      onChange={e => setCustomItemDesc(e.target.value)}
+                      className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                    />
+                    {/* Live suggestions */}
+                    {inventoryMatches.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden divide-y divide-slate-100">
+                        {inventoryMatches.map(inv => (
+                          <button
+                            key={inv.id}
+                            type="button"
+                            onClick={() => handleSelectInventoryMatch(inv)}
+                            className="w-full p-2.5 text-left text-xs hover:bg-sky-50 flex items-center justify-between cursor-pointer"
+                          >
+                            <div>
+                              <span className="font-bold text-slate-800 block">{inv.name}</span>
+                              <span className="text-[10px] font-mono text-slate-400">Código: {inv.code}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded block ${inv.stock > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                                {inv.stock > 0 ? `Stock: ${inv.stock} pzas` : 'Sobre Pedido'}
+                              </span>
+                              <span className="text-[10px] font-bold text-[#0196C1]">${inv.price?.toLocaleString('es-MX')} MXN</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <input
                     type="text"
-                    placeholder="O descripción manual..."
-                    value={customItemDesc}
-                    onChange={e => setCustomItemDesc(e.target.value)}
-                    className="text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none"
-                  />
-
-                  <input
-                    type="text"
-                    placeholder="No. Parte"
+                    placeholder="No. Parte / Código"
                     value={customItemPartNo}
                     onChange={e => setCustomItemPartNo(e.target.value)}
-                    className="text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none"
+                    className="text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-mono"
                   />
 
                   <div className="flex gap-1">
@@ -1151,7 +1354,7 @@ export default function SalesQuoteModule({
                       <th className="py-2 px-2.5">Cant.</th>
                       <th className="py-2 px-2.5 text-right">P. Unitario</th>
                       <th className="py-2 px-2.5 text-right">Total</th>
-                      <th className="py-2 px-2.5 text-center">Acciones</th>
+                      <th className="py-2 px-2.5 text-center">Acción</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1161,26 +1364,20 @@ export default function SalesQuoteModule({
                         <td className="py-2 px-2.5 font-bold text-slate-800">{item.description}</td>
                         <td className="py-2 px-2.5 font-mono text-slate-500">{item.partNumber}</td>
                         <td className="py-2 px-2.5">
-                          {item.inStock ? (
-                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-black rounded-md flex items-center gap-1 w-fit">
-                              <Check className="w-3 h-3" /> En Stock ({item.stockQty || 'Disp'})
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[9px] font-black rounded-md flex items-center gap-1 w-fit">
-                              <Clock className="w-3 h-3" /> Sobre Pedido
-                            </span>
-                          )}
+                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${item.inStock ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                            {item.inStock ? `✓ En Stock (${item.stockQty || 1})` : '⏳ Sobre Pedido'}
+                          </span>
                         </td>
-                        <td className="py-2 px-2.5 font-bold">{item.quantity} {item.unit || 'pza'}</td>
-                        <td className="py-2 px-2.5 text-right font-medium">${item.catalogPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 px-2.5 font-bold">{item.quantity}</td>
+                        <td className="py-2 px-2.5 text-right">${item.catalogPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
                         <td className="py-2 px-2.5 text-right font-black text-slate-900">${item.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
                         <td className="py-2 px-2.5 text-center">
                           <button
                             type="button"
                             onClick={() => handleRemoveStandardItem(idx)}
-                            className="text-red-500 hover:text-red-700 text-xs font-bold cursor-pointer"
+                            className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
                           >
-                            × Quitar
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         </td>
                       </tr>
@@ -1191,84 +1388,87 @@ export default function SalesQuoteModule({
             </div>
           )}
 
-          {/* 5. CONDICIONES COMERCIALES Y TIEMPOS DE ENTREGA */}
+          {/* 5. CONDICIONES COMERCIALES, TIEMPO DE ENTREGA & DESCUENTOS */}
           <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-4">
             <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-[#0196C1]" /> 5. Condiciones Comerciales & Tiempo de Entrega Dinámico
+              <Clock className="w-4 h-4 text-[#0196C1]" /> 5. Tiempo de Entrega & Condiciones Comerciales
             </label>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Cálculo de Tiempo de Entrega</label>
-                <div className="space-y-2">
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setDeliveryLeadTimeOption('auto')}
-                      className={`p-2 rounded-xl border text-xs font-bold cursor-pointer ${
-                        deliveryLeadTimeOption === 'auto' ? 'bg-[#0196C1] text-white border-[#0196C1]' : 'bg-white text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      Automático (Stock)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeliveryLeadTimeOption('inmediato')}
-                      className={`p-2 rounded-xl border text-xs font-bold cursor-pointer ${
-                        deliveryLeadTimeOption === 'inmediato' ? 'bg-[#0196C1] text-white border-[#0196C1]' : 'bg-white text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      Inmediata
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeliveryLeadTimeOption('programar')}
-                      className={`p-2 rounded-xl border text-xs font-bold cursor-pointer ${
-                        deliveryLeadTimeOption === 'programar' ? 'bg-[#0196C1] text-white border-[#0196C1]' : 'bg-white text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      Manual / Agenda
-                    </button>
-                  </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Delivery Time Selection */}
+              <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                <span className="text-[10px] font-black text-slate-600 uppercase block">Cálculo y Edición de Tiempo de Entrega:</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryLeadTimeOption('auto')}
+                    className={`p-2 rounded-lg border text-left text-xs font-bold cursor-pointer ${
+                      deliveryLeadTimeOption === 'auto' ? 'bg-sky-50 border-[#0196C1] text-[#0196C1] ring-1 ring-[#0196C1]' : 'bg-slate-50 text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    <span>Auto (Por Stock)</span>
+                    <span className="text-[9px] font-normal text-slate-400 block">{calculatedDeliveryTime}</span>
+                  </button>
 
-                  <div className="p-2.5 bg-white rounded-xl border border-slate-200 text-xs">
-                    <span className="text-[10px] text-slate-400 block font-bold uppercase">Resultado para el PDF:</span>
-                    <strong className="text-slate-800">{calculatedDeliveryTime}</strong>
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryLeadTimeOption('manual')}
+                    className={`p-2 rounded-lg border text-left text-xs font-bold cursor-pointer ${
+                      deliveryLeadTimeOption === 'manual' ? 'bg-sky-50 border-[#0196C1] text-[#0196C1] ring-1 ring-[#0196C1]' : 'bg-slate-50 text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    <span>Manual / Personalizado</span>
+                    <span className="text-[9px] font-normal text-slate-400 block">Editar a mano</span>
+                  </button>
+                </div>
+
+                {deliveryLeadTimeOption === 'manual' && (
+                  <div className="pt-2">
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Escribir Tiempo de Entrega Personalizado:</label>
+                    <input
+                      type="text"
+                      value={manualDeliveryTime}
+                      onChange={e => setManualDeliveryTime(e.target.value)}
+                      placeholder="Ej. Inmediata (Existencia en Almacén) / 2 a 3 semanas"
+                      className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800"
+                    />
                   </div>
+                )}
+              </div>
+
+              {/* Discount selection */}
+              <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                <span className="text-[10px] font-black text-slate-600 uppercase block">Descuento Comercial Aplicado (%):</span>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    max="30"
+                    value={discountPercent}
+                    onChange={e => setDiscountPercent(Number(e.target.value))}
+                    className="w-24 text-sm p-2 bg-slate-50 border border-slate-200 rounded-xl text-center font-black text-slate-800 outline-none"
+                  />
+                  <span className="text-xs text-slate-500">
+                    {discountPercent > 5 ? '⚠️ Requiere autorización de Dirección / Socios.' : '✓ Descuento estándar de vendedor.'}
+                  </span>
                 </div>
               </div>
-
-              <div>
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Condiciones Generales Editables</label>
-                <textarea
-                  rows={4}
-                  value={commercialConditions}
-                  onChange={e => setCommercialConditions(e.target.value)}
-                  className="w-full text-xs p-2 bg-white border border-slate-200 rounded-xl outline-none leading-relaxed"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 pt-2 border-t border-slate-200/60">
-              <label className="text-xs font-bold text-slate-700">Descuento Solicitado (%):</label>
-              <input
-                type="number"
-                min="0"
-                max="30"
-                value={discountPercent}
-                onChange={e => setDiscountPercent(Number(e.target.value))}
-                className="w-20 text-xs p-1.5 bg-white border border-slate-200 rounded-lg text-center font-bold"
-              />
-              <span className="text-[10px] text-slate-500">
-                {discountPercent > 5 ? '⚠️ Descuentos mayores al 5% generarán una alerta de aprobación a Socios/Dirección.' : 'Aprobación automática de vendedor.'}
-              </span>
             </div>
           </div>
 
-          <div className="pt-4 flex gap-3 border-t border-slate-100">
+          {/* BOTONES DE ACCIÓN: GUARDAR COTIZACIÓN & GUARDAR COMO BORRADOR/PENDIENTE DE INVENTARIO */}
+          <div className="pt-4 flex flex-col sm:flex-row gap-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={e => handleSaveQuote(e, true)}
+              className="px-5 py-3 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black uppercase rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2 transition-all"
+            >
+              <Clock className="w-4 h-4 text-amber-600" /> Guardar como Borrador / Pendiente de Inventario
+            </button>
+
             <button
               type="submit"
-              className="flex-1 py-3 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2"
+              className="flex-1 py-3 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2 transition-all"
             >
               <Send className="w-4 h-4" /> Generar, Firmar y Emitir Cotización Oficial MVL
             </button>
@@ -1276,13 +1476,13 @@ export default function SalesQuoteModule({
         </form>
       )}
 
-      {/* VIEW: List of Quotes with Search & Duplication */}
+      {/* VIEW: List of Quotes */}
       {activeView === 'list' && (
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3">
             <div>
               <h3 className="text-sm font-extrabold text-slate-800">Historial & Expediente de Cotizaciones</h3>
-              <p className="text-[11px] text-slate-400">Filtrables por vendedor, estatus y cliente con duplicación en 1 clic</p>
+              <p className="text-[11px] text-slate-400">Filtrables por vendedor, estatus y cliente con duplicación y aprobación con Orden de Compra (OC)</p>
             </div>
             <span className="text-xs font-bold text-[#0196C1] bg-sky-50 px-2.5 py-1 rounded-lg">
               {filteredQuotes.length} de {quotes.length} Cotizaciones
@@ -1310,7 +1510,8 @@ export default function SalesQuoteModule({
               >
                 <option value="all">-- Todos los Estatus --</option>
                 <option value="sent">Enviada</option>
-                <option value="approved">Aprobada</option>
+                <option value="approved">Aprobada con OC</option>
+                <option value="pending_inventory">⏳ Pendiente de Inventario</option>
                 <option value="discount_requested">Solicitud de Descuento</option>
                 <option value="rejected">Rechazada / Vencida</option>
               </select>
@@ -1342,27 +1543,21 @@ export default function SalesQuoteModule({
                     <span className="text-xs font-bold text-slate-800">{q.clientName}</span>
                     <span className="text-[10px] text-slate-400">({q.date})</span>
 
-                    {q.quoteCategory === 'poliza' && (
-                      <span className="text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">
-                        Póliza Anual
+                    {q.status === 'pending_inventory' && (
+                      <span className="text-[9px] font-black uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-amber-600" /> Pendiente de Inventario
                       </span>
                     )}
 
-                    {q.quoteCategory === 'suministro_instalacion' && (
-                      <span className="text-[9px] font-black uppercase bg-purple-100 text-purple-800 px-2 py-0.5 rounded">
-                        Suministro e Instalación
-                      </span>
-                    )}
-
-                    {q.preBillingRequest && (
-                      <span className="text-[9px] font-black uppercase bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-indigo-600" /> Facturación Solicitada
+                    {q.clientPoNumber && (
+                      <span className="text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded flex items-center gap-1">
+                        <Check className="w-3 h-3 text-emerald-600" /> OC: {q.clientPoNumber}
                       </span>
                     )}
                   </div>
                   <p className="text-xs font-medium text-slate-700">{q.concept}</p>
                   <div className="flex items-center gap-3 text-[10px] text-slate-500">
-                    <span>Vendedor: <strong>{q.agentName || 'Ing. Leonardo Daniel Torres'}</strong></span>
+                    <span>Emisor: <strong>{q.issuerPartnerName || 'MVL Control'}</strong></span>
                     <span>•</span>
                     <span>Entrega: <strong>{q.deliveryLeadTime || 'Inmediata'}</strong></span>
                   </div>
@@ -1375,22 +1570,15 @@ export default function SalesQuoteModule({
                   </div>
 
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {/* Status Dropdown */}
-                    <select
-                      value={q.status}
-                      onChange={e => handleUpdateQuoteStatus(q.id, e.target.value as any)}
-                      className={`text-[10px] font-extrabold uppercase px-2 py-1 rounded-lg border outline-none cursor-pointer ${
-                        q.status === 'approved' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
-                        q.status === 'discount_requested' ? 'bg-amber-50 text-amber-800 border-amber-300' :
-                        q.status === 'rejected' ? 'bg-red-50 text-red-800 border-red-300' :
-                        'bg-sky-50 text-sky-800 border-sky-300'
-                      }`}
-                    >
-                      <option value="sent">Enviada</option>
-                      <option value="approved">Aprobada</option>
-                      <option value="discount_requested">Sol. Descuento</option>
-                      <option value="rejected">Rechazada</option>
-                    </select>
+                    {/* Botón Aprobar con OC */}
+                    {q.status !== 'approved' && (
+                      <button
+                        onClick={() => setPoApprovalModalQuote(q)}
+                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer shadow-2xs"
+                      >
+                        <Check className="w-3.5 h-3.5" /> Aprobar con OC
+                      </button>
+                    )}
 
                     <button
                       onClick={() => handleDuplicateQuote(q)}
@@ -1408,7 +1596,7 @@ export default function SalesQuoteModule({
                     </button>
 
                     <a
-                      href={`https://wa.me/?text=Hola,%20adjunto%20la%20cotizaci%C3%B3n%20oficial%20${q.folNum}%20por%20$${q.total.toLocaleString('es-MX')}%20para%20${encodeURIComponent(q.clientName)}`}
+                      href={generateWhatsAppUrl(q)}
                       target="_blank"
                       rel="noreferrer"
                       className="p-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold flex items-center gap-1"
@@ -1419,6 +1607,123 @@ export default function SalesQuoteModule({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* PO APPROVAL MODAL (Upload PDF & Generate OT) */}
+      {poApprovalModalQuote && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                Aprobación de Cotización & Registro de OC
+              </h3>
+              <button onClick={() => setPoApprovalModalQuote(null)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-sky-50 rounded-xl border border-sky-100 text-xs">
+              <span className="font-bold text-[#0196C1] block">Folio: {poApprovalModalQuote.folNum}</span>
+              <span className="text-slate-700 block">{poApprovalModalQuote.clientName}</span>
+              <span className="font-black text-slate-900 block mt-1">${poApprovalModalQuote.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Número de Orden de Compra del Cliente (OC)</label>
+                <input
+                  type="text"
+                  placeholder="Ej. OC-2026-8819, PO-9941"
+                  value={enteredPoNumber}
+                  onChange={e => setEnteredPoNumber(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Subir Orden de Compra (PDF / Foto)</label>
+                <label className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 border-dashed rounded-xl cursor-pointer text-center text-xs font-bold text-slate-600 flex items-center justify-center gap-1.5">
+                  <Upload className="w-4 h-4 text-slate-400" />
+                  <span>{poPdfFileName || 'Seleccionar archivo PDF de OC'}</span>
+                  <input
+                    type="file"
+                    accept=".pdf,image/*"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) setPoPdfFileName(file.name);
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="autoOt"
+                  checked={autoGenerateOt}
+                  onChange={e => setAutoGenerateOt(e.target.checked)}
+                  className="rounded text-[#0196C1]"
+                />
+                <label htmlFor="autoOt" className="text-xs text-slate-700 font-bold">Generar Orden de Trabajo (OT) automática para Coordinación</label>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setPoApprovalModalQuote(null)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPoApproval}
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-xs cursor-pointer"
+              >
+                Confirmar y Generar OT
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SAVE TEMPLATE MODAL */}
+      {showSaveTemplateModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-3 shadow-2xl border border-slate-200">
+            <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5">
+              <BookmarkPlus className="w-4 h-4 text-[#0196C1]" />
+              Guardar Plantilla Rápida
+            </h3>
+            <p className="text-xs text-slate-500">Asigna un nombre a este paquete de refacciones para reutilizarlo en futuras cotizaciones.</p>
+            <input
+              type="text"
+              placeholder="Ej. Preventivo Kaeser CSD 75, Minisplit YORK..."
+              value={newTemplateName}
+              onChange={e => setNewTemplateName(e.target.value)}
+              className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold"
+            />
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowSaveTemplateModal(false)}
+                className="flex-1 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAsTemplate}
+                className="flex-1 py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-black rounded-xl cursor-pointer"
+              >
+                Guardar Plantilla
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1438,10 +1743,10 @@ export default function SalesQuoteModule({
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => handleDownloadPdf(selectedQuoteForPreview)}
                   className="px-3 py-1.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer"
                 >
-                  <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
+                  <Printer className="w-3.5 h-3.5" /> Descargar PDF / Imprimir
                 </button>
                 <button
                   onClick={() => setSelectedQuoteForPreview(null)}
@@ -1454,15 +1759,15 @@ export default function SalesQuoteModule({
 
             {/* Document Content Box */}
             <div className="p-8 space-y-6 text-slate-800 text-xs font-sans">
-              {/* PDF HEADER */}
+              {/* PDF HEADER CON LOGOTIPO INSTITUCIONAL */}
               <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-[#0196C1] rounded-xl flex items-center justify-center text-white font-black text-xl shadow-xs">
+                    <div className="w-12 h-12 bg-linear-to-br from-[#0196C1] to-[#017fa4] rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-md border-2 border-white">
                       MVL
                     </div>
                     <div>
-                      <h1 className="text-base font-black text-slate-900">
+                      <h1 className="text-base font-black text-slate-900 tracking-tight">
                         {selectedQuoteForPreview.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'}
                       </h1>
                       <p className="text-[10px] text-slate-700 font-bold">
@@ -1502,6 +1807,28 @@ export default function SalesQuoteModule({
                   <span className="text-xs font-bold text-emerald-700">{selectedQuoteForPreview.deliveryLeadTime || 'Inmediata'}</span>
                 </div>
               </div>
+
+              {/* DATOS TÉCNICOS Y SERIE DEL EQUIPO */}
+              {selectedQuoteForPreview.equipmentDetails && (
+                <div className="p-3 bg-slate-50/70 rounded-xl border border-slate-200 text-xs grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div>
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Equipo / Marca</span>
+                    <span className="font-bold text-slate-800">{selectedQuoteForPreview.equipmentDetails.brand} {selectedQuoteForPreview.equipmentDetails.model}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase block">No. de Serie</span>
+                    <span className="font-mono font-black text-[#0196C1]">{selectedQuoteForPreview.equipmentDetails.serialNumber || '1030'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Capacidad / Voltaje</span>
+                    <span className="font-bold text-slate-800">{selectedQuoteForPreview.equipmentDetails.capacity || '50 HP'} - {selectedQuoteForPreview.equipmentDetails.voltage || '220V'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Tipo</span>
+                    <span className="font-bold text-slate-800">{selectedQuoteForPreview.equipmentDetails.equipmentType || 'Compresor'}</span>
+                  </div>
+                </div>
+              )}
 
               {/* TECHNICAL ATTACHMENTS BADGES (IF ANY) */}
               {(selectedQuoteForPreview.equipmentPlatePhotoUrl || selectedQuoteForPreview.equipmentManualPdfUrl) && (
@@ -1571,13 +1898,21 @@ export default function SalesQuoteModule({
                 </div>
               )}
 
-              {/* TOTALS SUMMARY BOX */}
+              {/* TOTALS SUMMARY BOX CON DESCUENTO VISIBLE */}
               <div className="flex justify-end pt-2">
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 w-full sm:w-72 space-y-1.5 text-xs">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 w-full sm:w-80 space-y-1.5 text-xs">
                   <div className="flex justify-between text-slate-600">
                     <span>Subtotal:</span>
                     <span className="font-bold">${selectedQuoteForPreview.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
                   </div>
+
+                  {selectedQuoteForPreview.discountRequested && selectedQuoteForPreview.discountRequested > 0 && (
+                    <div className="flex justify-between text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">
+                      <span>Descuento Comercial ({selectedQuoteForPreview.discountRequested}%):</span>
+                      <span>Aplicado</span>
+                    </div>
+                  )}
+
                   <div className="flex justify-between text-slate-600">
                     <span>IVA (16%):</span>
                     <span className="font-bold">${selectedQuoteForPreview.tax.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
@@ -1597,13 +1932,17 @@ export default function SalesQuoteModule({
                 </div>
               </div>
 
-              {/* SIGNATURE AREA WITH DIGITAL SIGNATURE */}
+              {/* SIGNATURE AREA WITH DIGITAL SIGNATURE DINÁMICA DEL SOCIO EMISOR */}
               <div className="pt-6 border-t border-slate-200 flex flex-col items-center justify-center text-center space-y-1">
                 <div className="font-serif italic text-lg text-slate-700 font-bold border-b border-slate-300 pb-1 px-8">
-                  {selectedQuoteForPreview.agentName || 'Ing. Leonardo Daniel Torres Ojeda'}
+                  {selectedQuoteForPreview.issuerPartnerName || selectedQuoteForPreview.agentName || 'Ing. Leonardo Daniel Torres Ojeda'}
                 </div>
-                <p className="text-xs font-bold text-slate-800">Firma Digital Válida / Soporte Técnico & Ventas</p>
-                <p className="text-[10px] text-slate-500">MVL Control y Mantenimiento | cel. 477 4047421 | ltorres.mvl@gmail.com</p>
+                <p className="text-xs font-bold text-slate-800">
+                  {selectedQuoteForPreview.issuerSignatureName || 'Firma Digital Válida / Representante Autorizado MVL'}
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  {selectedQuoteForPreview.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'} | RFC: {selectedQuoteForPreview.issuerPartnerRfc || 'RABV891002TF6'}
+                </p>
               </div>
             </div>
           </div>

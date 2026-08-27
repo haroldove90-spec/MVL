@@ -105,17 +105,20 @@ export interface Quote {
   subtotal: number;
   tax: number;
   total: number;
-  status: 'draft' | 'sent' | 'approved' | 'rejected' | 'discount_requested' | 'denied';
+  status: 'draft' | 'sent' | 'approved' | 'rejected' | 'discount_requested' | 'denied' | 'pending_inventory';
   quoteType?: 'vendedor' | 'cliente' | 'publico';
   quoteOrigin?: 'nuevo' | 'registrado' | 'publico_general';
   quoteCategory?: 'standard' | 'poliza' | 'suministro_instalacion' | 'personalizado';
   policyType?: 'poliza_a' | 'poliza_b';
   serviceTypeCategory?: 'preventivo' | 'correctivo' | 'predictivo' | 'suministro_refacciones' | 'personalizado';
-  serviceHours?: '2k' | '4k' | '6k' | '8k' | '16k' | 'otro';
+  serviceHours?: '2k' | '4k' | '6k' | '8k' | '16k' | '24k' | 'otro';
   customServicePriceRequested?: boolean;
   publicClientName?: string; // Para Venta Público
   discountRequested?: number;
   discountApproved?: boolean;
+  discountAmount?: number;
+  equipmentPlatePhotoUrl?: string;
+  equipmentManualPdfUrl?: string;
   mvlDocsRequested?: boolean; // Solicitar a Contabilidad documentos fiscales de MVL
   commercialConditions?: string;
   deliveryLeadTime?: string;
