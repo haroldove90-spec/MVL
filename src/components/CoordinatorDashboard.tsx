@@ -136,6 +136,23 @@ export default function CoordinatorDashboard({
       }
       return o;
     }));
+
+    // Update equipment technical profile (engine hours, last & next maintenance dates)
+    if (setEquipment && ot.equipmentId) {
+      setEquipment(prev => prev.map(eq => {
+        if (eq.id === ot.equipmentId) {
+          const nowIso = new Date().toISOString().split('T')[0];
+          const nextDate = new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0];
+          return {
+            ...eq,
+            engineHours: ot.engineHours && ot.engineHours > 0 ? ot.engineHours : eq.engineHours,
+            lastMaintenance: nowIso,
+            nextMaintenance: nextDate
+          };
+        }
+        return eq;
+      }));
+    }
   };
 
   if (statusFilter === 'quotes') {
