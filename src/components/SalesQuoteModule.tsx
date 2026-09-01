@@ -11,7 +11,8 @@ import {
   AlertTriangle, Phone, Mail, MessageSquare, Building2, Upload, 
   FileCheck, Shield, DollarSign, Wrench, ChevronRight, Eye, Printer, X, Sparkles,
   Copy, Search, Filter, ArrowUpRight, Check, RefreshCw, Cpu, Zap, ShoppingCart,
-  Camera, FileDown, Layers, Award, BookmarkPlus, FolderCheck, Hash
+  Camera, FileDown, Layers, Award, BookmarkPlus, FolderCheck, Hash, Edit3, Trash2,
+  SlidersHorizontal, AlertCircle, HelpCircle, PackageCheck, CheckCheck, Edit, ShieldCheck
 } from 'lucide-react';
 
 interface SalesQuoteModuleProps {
@@ -92,12 +93,19 @@ export default function SalesQuoteModule({
   const [activeView, setActiveView] = useState<'list' | 'new_quote' | 'new_client'>('list');
   const [selectedQuoteForPreview, setSelectedQuoteForPreview] = useState<Quote | null>(null);
 
+  // Quote editing mode
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
+  const [draftSavedNotice, setDraftSavedNotice] = useState<string | null>(null);
+
   // Quote Category: standard | poliza | suministro_instalacion | personalizado
   const [quoteCategory, setQuoteCategory] = useState<'standard' | 'poliza' | 'suministro_instalacion' | 'personalizado'>('standard');
 
+  // Supply & Installation Sub-type
+  const [supplyType, setSupplyType] = useState<'suministro_instalacion' | 'solo_suministro' | 'solo_instalacion'>('suministro_instalacion');
+
   // Filter & Search states for Quotes List
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'approved' | 'discount_requested' | 'rejected' | 'pending_inventory'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'approved' | 'discount_requested' | 'rejected' | 'pending_inventory'>('all');
   const [clientFilter, setClientFilter] = useState<string>('all');
 
   // 3 Socios de MVL (Emisor Fiscal Seleccionable)
@@ -123,7 +131,8 @@ export default function SalesQuoteModule({
   const [customServicePriceRequested, setCustomServicePriceRequested] = useState(false);
   const [customServiceNotes, setCustomServiceNotes] = useState('');
 
-  // Equipment Technical Data & Attachments (Photo of Plate & Manual PDF)
+  // Equipment Technical Data, Material Description & Attachments
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>('');
   const [eqType, setEqType] = useState<'Compresor' | 'Secador' | 'Aire Acondicionado' | 'Otros'>('Compresor');
   const [eqBrand, setEqBrand] = useState('Kaeser');
   const [eqModel, setEqModel] = useState('BSD 50');
@@ -131,9 +140,28 @@ export default function SalesQuoteModule({
   const [eqCapacity, setEqCapacity] = useState('50 HP');
   const [eqVoltage, setEqVoltage] = useState('220V 3F');
   const [eqMode, setEqMode] = useState<'venta' | 'renta' | 'servicio'>('servicio');
+  const [materialDescription, setMaterialDescription] = useState('');
   const [isNewEquipmentOnTheFly, setIsNewEquipmentOnTheFly] = useState(false);
   const [dataPlatePhotoUrl, setDataPlatePhotoUrl] = useState<string | null>(null);
   const [manualPdfUrl, setManualPdfUrl] = useState<string | null>(null);
+
+  // New Equipment Modal State
+  const [showNewEquipmentModal, setShowNewEquipmentModal] = useState(false);
+  const [newEqType, setNewEqType] = useState<'Compresor' | 'Secador' | 'Aire Acondicionado' | 'Otros'>('Compresor');
+  const [newEqBrand, setNewEqBrand] = useState('');
+  const [newEqModel, setNewEqModel] = useState('');
+  const [newEqSerial, setNewEqSerial] = useState('');
+  const [newEqCapacity, setNewEqCapacity] = useState('');
+  const [newEqVoltage, setNewEqVoltage] = useState('220V 3F');
+  const [newEqHours, setNewEqHours] = useState<number>(1000);
+  const [newEqOil, setNewEqOil] = useState('Sintético S-460');
+  const [newEqFilters, setNewEqFilters] = useState('Filtro de Aire, Aceite y Separador');
+  const [newEqPhotoUrl, setNewEqPhotoUrl] = useState<string | null>(null);
+  const [newEqManualPdfUrl, setNewEqManualPdfUrl] = useState<string | null>(null);
+
+  // Rejection Modal State
+  const [showRejectModalQuote, setShowRejectModalQuote] = useState<Quote | null>(null);
+  const [rejectionReasonInput, setRejectionReasonInput] = useState('');
 
   // Policy Form State
   const [policyType, setPolicyType] = useState<'poliza_a' | 'poliza_b'>('poliza_a');
@@ -209,6 +237,15 @@ export default function SalesQuoteModule({
   const [deliveryLeadTimeOption, setDeliveryLeadTimeOption] = useState<'auto' | 'inmediato' | 'sobre_pedido' | 'manual'>('auto');
   const [manualDeliveryTime, setManualDeliveryTime] = useState('Inmediata (Existencia en Almacén)');
 
+  // Form states for adding items to Supply & Installation tables
+  const [newEqItemDesc, setNewEqItemDesc] = useState('');
+  const [newEqItemBrand, setNewEqItemBrand] = useState('');
+  const [newEqItemCap, setNewEqItemCap] = useState('');
+  const [newEqItemPrice, setNewEqItemPrice] = useState<number>(0);
+
+  const [newElecItemDesc, setNewElecItemDesc] = useState('');
+  const [newElecItemPrice, setNewElecItemPrice] = useState<number>(0);
+
   // Missing prices list & triggers
   const [missingPrices, setMissingPrices] = useState<{ description: string; partNumber: string; requestedPrice: number }[]>([]);
 
@@ -236,6 +273,274 @@ export default function SalesQuoteModule({
   const [newTemplateName, setNewTemplateName] = useState('');
 
   const selectedClient = clients.find(c => c.id === selectedClientId);
+
+  // Equipment registered specifically for the selected client
+  const clientEquipments = useMemo(() => {
+    if (!selectedClientId) return [];
+    return equipment.filter(eq => eq.clientId === selectedClientId);
+  }, [equipment, selectedClientId]);
+
+  // Handle client selection change: update selected equipment
+  const handleClientChange = (clientId: string) => {
+    setSelectedClientId(clientId);
+    setSelectedEquipmentId('');
+    const clientEqs = equipment.filter(eq => eq.clientId === clientId);
+    if (clientEqs.length > 0) {
+      const firstEq = clientEqs[0];
+      setSelectedEquipmentId(firstEq.id);
+      setEqBrand(firstEq.brand);
+      setEqModel(firstEq.model);
+      setEqSerial(firstEq.serialNumber || '1030');
+      setEqCapacity(firstEq.capacity || '50 HP');
+      setEqVoltage(firstEq.voltage || '220V 3F');
+      if (firstEq.type === 'compresor') setEqType('Compresor');
+      else if (firstEq.type === 'secador') setEqType('Secador');
+      else if (firstEq.type === 'aire_acondicionado') setEqType('Aire Acondicionado');
+    }
+  };
+
+  // Handle equipment dropdown selection for client
+  const handleSelectClientEquipment = (eqId: string) => {
+    if (eqId === '__new__') {
+      setShowNewEquipmentModal(true);
+      return;
+    }
+    setSelectedEquipmentId(eqId);
+    const found = equipment.find(e => e.id === eqId);
+    if (found) {
+      setEqBrand(found.brand);
+      setEqModel(found.model);
+      setEqSerial(found.serialNumber || '');
+      setEqCapacity(found.capacity || '');
+      setEqVoltage(found.voltage || '220V 3F');
+      if (found.type === 'compresor') setEqType('Compresor');
+      else if (found.type === 'secador') setEqType('Secador');
+      else if (found.type === 'aire_acondicionado') setEqType('Aire Acondicionado');
+      if (found.dataPlatePhotoUrl) setDataPlatePhotoUrl(found.dataPlatePhotoUrl);
+    }
+  };
+
+  // Save new equipment from modal into unified DB per client
+  const handleSaveNewEquipmentModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEqBrand.trim() || !newEqModel.trim()) return;
+
+    const newEquipmentItem: Equipment = {
+      id: 'eq_' + Date.now(),
+      clientId: selectedClientId,
+      plantId: selectedClient?.plants?.[0]?.id || 'p_1',
+      name: `${newEqBrand} ${newEqModel}`,
+      brand: newEqBrand.trim(),
+      model: newEqModel.trim(),
+      serialNumber: newEqSerial.trim() || `SN-${Date.now().toString().slice(-4)}`,
+      capacity: newEqCapacity.trim() || 'N/A',
+      voltage: newEqVoltage || '220V 3F',
+      filtersRequired: newEqFilters.trim() || 'Kit estándar',
+      engineHours: newEqHours || 1000,
+      oilType: newEqOil.trim() || 'Sintético S-460',
+      lastMaintenance: new Date().toISOString().split('T')[0],
+      nextMaintenance: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
+      status: 'active',
+      type: newEqType === 'Compresor' ? 'compresor' : newEqType === 'Secador' ? 'secador' : newEqType === 'Aire Acondicionado' ? 'aire_acondicionado' : 'otros',
+      dataPlatePhotoUrl: newEqPhotoUrl || undefined
+    };
+
+    if (setEquipment) {
+      setEquipment(prev => {
+        const updated = [newEquipmentItem, ...prev];
+        saveToStorage('mvl_equipment', updated);
+        return updated;
+      });
+    }
+
+    // Auto-select for current quote
+    setSelectedEquipmentId(newEquipmentItem.id);
+    setEqBrand(newEquipmentItem.brand);
+    setEqModel(newEquipmentItem.model);
+    setEqSerial(newEquipmentItem.serialNumber);
+    setEqCapacity(newEquipmentItem.capacity);
+    setEqVoltage(newEquipmentItem.voltage);
+    setEqType(newEqType);
+    if (newEqPhotoUrl) setDataPlatePhotoUrl(newEqPhotoUrl);
+
+    // Reset modal
+    setNewEqBrand('');
+    setNewEqModel('');
+    setNewEqSerial('');
+    setNewEqCapacity('');
+    setNewEqPhotoUrl(null);
+    setNewEqManualPdfUrl(null);
+    setShowNewEquipmentModal(false);
+  };
+
+  // Inline Row Updating Helpers (editable direct/indirect costs)
+  const handleUpdateStandardItem = (index: number, field: keyof QuoteItem, value: any) => {
+    setStandardItems(prev => {
+      const copy = [...prev];
+      const target = { ...copy[index], [field]: value };
+      if (field === 'quantity' || field === 'catalogPrice') {
+        const qty = field === 'quantity' ? Number(value) : target.quantity;
+        const price = field === 'catalogPrice' ? Number(value) : target.catalogPrice;
+        target.total = Number((qty * price).toFixed(2));
+      }
+      copy[index] = target;
+      return copy;
+    });
+  };
+
+  const handleUpdateSupplyEquipmentItem = (index: number, field: keyof QuoteItem, value: any) => {
+    setSupplyEquipmentItems(prev => {
+      const copy = [...prev];
+      const target = { ...copy[index], [field]: value };
+      if (field === 'quantity' || field === 'catalogPrice') {
+        const qty = field === 'quantity' ? Number(value) : target.quantity;
+        const price = field === 'catalogPrice' ? Number(value) : target.catalogPrice;
+        target.total = Number((qty * price).toFixed(2));
+      }
+      copy[index] = target;
+      return copy;
+    });
+  };
+
+  const handleUpdateSupplyElectricalItem = (index: number, field: keyof QuoteItem, value: any) => {
+    setSupplyElectricalItems(prev => {
+      const copy = [...prev];
+      const target = { ...copy[index], [field]: value };
+      if (field === 'quantity' || field === 'catalogPrice') {
+        const qty = field === 'quantity' ? Number(value) : target.quantity;
+        const price = field === 'catalogPrice' ? Number(value) : target.catalogPrice;
+        target.total = Number((qty * price).toFixed(2));
+      }
+      copy[index] = target;
+      return copy;
+    });
+  };
+
+  const handleUpdatePolicyItem = (index: number, field: keyof QuoteItem, value: any) => {
+    setPolicyItems(prev => {
+      const copy = [...prev];
+      const target = { ...copy[index], [field]: value };
+      if (field === 'quantity' || field === 'catalogPrice') {
+        const qty = field === 'quantity' ? Number(value) : target.quantity;
+        const price = field === 'catalogPrice' ? Number(value) : target.catalogPrice;
+        target.total = Number((qty * price).toFixed(2));
+      }
+      copy[index] = target;
+      return copy;
+    });
+  };
+
+  // Add custom row on the fly
+  const handleAddCustomRow = (tableType: 'standard' | 'supply_eq' | 'supply_elec' | 'policy') => {
+    const newItem: QuoteItem = {
+      partida: 1,
+      description: 'Partida / Servicio Personalizado',
+      brand: 'MVL',
+      quantity: 1,
+      unit: 'pza',
+      partNumber: 'S/N',
+      catalogPrice: 0,
+      total: 0,
+      deliveryTime: 'Inmediata',
+      inStock: true
+    };
+
+    if (tableType === 'standard') {
+      setStandardItems(prev => [...prev, { ...newItem, partida: prev.length + 1 }]);
+    } else if (tableType === 'supply_eq') {
+      setSupplyEquipmentItems(prev => [...prev, { ...newItem, partida: prev.length + 1 }]);
+    } else if (tableType === 'supply_elec') {
+      setSupplyElectricalItems(prev => [...prev, { ...newItem, partida: prev.length + 1 }]);
+    } else if (tableType === 'policy') {
+      setPolicyItems(prev => [...prev, { ...newItem, partida: prev.length + 1, unit: 'servicio' }]);
+    }
+  };
+
+  // Edit existing quote: populate all state and activate edit mode
+  const handleEditQuote = (q: Quote) => {
+    setEditingQuoteId(q.id);
+    setDraftSavedNotice(null);
+    setQuoteCategory(q.quoteCategory || 'standard');
+    setSupplyType(q.supplyType || q.supplyInstallationDetails?.supplyType || 'suministro_instalacion');
+    setMaterialDescription(q.materialDescription || q.supplyInstallationDetails?.materialDescription || '');
+    setQuoteOrigin(q.quoteOrigin || 'registrado');
+    setQuoteType(q.quoteType || 'vendedor');
+    setSelectedClientId(q.clientId || clients[0]?.id || '');
+    setPublicClientName(q.publicClientName || '');
+    setConcept(q.concept);
+    setAgentName(q.agentName || 'Ing. Leonardo Daniel Torres');
+    setSelectedPlantName(q.plantName || 'Planta Principal');
+    setCrmGiro(q.crmGiro || 'Manufactura');
+    setClientWhatsapp(q.whatsapp || '');
+    setClientEmail(q.clientEmail || '');
+    setDiscountPercent(q.discountRequested || 0);
+    setCommercialConditions(q.commercialConditions || commercialConditions);
+    
+    if (q.issuerPartnerId) {
+      setSelectedPartnerId(q.issuerPartnerId);
+    }
+    if (q.serviceTypeCategory) {
+      setServiceTypeCategory(q.serviceTypeCategory);
+    }
+    if (q.serviceHours) {
+      setServiceHours(q.serviceHours as any);
+    }
+    if (q.equipmentDetails) {
+      setEqBrand(q.equipmentDetails.brand || 'Kaeser');
+      setEqModel(q.equipmentDetails.model || 'BSD 50');
+      setEqSerial(q.equipmentDetails.serialNumber || '1030');
+      setEqCapacity(q.equipmentDetails.capacity || '50 HP');
+      setEqVoltage(q.equipmentDetails.voltage || '220V 3F');
+      if (q.equipmentDetails.equipmentType) {
+        setEqType(q.equipmentDetails.equipmentType);
+      }
+    }
+    if (q.itemsTable && q.itemsTable.length > 0) {
+      setStandardItems(q.itemsTable);
+    }
+    if (q.supplyInstallationDetails) {
+      setSupplyEquipmentItems(q.supplyInstallationDetails.equipmentItems || []);
+      setSupplyElectricalItems(q.supplyInstallationDetails.electricalItems || []);
+    }
+    if (q.policyDetails) {
+      setPolicyType(q.policyDetails.policyType || 'poliza_a');
+      setPolicyVisitsPerYear(q.policyDetails.visitsPerYear || 3);
+    }
+    if (q.equipmentPlatePhotoUrl) {
+      setDataPlatePhotoUrl(q.equipmentPlatePhotoUrl);
+    }
+    if (q.equipmentManualPdfUrl) {
+      setManualPdfUrl(q.equipmentManualPdfUrl);
+    }
+
+    setActiveView('new_quote');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingQuoteId(null);
+    setDraftSavedNotice(null);
+    setActiveView('list');
+  };
+
+  // Rejection confirmation
+  const handleConfirmReject = () => {
+    if (!showRejectModalQuote) return;
+    const reason = rejectionReasonInput.trim() || 'Rechazada por el cliente (fuera de presupuesto / cancelado)';
+    const updated = quotes.map(q => {
+      if (q.id === showRejectModalQuote.id) {
+        return {
+          ...q,
+          status: 'rejected' as const,
+          rejectionReason: reason
+        };
+      }
+      return q;
+    });
+    setQuotes(updated);
+    saveToStorage('mvl_quotes', updated);
+    setShowRejectModalQuote(null);
+    setRejectionReasonInput('');
+  };
 
   // Live Inventory Matching suggestions when typing description or part number
   const inventoryMatches = useMemo(() => {
@@ -297,7 +602,6 @@ export default function SalesQuoteModule({
       setCustomItemPrice(0);
       setCustomItemQty(1);
     } else if (customItemDesc) {
-      // Check if description exists in inventory
       const matched = inventory.find(i => i.name.toLowerCase() === customItemDesc.toLowerCase() || i.code.toLowerCase() === customItemPartNo.toLowerCase());
       const hasStock = matched ? matched.stock >= (customItemQty || 1) : false;
       const newItem: QuoteItem = {
@@ -330,6 +634,90 @@ export default function SalesQuoteModule({
     setStandardItems(updated);
   };
 
+  const handleRemoveSupplyEquipmentItem = (idx: number) => {
+    const updated = supplyEquipmentItems.filter((_, i) => i !== idx).map((item, i) => ({ ...item, partida: i + 1 }));
+    setSupplyEquipmentItems(updated);
+  };
+
+  const handleRemoveSupplyElectricalItem = (idx: number) => {
+    const updated = supplyElectricalItems.filter((_, i) => i !== idx).map((item, i) => ({ ...item, partida: i + 1 }));
+    setSupplyElectricalItems(updated);
+  };
+
+  const handleRemovePolicyItem = (idx: number) => {
+    const updated = policyItems.filter((_, i) => i !== idx).map((item, i) => ({ ...item, partida: i + 1 }));
+    setPolicyItems(updated);
+  };
+
+  const handleAddSupplyEquipmentItem = () => {
+    if (!newEqItemDesc.trim()) return;
+    const newItem: QuoteItem = {
+      partida: supplyEquipmentItems.length + 1,
+      description: newEqItemDesc.trim(),
+      brand: newEqItemBrand.trim() || 'MVL / OEM',
+      quantity: 1,
+      unit: 'pza',
+      partNumber: newEqItemCap.trim() || 'S/N',
+      catalogPrice: Number(newEqItemPrice) || 0,
+      total: Number(newEqItemPrice) || 0,
+      deliveryTime: '1 a 4 semanas',
+      inStock: false
+    };
+    setSupplyEquipmentItems([...supplyEquipmentItems, newItem]);
+    setNewEqItemDesc('');
+    setNewEqItemBrand('');
+    setNewEqItemCap('');
+    setNewEqItemPrice(0);
+  };
+
+  const handleAddSupplyElectricalItem = () => {
+    if (!newElecItemDesc.trim()) return;
+    const newItem: QuoteItem = {
+      partida: supplyElectricalItems.length + 1,
+      description: newElecItemDesc.trim(),
+      brand: 'Genérico Certificado NOM',
+      quantity: 1,
+      unit: 'lote / mto',
+      partNumber: 'ELEC-INSTALACION',
+      catalogPrice: Number(newElecItemPrice) || 0,
+      total: Number(newElecItemPrice) || 0,
+      deliveryTime: 'Inmediata',
+      inStock: true
+    };
+    setSupplyElectricalItems([...supplyElectricalItems, newItem]);
+    setNewElecItemDesc('');
+    setNewElecItemPrice(0);
+  };
+
+  // Real-time financial calculations for live form and PDF preview
+  const { calculatedSubtotal, calculatedDiscountAmount, calculatedNetSubtotal, calculatedTax, calculatedTotal } = useMemo(() => {
+    let sub = 0;
+    if (quoteCategory === 'standard' || quoteCategory === 'personalizado') {
+      sub = standardItems.reduce((acc, it) => acc + (it.total || 0), 0);
+    } else if (quoteCategory === 'poliza') {
+      sub = policyItems.reduce((acc, it) => acc + (it.total || 0), 0);
+    } else if (quoteCategory === 'suministro_instalacion') {
+      if (supplyType === 'solo_suministro') {
+        sub = supplyEquipmentItems.reduce((acc, it) => acc + (it.total || 0), 0);
+      } else if (supplyType === 'solo_instalacion') {
+        sub = supplyElectricalItems.reduce((acc, it) => acc + (it.total || 0), 0);
+      } else {
+        sub = [...supplyEquipmentItems, ...supplyElectricalItems].reduce((acc, it) => acc + (it.total || 0), 0);
+      }
+    }
+    const disc = sub * (discountPercent / 100);
+    const net = sub - disc;
+    const tax = net * 0.16;
+    const tot = net + tax;
+    return {
+      calculatedSubtotal: sub,
+      calculatedDiscountAmount: disc,
+      calculatedNetSubtotal: net,
+      calculatedTax: tax,
+      calculatedTotal: tot
+    };
+  }, [quoteCategory, supplyType, standardItems, policyItems, supplyEquipmentItems, supplyElectricalItems, discountPercent]);
+
   // Load a Quick Template
   const handleLoadTemplate = (tmpl: QuickTemplate) => {
     setQuoteCategory(tmpl.category);
@@ -361,7 +749,11 @@ export default function SalesQuoteModule({
   };
 
   const handleDuplicateQuote = (q: Quote) => {
+    setEditingQuoteId(null);
+    setDraftSavedNotice(null);
     setQuoteCategory(q.quoteCategory || 'standard');
+    setSupplyType(q.supplyType || q.supplyInstallationDetails?.supplyType || 'suministro_instalacion');
+    setMaterialDescription(q.materialDescription || q.supplyInstallationDetails?.materialDescription || '');
     setQuoteOrigin(q.quoteOrigin || 'registrado');
     setQuoteType(q.quoteType || 'vendedor');
     setSelectedClientId(q.clientId || clients[0]?.id || '');
@@ -421,7 +813,13 @@ export default function SalesQuoteModule({
       itemsToSave = policyItems;
       rawSubtotal = policyItems.reduce((sum, item) => sum + item.total, 0);
     } else if (quoteCategory === 'suministro_instalacion') {
-      itemsToSave = [...supplyEquipmentItems, ...supplyElectricalItems];
+      if (supplyType === 'solo_suministro') {
+        itemsToSave = supplyEquipmentItems;
+      } else if (supplyType === 'solo_instalacion') {
+        itemsToSave = supplyElectricalItems;
+      } else {
+        itemsToSave = [...supplyEquipmentItems, ...supplyElectricalItems];
+      }
       rawSubtotal = itemsToSave.reduce((sum, item) => sum + item.total, 0);
     }
 
@@ -430,19 +828,129 @@ export default function SalesQuoteModule({
     const tax = subtotalWithDiscount * 0.16;
     const total = subtotalWithDiscount + tax;
 
+    // Dynamic default concept according to selected options
+    let defaultConcept = '';
+    if (quoteCategory === 'poliza') {
+      defaultConcept = `Cotización de Póliza de Mantenimiento Anual Equipos de Climatización (${policyType === 'poliza_a' ? 'Póliza Tipo A - Reparaciones no incluidas' : 'Póliza Tipo B - Reparaciones incluidas'})`;
+    } else if (quoteCategory === 'suministro_instalacion') {
+      if (supplyType === 'solo_suministro') {
+        defaultConcept = `Cotización de Solo Suministro de Equipos & Materiales - ${eqBrand} ${eqModel}`;
+      } else if (supplyType === 'solo_instalacion') {
+        defaultConcept = `Cotización de Mano de Obra e Instalación Especializada - ${eqBrand} ${eqModel}`;
+      } else {
+        defaultConcept = `Cotización de Suministro e Instalación de ${eqType} ${eqBrand} ${eqModel} & Canalización Eléctrica`;
+      }
+    } else if (quoteCategory === 'standard') {
+      if (serviceTypeCategory === 'preventivo') {
+        defaultConcept = `Mantenimiento Preventivo (${serviceHours.toUpperCase()} Horas) - ${eqType} ${eqBrand} ${eqModel}`;
+      } else if (serviceTypeCategory === 'correctivo') {
+        defaultConcept = `Servicio Correctivo / Reparación de Falla - ${eqType} ${eqBrand} ${eqModel}`;
+      } else if (serviceTypeCategory === 'predictivo') {
+        defaultConcept = `Servicio Predictivo / Análisis Termográfico - ${eqType} ${eqBrand} ${eqModel}`;
+      } else if (serviceTypeCategory === 'suministro_refacciones') {
+        defaultConcept = `Suministro de Refacciones Originales - ${eqType} ${eqBrand} ${eqModel}`;
+      } else {
+        defaultConcept = `Propuesta Especial de Servicio - ${eqType} ${eqBrand} ${eqModel}`;
+      }
+    } else {
+      defaultConcept = `Propuesta Económica Personalizada - ${eqType} ${eqBrand} ${eqModel}`;
+    }
+
+    const finalStatus: Quote['status'] = isDraftOrPendingInventory 
+      ? 'draft' 
+      : discountPercent > 5 ? 'discount_requested' : 'sent';
+
+    if (editingQuoteId) {
+      // Update existing quote in place
+      const updatedList = quotes.map(existing => {
+        if (existing.id === editingQuoteId) {
+          const updatedQ: Quote = {
+            ...existing,
+            concept: concept || defaultConcept,
+            clientId: quoteOrigin === 'publico_general' ? 'publico' : selectedClientId,
+            clientName: quoteOrigin === 'publico_general' ? publicClientName : (selectedClient?.name || 'Cliente'),
+            subtotal: subtotalWithDiscount,
+            tax,
+            total,
+            status: finalStatus,
+            quoteType,
+            quoteOrigin,
+            quoteCategory,
+            supplyType: quoteCategory === 'suministro_instalacion' ? supplyType : undefined,
+            materialDescription: materialDescription.trim() || undefined,
+            issuerPartnerId: selectedPartner.id,
+            issuerPartnerName: selectedPartner.name,
+            issuerPartnerRfc: selectedPartner.rfc,
+            issuerPartnerBusinessName: selectedPartner.businessName,
+            issuerSignatureName: selectedPartner.roleDescription,
+            serviceHours: serviceTypeCategory === 'preventivo' ? serviceHours : undefined,
+            equipmentPlatePhotoUrl: dataPlatePhotoUrl || undefined,
+            equipmentManualPdfUrl: manualPdfUrl || undefined,
+            policyType: quoteCategory === 'poliza' ? policyType : undefined,
+            serviceTypeCategory,
+            customServicePriceRequested,
+            publicClientName,
+            discountRequested: discountPercent > 0 ? discountPercent : undefined,
+            discountAmount: discountAmount > 0 ? discountAmount : undefined,
+            commercialConditions,
+            deliveryLeadTime: calculatedDeliveryTime,
+            agentName,
+            plantName: selectedPlantName,
+            crmGiro,
+            whatsapp: clientWhatsapp,
+            clientEmail,
+            itemsTable: itemsToSave,
+            policyDetails: quoteCategory === 'poliza' ? {
+              policyType,
+              visitsPerYear: policyVisitsPerYear,
+              priorityHighHours: 12,
+              priorityMidHours: 72,
+              priorityLowDays: 20
+            } : undefined,
+            supplyInstallationDetails: quoteCategory === 'suministro_instalacion' ? {
+              supplyType,
+              materialDescription: materialDescription.trim() || undefined,
+              equipmentItems: supplyEquipmentItems,
+              electricalItems: supplyElectricalItems,
+              scopeList: supplyScopeList
+            } : undefined,
+            equipmentDetails: {
+              equipmentType: eqType,
+              brand: eqBrand,
+              model: eqModel,
+              serialNumber: eqSerial,
+              capacity: eqCapacity,
+              voltage: eqVoltage,
+              serviceType: serviceTypeCategory,
+              mode: eqMode
+            },
+            missingPricesList: missingPrices.length > 0 ? missingPrices : undefined
+          };
+          return updatedQ;
+        }
+        return existing;
+      });
+
+      setQuotes(updatedList);
+      saveToStorage('mvl_quotes', updatedList);
+
+      const targetQ = updatedList.find(q => q.id === editingQuoteId);
+
+      if (isDraftOrPendingInventory) {
+        setDraftSavedNotice(`Borrador de la cotización ${targetQ?.folNum || ''} guardado con éxito. Puedes seguir editando.`);
+      } else {
+        setEditingQuoteId(null);
+        setDraftSavedNotice(null);
+        setActiveView('list');
+        if (targetQ) setSelectedQuoteForPreview(targetQ);
+      }
+      return;
+    }
+
+    // Creating a brand new quote
     const folNum = quoteCategory === 'poliza' ? `${Date.now().toString().slice(-6)}GNG` :
                    quoteCategory === 'suministro_instalacion' ? `M2-${quotes.length + 1000}-GNG` :
                    `COT-2026-0${quotes.length + 1}`;
-
-    const defaultConcept = quoteCategory === 'poliza'
-      ? `Cotización de Póliza de Mantenimiento Anual Equipos de Climatización (${policyType === 'poliza_a' ? 'Póliza Tipo A - Reparaciones no incluidas' : 'Póliza Tipo B - Reparaciones incluidas'})`
-      : quoteCategory === 'suministro_instalacion'
-      ? `Cotización de Suministro e Instalación de Mini Split YORK y Canalización Eléctrica`
-      : `Servicio ${serviceTypeCategory.toUpperCase()} (${serviceTypeCategory === 'preventivo' ? serviceHours + ' Horas' : 'Especial'}) - ${eqType} ${eqBrand} ${eqModel}`;
-
-    const finalStatus: Quote['status'] = isDraftOrPendingInventory 
-      ? 'pending_inventory' 
-      : discountPercent > 5 ? 'discount_requested' : 'sent';
 
     const newQ: Quote = {
       id: 'q_' + Date.now(),
@@ -459,6 +967,8 @@ export default function SalesQuoteModule({
       quoteType,
       quoteOrigin,
       quoteCategory,
+      supplyType: quoteCategory === 'suministro_instalacion' ? supplyType : undefined,
+      materialDescription: materialDescription.trim() || undefined,
       issuerPartnerId: selectedPartner.id,
       issuerPartnerName: selectedPartner.name,
       issuerPartnerRfc: selectedPartner.rfc,
@@ -467,7 +977,7 @@ export default function SalesQuoteModule({
       serviceHours: serviceTypeCategory === 'preventivo' ? serviceHours : undefined,
       equipmentPlatePhotoUrl: dataPlatePhotoUrl || undefined,
       equipmentManualPdfUrl: manualPdfUrl || undefined,
-      policyType,
+      policyType: quoteCategory === 'poliza' ? policyType : undefined,
       serviceTypeCategory,
       customServicePriceRequested,
       publicClientName,
@@ -489,6 +999,8 @@ export default function SalesQuoteModule({
         priorityLowDays: 20
       } : undefined,
       supplyInstallationDetails: quoteCategory === 'suministro_instalacion' ? {
+        supplyType,
+        materialDescription: materialDescription.trim() || undefined,
         equipmentItems: supplyEquipmentItems,
         electricalItems: supplyElectricalItems,
         scopeList: supplyScopeList
@@ -512,8 +1024,8 @@ export default function SalesQuoteModule({
       missingPricesList: missingPrices.length > 0 ? missingPrices : undefined
     };
 
-    // If "Dar de alta nuevo equipo al vuelo" or new equipment specs, register equipment
-    if (isNewEquipmentOnTheFly && setEquipment) {
+    // If new equipment on the fly, add to equipment database once
+    if (isNewEquipmentOnTheFly && setEquipment && !clientEquipments.some(e => e.serialNumber === eqSerial && e.brand === eqBrand)) {
       const newEq: Equipment = {
         id: 'eq_' + Date.now(),
         clientId: selectedClientId,
@@ -542,8 +1054,16 @@ export default function SalesQuoteModule({
     const updated = [newQ, ...quotes];
     setQuotes(updated);
     saveToStorage('mvl_quotes', updated);
-    setActiveView('list');
-    setSelectedQuoteForPreview(newQ);
+
+    if (isDraftOrPendingInventory) {
+      setEditingQuoteId(newQ.id);
+      setDraftSavedNotice(`Borrador guardado correctamente con folio ${newQ.folNum}. Puedes continuar editando o ir al historial.`);
+    } else {
+      setEditingQuoteId(null);
+      setDraftSavedNotice(null);
+      setActiveView('list');
+      setSelectedQuoteForPreview(newQ);
+    }
   };
 
   // Change quote status & trigger pre-billing request if approved
@@ -833,6 +1353,52 @@ export default function SalesQuoteModule({
       {/* VIEW: Create New Dynamic Quote */}
       {activeView === 'new_quote' && (
         <form onSubmit={e => handleSaveQuote(e, false)} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-md space-y-6">
+          {/* BANNER DE MODO EDICIÓN SI ESTAMOS EDITANDO UNA COTIZACIÓN EXISTENTE */}
+          {editingQuoteId && (
+            <div className="bg-amber-500/10 border-2 border-amber-500/30 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shadow-xs shrink-0">
+                  <Edit className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase text-amber-600 bg-amber-100 px-2 py-0.5 rounded">
+                    Modo Edición Activo
+                  </span>
+                  <h4 className="text-sm font-black text-slate-800">
+                    Modificando Cotización: {quotes.find(q => q.id === editingQuoteId)?.folNum || editingQuoteId}
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Puedes modificar costos, partidas, cliente o equipo y guardar como borrador o emitir la versión actualizada.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer shrink-0"
+              >
+                ✕ Cancelar Edición
+              </button>
+            </div>
+          )}
+
+          {/* MENSAJE DE BORRADOR GUARDADO */}
+          {draftSavedNotice && (
+            <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl flex items-center justify-between gap-3 text-emerald-800 text-xs font-bold">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{draftSavedNotice}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDraftSavedNotice(null)}
+                className="text-emerald-600 hover:text-emerald-900 cursor-pointer font-black"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-4">
             <div>
               <span className="text-[10px] font-black uppercase text-[#0196C1] tracking-wider">
@@ -841,7 +1407,7 @@ export default function SalesQuoteModule({
                  quoteCategory === 'suministro_instalacion' ? 'Cotización Suministro e Instalación YORK' : 'Cotización Personalizada'}
               </span>
               <h3 className="text-base font-black text-slate-800">
-                Nueva Propuesta Económica & Cotización Formal MVL
+                {editingQuoteId ? 'Editar Propuesta Económica' : 'Nueva Propuesta Económica & Cotización Formal MVL'}
               </h3>
             </div>
             
@@ -855,10 +1421,13 @@ export default function SalesQuoteModule({
               </button>
               <button
                 type="button"
-                onClick={() => setActiveView('list')}
+                onClick={() => {
+                  if (editingQuoteId) handleCancelEdit();
+                  else setActiveView('list');
+                }}
                 className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg bg-slate-100 cursor-pointer"
               >
-                Cerrar Formulario
+                {editingQuoteId ? 'Salir de Edición' : 'Cerrar Formulario'}
               </button>
             </div>
           </div>
@@ -1084,19 +1653,78 @@ export default function SalesQuoteModule({
 
           {/* 3. ASIGNACIÓN, DATOS DE EQUIPOS Y ADJUNTOS (FOTO DE PLACA, SERIE & MANUAL PDF) */}
           <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-3">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
                 <Cpu className="w-4 h-4 text-[#0196C1]" /> 3. Datos Técnicos del Equipo, No. de Serie & Adjuntos
               </label>
-              <button
-                type="button"
-                onClick={() => setIsNewEquipmentOnTheFly(!isNewEquipmentOnTheFly)}
-                className={`text-[10px] font-black px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-all ${
-                  isNewEquipmentOnTheFly ? 'bg-emerald-100 text-emerald-800' : 'bg-sky-50 text-[#0196C1] hover:bg-sky-100'
-                }`}
-              >
-                <Plus className="w-3 h-3" /> {isNewEquipmentOnTheFly ? '✓ Guardando en Catálogo de Equipos' : 'Dar de alta nuevo equipo al vuelo'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNewEquipmentModal(true)}
+                  className="text-[10px] font-black px-2.5 py-1 rounded-lg bg-purple-100 text-purple-800 hover:bg-purple-200 flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                >
+                  <Plus className="w-3 h-3" /> + Registrar Nuevo Equipo (Otros)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsNewEquipmentOnTheFly(!isNewEquipmentOnTheFly)}
+                  className={`text-[10px] font-black px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-all ${
+                    isNewEquipmentOnTheFly ? 'bg-emerald-100 text-emerald-800' : 'bg-sky-50 text-[#0196C1] hover:bg-sky-100'
+                  }`}
+                >
+                  <Plus className="w-3 h-3" /> {isNewEquipmentOnTheFly ? '✓ Guardar en Catálogo' : 'Dar de alta al vuelo'}
+                </button>
+              </div>
+            </div>
+
+            {/* Selector de Equipo del Cliente Filtrado */}
+            <div className="p-3 bg-white rounded-xl border border-slate-200">
+              <label className="block text-[10px] font-black text-slate-600 uppercase mb-1 flex items-center gap-1">
+                <Cpu className="w-3.5 h-3.5 text-[#0196C1]" /> Seleccionar Equipo Registrado del Cliente ({selectedClient?.name || 'Cliente'}):
+              </label>
+              <div className="flex gap-2">
+                <select
+                  value={selectedEquipmentId}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setSelectedEquipmentId(val);
+                    if (val === 'new_other') {
+                      setShowNewEquipmentModal(true);
+                      return;
+                    }
+                    const found = clientEquipments.find(eq => eq.id === val);
+                    if (found) {
+                      setEqBrand(found.brand || '');
+                      setEqModel(found.model || '');
+                      setEqSerial(found.serialNumber || '');
+                      setEqCapacity(found.capacity || '');
+                      setEqVoltage(found.voltage || '');
+                      if (found.name?.toLowerCase().includes('secador')) setEqType('Secador');
+                      else if (found.name?.toLowerCase().includes('aire')) setEqType('Aire Acondicionado');
+                      else if (found.name?.toLowerCase().includes('chiller') || found.name?.toLowerCase().includes('bomba')) setEqType('Otros');
+                      else setEqType('Compresor');
+                      if (found.dataPlatePhotoUrl) setDataPlatePhotoUrl(found.dataPlatePhotoUrl);
+                    }
+                  }}
+                  className="flex-1 text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                >
+                  <option value="">-- Seleccionar de equipos registrados del cliente ({clientEquipments.length} equipos) --</option>
+                  {clientEquipments.map(eq => (
+                    <option key={eq.id} value={eq.id}>
+                      {eq.brand} {eq.model} | Serie: {eq.serialNumber || 'S/N'} | {eq.capacity || ''} ({eq.voltage || ''})
+                    </option>
+                  ))}
+                  <option value="new_other">+ [Otros] Registrar Nuevo Equipo para este Cliente...</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => setShowNewEquipmentModal(true)}
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1 cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5 text-[#0196C1]" /> Nuevo Equipo
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -1256,12 +1884,12 @@ export default function SalesQuoteModule({
             </div>
           </div>
 
-          {/* 4. PARTIDAS DE REFACCIONES & LINKEADO AUTOMÁTICO A INVENTARIO */}
+          {/* 4. PARTIDAS Y ALCANCE SEGÚN CATEGORÍA DE COTIZACIÓN */}
           {quoteCategory === 'standard' && (
             <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-4">
               <div className="flex justify-between items-center">
                 <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
-                  <ShoppingCart className="w-4 h-4 text-[#0196C1]" /> 4. Partidas de Refacciones (Búsqueda Automática en Stock)
+                  <ShoppingCart className="w-4 h-4 text-[#0196C1]" /> 4. Partidas de Refacciones (Búsqueda Automática en Stock & Costos Editables)
                 </label>
                 <span className="text-[10px] font-extrabold text-[#0196C1] bg-sky-50 px-2 py-0.5 rounded">
                   {standardItems.length} Partidas agregadas
@@ -1282,7 +1910,7 @@ export default function SalesQuoteModule({
                     />
                     {/* Live suggestions */}
                     {inventoryMatches.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden divide-y divide-slate-100">
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden divide-y divide-slate-100 max-h-48 overflow-y-auto">
                         {inventoryMatches.map(inv => (
                           <button
                             key={inv.id}
@@ -1342,17 +1970,17 @@ export default function SalesQuoteModule({
                 </div>
               </div>
 
-              {/* Items Table */}
+              {/* Items Table con edición en línea de Costos y Cantidades */}
               <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase text-[9px] border-b border-slate-200">
                       <th className="py-2 px-2.5">#</th>
-                      <th className="py-2 px-2.5">Descripción</th>
+                      <th className="py-2 px-2.5">Descripción de la Partida</th>
                       <th className="py-2 px-2.5">No. Parte</th>
                       <th className="py-2 px-2.5">Stock Almacén</th>
-                      <th className="py-2 px-2.5">Cant.</th>
-                      <th className="py-2 px-2.5 text-right">P. Unitario</th>
+                      <th className="py-2 px-2.5 text-center w-20">Cant.</th>
+                      <th className="py-2 px-2.5 text-right w-32">P. Unitario (Costo)</th>
                       <th className="py-2 px-2.5 text-right">Total</th>
                       <th className="py-2 px-2.5 text-center">Acción</th>
                     </tr>
@@ -1368,8 +1996,28 @@ export default function SalesQuoteModule({
                             {item.inStock ? `✓ En Stock (${item.stockQty || 1})` : '⏳ Sobre Pedido'}
                           </span>
                         </td>
-                        <td className="py-2 px-2.5 font-bold">{item.quantity}</td>
-                        <td className="py-2 px-2.5 text-right">${item.catalogPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 px-2.5 text-center">
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={e => handleUpdateStandardItem(idx, 'quantity', Math.max(1, Number(e.target.value) || 1))}
+                            className="w-14 p-1 text-center bg-slate-50 border border-slate-200 rounded font-bold text-xs"
+                          />
+                        </td>
+                        <td className="py-2 px-2.5 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <span className="text-slate-400 font-bold">$</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.catalogPrice}
+                              onChange={e => handleUpdateStandardItem(idx, 'catalogPrice', Math.max(0, Number(e.target.value) || 0))}
+                              className="w-24 p-1 text-right bg-slate-50 border border-slate-200 rounded font-bold text-xs"
+                            />
+                          </div>
+                        </td>
                         <td className="py-2 px-2.5 text-right font-black text-slate-900">${item.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
                         <td className="py-2 px-2.5 text-center">
                           <button
@@ -1388,16 +2036,334 @@ export default function SalesQuoteModule({
             </div>
           )}
 
-          {/* 5. CONDICIONES COMERCIALES, TIEMPO DE ENTREGA & DESCUENTOS */}
+          {/* 4. SUMINISTRO E INSTALACIÓN */}
+          {quoteCategory === 'suministro_instalacion' && (
+            <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-4">
+              <div className="flex justify-between items-center">
+                <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
+                  <Wrench className="w-4 h-4 text-[#0196C1]" /> 4. Suministro e Instalación HVAC (Equipos, Materiales & Canalizaciones)
+                </label>
+              </div>
+
+              {/* Selector de Tipo de Suministro */}
+              <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                <label className="block text-[10px] font-black text-slate-600 uppercase">Modalidad de Suministro / Servicio:</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSupplyType('suministro_e_instalacion')}
+                    className={`p-2.5 rounded-xl border text-xs font-bold text-left cursor-pointer transition-all ${
+                      supplyType === 'suministro_e_instalacion' ? 'bg-sky-50 border-[#0196C1] text-[#0196C1] ring-1 ring-[#0196C1]' : 'bg-slate-50 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <span className="block font-black">Suministro e Instalación Integral</span>
+                    <span className="text-[10px] font-normal text-slate-500 block">Equipos, tubería, materiales y mano de obra</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSupplyType('solo_suministro')}
+                    className={`p-2.5 rounded-xl border text-xs font-bold text-left cursor-pointer transition-all ${
+                      supplyType === 'solo_suministro' ? 'bg-sky-50 border-[#0196C1] text-[#0196C1] ring-1 ring-[#0196C1]' : 'bg-slate-50 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <span className="block font-black">Solo Suministro de Equipos</span>
+                    <span className="text-[10px] font-normal text-slate-500 block">Venta de equipos y materiales sin montaje</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSupplyType('solo_instalacion')}
+                    className={`p-2.5 rounded-xl border text-xs font-bold text-left cursor-pointer transition-all ${
+                      supplyType === 'solo_instalacion' ? 'bg-sky-50 border-[#0196C1] text-[#0196C1] ring-1 ring-[#0196C1]' : 'bg-slate-50 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <span className="block font-black">Solo Mano de Obra / Instalación</span>
+                    <span className="text-[10px] font-normal text-slate-500 block">Montaje especializado, cliente pone equipo</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Descripción de Materiales */}
+              <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5">
+                <label className="block text-[10px] font-black text-slate-600 uppercase">
+                  Descripción y Especificación de Materiales & Tuberías:
+                </label>
+                <textarea
+                  rows={2}
+                  value={materialDescription}
+                  onChange={e => setMaterialDescription(e.target.value)}
+                  placeholder="Ej. Tubería de cobre rígido tipo L de 1/2 y 3/8 pulg, aislamiento térmico Armaflex elastomérico, soportería tipo unicanal con varilla roscada, soldadura de plata al 5%..."
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-medium text-slate-800"
+                />
+              </div>
+
+              {/* Equipos Suministrados */}
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black text-slate-700 uppercase">Equipos HVAC & Unidades a Suministrar:</span>
+                  <span className="text-[10px] font-bold text-[#0196C1]">{supplyEquipmentItems.length} Equipos</span>
+                </div>
+
+                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase text-[9px] border-b border-slate-200">
+                        <th className="py-2 px-2.5">Descripción</th>
+                        <th className="py-2 px-2.5">Marca / Modelo</th>
+                        <th className="py-2 px-2.5">Capacidad</th>
+                        <th className="py-2 px-2.5 text-center w-20">Cant.</th>
+                        <th className="py-2 px-2.5 text-right w-32">P. Unitario</th>
+                        <th className="py-2 px-2.5 text-right">Total</th>
+                        <th className="py-2 px-2.5 text-center">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {supplyEquipmentItems.map((item, idx) => (
+                        <tr key={item.id} className="hover:bg-slate-50">
+                          <td className="py-2 px-2.5 font-bold text-slate-800">{item.description}</td>
+                          <td className="py-2 px-2.5 text-slate-600">{item.brand} {item.model}</td>
+                          <td className="py-2 px-2.5 text-slate-600">{item.capacity}</td>
+                          <td className="py-2 px-2.5 text-center">
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={e => {
+                                const newQty = Math.max(1, Number(e.target.value) || 1);
+                                setSupplyEquipmentItems(prev => prev.map((eq, i) => i === idx ? { ...eq, quantity: newQty, total: newQty * eq.unitPrice } : eq));
+                              }}
+                              className="w-14 p-1 text-center bg-slate-50 border border-slate-200 rounded font-bold text-xs"
+                            />
+                          </td>
+                          <td className="py-2 px-2.5 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.unitPrice}
+                              onChange={e => {
+                                const newPrice = Math.max(0, Number(e.target.value) || 0);
+                                setSupplyEquipmentItems(prev => prev.map((eq, i) => i === idx ? { ...eq, unitPrice: newPrice, total: eq.quantity * newPrice } : eq));
+                              }}
+                              className="w-24 p-1 text-right bg-slate-50 border border-slate-200 rounded font-bold text-xs"
+                            />
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-black text-slate-900">${item.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-2 px-2.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setSupplyEquipmentItems(prev => prev.filter((_, i) => i !== idx))}
+                              className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Form to add equipment item */}
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 pt-2 border-t border-slate-100">
+                  <input
+                    type="text"
+                    placeholder="Descripción (ej. Minisplit YORK Inverter)"
+                    value={newEqItemDesc}
+                    onChange={e => setNewEqItemDesc(e.target.value)}
+                    className="sm:col-span-2 text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Marca/Modelo"
+                    value={newEqItemBrand}
+                    onChange={e => setNewEqItemBrand(e.target.value)}
+                    className="text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Capacidad (ej. 1.5 TR)"
+                    value={newEqItemCap}
+                    onChange={e => setNewEqItemCap(e.target.value)}
+                    className="text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Precio Unit."
+                    value={newEqItemPrice || ''}
+                    onChange={e => setNewEqItemPrice(Number(e.target.value))}
+                    className="text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none text-right font-bold"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddSupplyEquipmentItem}
+                    className="py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-lg cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Agregar
+                  </button>
+                </div>
+              </div>
+
+              {/* Materiales Eléctricos & Canalización */}
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black text-slate-700 uppercase">Partidas Eléctricas, Tuberías & Canalización:</span>
+                  <span className="text-[10px] font-bold text-[#0196C1]">{supplyElectricalItems.length} Partidas</span>
+                </div>
+
+                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase text-[9px] border-b border-slate-200">
+                        <th className="py-2 px-2.5">Descripción de Canalización / Eléctrico</th>
+                        <th className="py-2 px-2.5 text-center w-20">Cant.</th>
+                        <th className="py-2 px-2.5 text-right w-32">P. Unitario</th>
+                        <th className="py-2 px-2.5 text-right">Total</th>
+                        <th className="py-2 px-2.5 text-center">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {supplyElectricalItems.map((item, idx) => (
+                        <tr key={item.id} className="hover:bg-slate-50">
+                          <td className="py-2 px-2.5 font-bold text-slate-800">{item.description}</td>
+                          <td className="py-2 px-2.5 text-center">
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={e => {
+                                const newQty = Math.max(1, Number(e.target.value) || 1);
+                                setSupplyElectricalItems(prev => prev.map((el, i) => i === idx ? { ...el, quantity: newQty, total: newQty * el.unitPrice } : el));
+                              }}
+                              className="w-14 p-1 text-center bg-slate-50 border border-slate-200 rounded font-bold text-xs"
+                            />
+                          </td>
+                          <td className="py-2 px-2.5 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.unitPrice}
+                              onChange={e => {
+                                const newPrice = Math.max(0, Number(e.target.value) || 0);
+                                setSupplyElectricalItems(prev => prev.map((el, i) => i === idx ? { ...el, unitPrice: newPrice, total: el.quantity * newPrice } : el));
+                              }}
+                              className="w-24 p-1 text-right bg-slate-50 border border-slate-200 rounded font-bold text-xs"
+                            />
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-black text-slate-900">${item.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-2 px-2.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setSupplyElectricalItems(prev => prev.filter((_, i) => i !== idx))}
+                              className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Form to add electrical item */}
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 pt-2 border-t border-slate-100">
+                  <input
+                    type="text"
+                    placeholder="Descripción (ej. Canalización con tubería conduit pared gruesa de 3/4)"
+                    value={newElecItemDesc}
+                    onChange={e => setNewElecItemDesc(e.target.value)}
+                    className="sm:col-span-3 text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Precio Unit."
+                    value={newElecItemPrice || ''}
+                    onChange={e => setNewElecItemPrice(Number(e.target.value))}
+                    className="text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none text-right font-bold"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddSupplyElectricalItem}
+                    className="py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-lg cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Agregar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. PÓLIZA DE MANTENIMIENTO ANUAL */}
+          {quoteCategory === 'poliza' && (
+            <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-4">
+              <div className="flex justify-between items-center">
+                <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-[#0196C1]" /> 4. Configuración de Póliza Anual de Mantenimiento
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                  <label className="block text-[10px] font-black text-slate-600 uppercase">Modalidad de Póliza:</label>
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer text-xs font-bold">
+                      <input
+                        type="radio"
+                        name="policyType"
+                        checked={policyType === 'poliza_a'}
+                        onChange={() => setPolicyType('poliza_a')}
+                      />
+                      <span>Póliza Tipo A (Mantenimiento Preventivo Periódico Básico)</span>
+                    </label>
+                    <label className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer text-xs font-bold">
+                      <input
+                        type="radio"
+                        name="policyType"
+                        checked={policyType === 'poliza_b'}
+                        onChange={() => setPolicyType('poliza_b')}
+                      />
+                      <span>Póliza Tipo B (Preventivo + Correctivo & Refacciones Incluidas)</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                  <label className="block text-[10px] font-black text-slate-600 uppercase">Frecuencia / Visitas al Año:</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { num: 4, label: '4 Visitas', desc: 'Trimestral' },
+                      { num: 6, label: '6 Visitas', desc: 'Bimestral' },
+                      { num: 12, label: '12 Visitas', desc: 'Mensual' },
+                    ].map(v => (
+                      <button
+                        key={v.num}
+                        type="button"
+                        onClick={() => setPolicyVisitsPerYear(v.num)}
+                        className={`p-2 rounded-xl border text-center cursor-pointer transition-all ${
+                          policyVisitsPerYear === v.num ? 'bg-sky-50 border-[#0196C1] text-[#0196C1] font-black' : 'bg-slate-50 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <span className="block text-xs">{v.label}</span>
+                        <span className="text-[9px] text-slate-400 font-normal">{v.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 5. CONDICIONES COMERCIALES, TIEMPO DE ENTREGA, DESCUENTO & TOTALES */}
           <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-4">
             <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-[#0196C1]" /> 5. Tiempo de Entrega & Condiciones Comerciales
+              <Clock className="w-4 h-4 text-[#0196C1]" /> 5. Tiempo de Entrega, Descuento Comercial & Resumen de Cotización
             </label>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Delivery Time Selection */}
-              <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
-                <span className="text-[10px] font-black text-slate-600 uppercase block">Cálculo y Edición de Tiempo de Entrega:</span>
+              <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-2">
+                <span className="text-[10px] font-black text-slate-600 uppercase block">Tiempo de Entrega:</span>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -1436,21 +2402,50 @@ export default function SalesQuoteModule({
                 )}
               </div>
 
-              {/* Discount selection */}
-              <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
-                <span className="text-[10px] font-black text-slate-600 uppercase block">Descuento Comercial Aplicado (%):</span>
+              {/* Discount selection and breakdown */}
+              <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-3">
+                <span className="text-[10px] font-black text-slate-600 uppercase block">Descuento Comercial (%):</span>
                 <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    min="0"
-                    max="30"
-                    value={discountPercent}
-                    onChange={e => setDiscountPercent(Number(e.target.value))}
-                    className="w-24 text-sm p-2 bg-slate-50 border border-slate-200 rounded-xl text-center font-black text-slate-800 outline-none"
-                  />
+                  <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl p-1 px-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="50"
+                      value={discountPercent}
+                      onChange={e => setDiscountPercent(Math.max(0, Number(e.target.value) || 0))}
+                      className="w-16 text-sm text-center font-black text-slate-800 outline-none bg-transparent"
+                    />
+                    <span className="text-xs font-black text-slate-500">%</span>
+                  </div>
                   <span className="text-xs text-slate-500">
-                    {discountPercent > 5 ? '⚠️ Requiere autorización de Dirección / Socios.' : '✓ Descuento estándar de vendedor.'}
+                    {discountPercent > 5 ? '⚠️ Requiere autorización de Socios.' : '✓ Descuento estándar comercial.'}
                   </span>
+                </div>
+
+                {/* Resumen Financiero Calculado en tiempo real */}
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1.5 text-xs">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Subtotal Partidas:</span>
+                    <span className="font-bold">${calculatedSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
+                  </div>
+                  {discountPercent > 0 && (
+                    <div className="flex justify-between text-emerald-700 font-bold">
+                      <span>Descuento ({discountPercent}%):</span>
+                      <span>-${calculatedDiscountAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-slate-600">
+                    <span>Subtotal Neto:</span>
+                    <span className="font-bold">${calculatedNetSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>IVA (16%):</span>
+                    <span className="font-bold">${calculatedTax.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
+                  </div>
+                  <div className="flex justify-between text-slate-900 font-black text-sm pt-1.5 border-t border-slate-200">
+                    <span>TOTAL:</span>
+                    <span className="text-[#0196C1]">${calculatedTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1470,8 +2465,18 @@ export default function SalesQuoteModule({
               type="submit"
               className="flex-1 py-3 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2 transition-all"
             >
-              <Send className="w-4 h-4" /> Generar, Firmar y Emitir Cotización Oficial MVL
+              <Send className="w-4 h-4" /> {editingQuoteId ? 'Guardar Cambios y Emitir Cotización' : 'Generar, Firmar y Emitir Cotización Oficial MVL'}
             </button>
+
+            {editingQuoteId && (
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Cancelar Edición
+              </button>
+            )}
           </div>
         </form>
       )}
@@ -1545,13 +2550,25 @@ export default function SalesQuoteModule({
 
                     {q.status === 'pending_inventory' && (
                       <span className="text-[9px] font-black uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-amber-600" /> Pendiente de Inventario
+                        <Clock className="w-3 h-3 text-amber-600" /> Borrador / Pendiente de Inventario
                       </span>
                     )}
 
-                    {q.clientPoNumber && (
+                    {q.status === 'approved' && (
                       <span className="text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded flex items-center gap-1">
-                        <Check className="w-3 h-3 text-emerald-600" /> OC: {q.clientPoNumber}
+                        <Check className="w-3 h-3 text-emerald-600" /> Aprobada {q.clientPoNumber ? `(OC: ${q.clientPoNumber})` : ''}
+                      </span>
+                    )}
+
+                    {q.status === 'rejected' && (
+                      <span className="text-[9px] font-black uppercase bg-red-100 text-red-800 px-2 py-0.5 rounded flex items-center gap-1">
+                        <X className="w-3 h-3 text-red-600" /> Rechazada {q.rejectionReason ? `• ${q.rejectionReason}` : ''}
+                      </span>
+                    )}
+
+                    {q.status === 'sent' && (
+                      <span className="text-[9px] font-black uppercase bg-sky-100 text-[#0196C1] px-2 py-0.5 rounded flex items-center gap-1">
+                        <Send className="w-3 h-3 text-[#0196C1]" /> Emitida / Vigente
                       </span>
                     )}
                   </div>
@@ -1560,6 +2577,12 @@ export default function SalesQuoteModule({
                     <span>Emisor: <strong>{q.issuerPartnerName || 'MVL Control'}</strong></span>
                     <span>•</span>
                     <span>Entrega: <strong>{q.deliveryLeadTime || 'Inmediata'}</strong></span>
+                    {q.materialDescription && (
+                      <>
+                        <span>•</span>
+                        <span className="truncate max-w-xs">Mat: <em>{q.materialDescription}</em></span>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -1570,13 +2593,36 @@ export default function SalesQuoteModule({
                   </div>
 
                   <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Botón Editar Cotización */}
+                    <button
+                      onClick={() => handleEditQuote(q)}
+                      title="Editar partidas, costos, cliente o condiciones"
+                      className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-[#0196C1] border border-sky-200 rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                    >
+                      <Edit className="w-3.5 h-3.5" /> Editar
+                    </button>
+
                     {/* Botón Aprobar con OC */}
                     {q.status !== 'approved' && (
                       <button
                         onClick={() => setPoApprovalModalQuote(q)}
-                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer shadow-2xs"
+                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer shadow-2xs"
                       >
                         <Check className="w-3.5 h-3.5" /> Aprobar con OC
+                      </button>
+                    )}
+
+                    {/* Botón Rechazar Cotización */}
+                    {q.status !== 'rejected' && q.status !== 'approved' && (
+                      <button
+                        onClick={() => {
+                          setShowRejectModalQuote(q);
+                          setRejectionReasonInput('');
+                        }}
+                        title="Marcar cotización como rechazada"
+                        className="px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5 text-red-600" /> Rechazar
                       </button>
                     )}
 
@@ -1722,6 +2768,219 @@ export default function SalesQuoteModule({
                 className="flex-1 py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-black rounded-xl cursor-pointer"
               >
                 Guardar Plantilla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REGISTRAR NUEVO EQUIPO MODAL (OTROS / MANUAL) */}
+      {showNewEquipmentModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-purple-600" />
+                Registrar Nuevo Equipo en Catálogo del Cliente
+              </h3>
+              <button onClick={() => setShowNewEquipmentModal(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              Registra un nuevo equipo para <strong>{selectedClient?.name || 'este cliente'}</strong>. Se guardará permanentemente en su expediente técnico y se vinculará de inmediato a esta cotización.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Tipo de Equipo</label>
+                <select
+                  value={newEqType}
+                  onChange={e => setNewEqType(e.target.value as any)}
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                >
+                  <option value="Compresor">Compresor de Tornillo / Pistón</option>
+                  <option value="Secador">Secador Refrigerativo / Desecante</option>
+                  <option value="Aire Acondicionado">Aire Acondicionado (Minisplit / Paquete / UPA)</option>
+                  <option value="Otros">Chiller / Bomba de Vacío / Planta / Otros</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Marca</label>
+                <input
+                  type="text"
+                  placeholder="Ej. Kaeser, Atlas Copco, York, Trane..."
+                  value={newEqBrand}
+                  onChange={e => setNewEqBrand(e.target.value)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Modelo</label>
+                <input
+                  type="text"
+                  placeholder="Ej. BSD 50, CSD 75, YHKE..."
+                  value={newEqModel}
+                  onChange={e => setNewEqModel(e.target.value)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                  <Hash className="w-3 h-3 text-[#0196C1]" /> No. de Serie / Placa
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej. SN-994821, 1030"
+                  value={newEqSerial}
+                  onChange={e => setNewEqSerial(e.target.value)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-mono font-bold text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Capacidad</label>
+                <input
+                  type="text"
+                  placeholder="Ej. 50 HP, 1.5 TR, 200 CFM"
+                  value={newEqCapacity}
+                  onChange={e => setNewEqCapacity(e.target.value)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Voltaje / Alimentación</label>
+                <input
+                  type="text"
+                  placeholder="Ej. 220V 3F, 440V, 110V"
+                  value={newEqVoltage}
+                  onChange={e => setNewEqVoltage(e.target.value)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Horómetro Inicial</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Horas de operación"
+                  value={newEqHours}
+                  onChange={e => setNewEqHours(Number(e.target.value) || 0)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Foto de Placa y Manual */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Foto de Placa / Datos:</label>
+                <label className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 border-dashed rounded-xl cursor-pointer text-center text-[10px] font-bold text-slate-600 flex items-center justify-center gap-1.5">
+                  <Camera className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{newEqPhotoUrl ? '✓ Foto Adjunta' : 'Subir Foto Placa'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) setNewEqPhotoUrl(URL.createObjectURL(file));
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Manual Técnico PDF:</label>
+                <label className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 border-dashed rounded-xl cursor-pointer text-center text-[10px] font-bold text-slate-600 flex items-center justify-center gap-1.5">
+                  <Upload className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{newEqManualPdfUrl ? '✓ Manual Adjunto' : 'Subir Manual PDF'}</span>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) setNewEqManualPdfUrl(`manuales/${file.name}`);
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowNewEquipmentModal(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveNewEquipmentModal}
+                className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black rounded-xl cursor-pointer shadow-xs"
+              >
+                Guardar Equipo y Asignar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REJECT QUOTE MODAL */}
+      {showRejectModalQuote && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                <X className="w-4 h-4 text-red-600" />
+                Marcar Cotización como Rechazada
+              </h3>
+              <button onClick={() => setShowRejectModalQuote(null)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-red-50 rounded-xl border border-red-100 text-xs">
+              <span className="font-bold text-red-800 block">Folio: {showRejectModalQuote.folNum}</span>
+              <span className="text-slate-700 block">{showRejectModalQuote.clientName}</span>
+              <span className="font-black text-slate-900 block mt-1">${showRejectModalQuote.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-[10px] font-extrabold text-slate-600 uppercase">
+                Motivo de Rechazo / Cancelación:
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Ej. Precio fuera de presupuesto del cliente, proyecto postergado al siguiente trimestre, cliente eligió otra opción..."
+                value={rejectionReasonInput}
+                onChange={e => setRejectionReasonInput(e.target.value)}
+                className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-medium"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowRejectModalQuote(null)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl shadow-xs cursor-pointer"
+              >
+                Confirmar Rechazo
               </button>
             </div>
           </div>

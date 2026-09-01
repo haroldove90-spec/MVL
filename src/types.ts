@@ -137,10 +137,15 @@ export interface Quote {
   clientEmail?: string;
   itemsTable?: QuoteItem[];
   supplyInstallationDetails?: {
+    supplyType?: 'suministro_instalacion' | 'solo_suministro' | 'solo_instalacion';
+    materialDescription?: string;
     equipmentItems: QuoteItem[];
     electricalItems: QuoteItem[];
     scopeList: string[];
   };
+  materialDescription?: string;
+  supplyType?: 'suministro_instalacion' | 'solo_suministro' | 'solo_instalacion';
+  rejectionReason?: string;
   policyDetails?: {
     policyType: 'poliza_a' | 'poliza_b';
     visitsPerYear: number;
@@ -233,7 +238,7 @@ export interface Equipment {
   nextMaintenance: string;
   engineHours: number;
   voltage?: string;
-  type?: 'compresor' | 'secador' | 'otros';
+  type?: 'compresor' | 'secador' | 'aire_acondicionado' | 'otros';
   mode?: 'venta' | 'renta';
   dataPlatePhotoUrl?: string;
   compatibleParts?: string[];
