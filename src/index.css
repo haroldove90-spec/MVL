@@ -45,12 +45,15 @@ body {
   #printable-quote-area,
   #printable-quote-area *,
   #printable-report-area,
-  #printable-report-area * {
+  #printable-report-area *,
+  #printable-kits-area,
+  #printable-kits-area * {
     visibility: visible;
   }
 
   #printable-quote-area,
-  #printable-report-area {
+  #printable-report-area,
+  #printable-kits-area {
     position: absolute;
     left: 0;
     top: 0;

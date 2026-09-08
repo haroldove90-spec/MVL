@@ -2,10 +2,13 @@ import React, { useState, useMemo, useRef } from 'react';
 import { CustomerKitItem, Client, Equipment } from '../types';
 import { loadFromStorage, saveToStorage } from '../mockData';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { 
   Wrench, Plus, Upload, Download, Search, Filter, Trash2, Edit2, 
   FileSpreadsheet, Database, Check, AlertCircle, X, ChevronDown, 
-  Copy, RefreshCw, Layers, ShieldCheck, ArrowUpDown, Eye, FileText, CheckCircle2
+  Copy, RefreshCw, Layers, ShieldCheck, ArrowUpDown, Eye, FileText, CheckCircle2,
+  Printer, Loader2
 } from 'lucide-react';
 
 interface CustomerKitsModuleProps {
@@ -60,6 +63,10 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
   const [importError, setImportError] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // PDF Export and Preview state
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
 
   // Toast / notification
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -350,6 +357,171 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
     showFeedback('Archivo CSV exportado exitosamente.');
   };
 
+  // Helper to load logo as base64 for PDF embedding
+  const getLogoBase64 = async (): Promise<string | null> => {
+    const candidates = ['/mvl.png', 'https://appdesignproyectos.com/mvl.png'];
+    for (const url of candidates) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        if (base64) return base64;
+      } catch {
+        // continue to next candidate
+      }
+    }
+    return null;
+  };
+
+  // PDF Export using jsPDF and jspdf-autotable with official MVL logo and exact cyan styling
+  const handleExportPdf = async () => {
+    if (filteredItems.length === 0) {
+      showFeedback('No hay registros para exportar en PDF.', 'error');
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    try {
+      // Landscape A4 orientation (297mm x 210mm)
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      // Top cyan bar accent (#00A2E8)
+      doc.setFillColor(0, 162, 232);
+      doc.rect(0, 0, 297, 3.5, 'F');
+
+      // Fetch official logo and insert
+      const logoData = await getLogoBase64();
+      if (logoData) {
+        try {
+          doc.addImage(logoData, 'PNG', 14, 8, 36, 15);
+        } catch (imgErr) {
+          console.warn('Could not add image to PDF:', imgErr);
+        }
+      }
+
+      // Title & Subtitle
+      const startTextX = logoData ? 54 : 14;
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.text('MVL CONTROL Y MANTENIMIENTO INDUSTRIAL', startTextX, 13.5);
+
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(0, 162, 232); // #00A2E8
+      doc.text('Kits de clientes MVL — Catálogo Maestro de Refacciones', startTextX, 18.5);
+
+      doc.setFont('Helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.text('Sistemas de Aire Comprimido, Secadores y Maquinaria Industrial', startTextX, 22.5);
+
+      // Metadata right block
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(30, 41, 59);
+      const dateStr = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+      doc.text(`Fecha: ${dateStr}`, 283, 13.5, { align: 'right' });
+
+      doc.setFont('Helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Total partidas: ${filteredItems.length} | Clientes: ${uniqueClients.length}`, 283, 18, { align: 'right' });
+      if (selectedClientFilter !== 'all') {
+        doc.text(`Filtro cliente: ${selectedClientFilter}`, 283, 22.5, { align: 'right' });
+      }
+
+      // Divider line
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.2);
+      doc.line(14, 26, 283, 26);
+
+      // Table data matching exactly the columns in the image:
+      // No. De de parte | descripción | precio | cliente | modelo | serie
+      const tableData = filteredItems.map(it => [
+        it.partNumber || '-',
+        it.description || '-',
+        it.price > 0 ? `$ ${it.price.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$ 0.00',
+        it.clientName || '-',
+        it.equipmentModel || '-',
+        it.serialNumber || '-'
+      ]);
+
+      autoTable(doc, {
+        startY: 29,
+        head: [['No. De de parte', 'descripción', 'precio', 'cliente', 'modelo', 'serie']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [0, 162, 232], // Exact cyan #00A2E8
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 8.5,
+          halign: 'left',
+          valign: 'middle',
+          cellPadding: 2.5
+        },
+        styles: {
+          font: 'Helvetica',
+          fontSize: 8,
+          cellPadding: 2.2,
+          textColor: [30, 41, 59],
+          lineColor: [226, 232, 240],
+          lineWidth: 0.15,
+          valign: 'middle'
+        },
+        columnStyles: {
+          0: { cellWidth: 38, fontStyle: 'bold' },
+          1: { cellWidth: 85 },
+          2: { cellWidth: 26, halign: 'right', fontStyle: 'bold', textColor: [15, 23, 42] },
+          3: { cellWidth: 44, fontStyle: 'bold', textColor: [2, 132, 199] },
+          4: { cellWidth: 38 },
+          5: { cellWidth: 38 }
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        },
+        didDrawPage: (data) => {
+          const pageCount = (doc as any).internal.getNumberOfPages();
+          const pageNumber = data.pageNumber;
+          
+          doc.setDrawColor(226, 232, 240);
+          doc.setLineWidth(0.2);
+          doc.line(14, 200, 283, 200);
+
+          doc.setFontSize(7.5);
+          doc.setTextColor(148, 163, 184);
+          doc.text('MVL Control y Mantenimiento Industrial • Documento Oficial del Sistema • Catálogo de Refacciones', 14, 204);
+          doc.text(`Página ${pageNumber} de ${pageCount}`, 283, 204, { align: 'right' });
+        }
+      });
+
+      const sanitizedClient = selectedClientFilter !== 'all' ? `_${selectedClientFilter.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+      const filename = `Kits_de_clientes_MVL${sanitizedClient}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      doc.save(filename);
+      showFeedback('Archivo PDF generado y descargado exitosamente.');
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      showFeedback('Ocurrió un error al generar el PDF. Abriendo vista para imprimir.', 'error');
+      setIsPdfPreviewOpen(true);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   // ==========================================
   // IMPORT FUNCTIONALITY (ROBUST PARSER)
   // ==========================================
@@ -614,6 +786,25 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
             >
               <Database className="w-3.5 h-3.5 text-[#0196C1]" />
               <span className="hidden sm:inline">Ver Script SQL</span>
+            </button>
+
+            <button
+              onClick={handleExportPdf}
+              disabled={isGeneratingPdf}
+              className="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 transition-all shadow-2xs disabled:opacity-50 active:scale-98"
+              title="Descargar Catálogo de Kits en formato PDF con membrete y logotipo"
+            >
+              {isGeneratingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+              <span>Exportar PDF</span>
+            </button>
+
+            <button
+              onClick={() => setIsPdfPreviewOpen(true)}
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 transition-all shadow-2xs"
+              title="Vista previa e impresión con logotipo oficial"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-600" />
+              <span className="hidden md:inline">Vista Previa / Imprimir</span>
             </button>
 
             <button
@@ -904,6 +1095,23 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
             </span>
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-slate-400">Exportar vista actual:</span>
+              <button
+                onClick={handleExportPdf}
+                disabled={isGeneratingPdf}
+                className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-700 font-bold rounded-lg border border-slate-200 cursor-pointer shadow-2xs flex items-center gap-1"
+                title="Exportar registros a PDF"
+              >
+                <FileText className="w-3 h-3 text-rose-600" />
+                <span>.PDF</span>
+              </button>
+              <button
+                onClick={() => setIsPdfPreviewOpen(true)}
+                className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-lg border border-slate-200 cursor-pointer shadow-2xs flex items-center gap-1"
+                title="Vista previa e impresión"
+              >
+                <Printer className="w-3 h-3 text-slate-600" />
+                <span>Imprimir</span>
+              </button>
               <button
                 onClick={handleExportExcel}
                 className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-lg border border-slate-200 cursor-pointer shadow-2xs"
@@ -1369,6 +1577,153 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
                 >
                   Cerrar
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* PDF PREVIEW & PRINT MODAL WITH OFFICIAL MVL BRANDING & LOGO               */}
+      {/* ========================================================================= */}
+      {isPdfPreviewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 p-3 sm:p-6 overflow-y-auto backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-5xl w-full flex flex-col max-h-[92vh] shadow-2xl border border-slate-200 print:shadow-none print:border-none print:max-h-full print:rounded-none">
+            {/* Header Tools (Hidden when printing via print:hidden) */}
+            <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50 rounded-t-2xl print:hidden">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm">Vista Previa de Exportación PDF</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Formato institucional de Kits de Clientes con logotipo oficial de MVL
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleExportPdf}
+                  disabled={isGeneratingPdf}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50 active:scale-98"
+                  title="Descargar archivo PDF directamente a tu dispositivo"
+                >
+                  {isGeneratingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                  <span>Descargar PDF (.pdf)</span>
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer active:scale-98"
+                  title="Imprimir o guardar como PDF mediante el diálogo del sistema"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Imprimir / Guardar</span>
+                </button>
+                <button
+                  onClick={() => setIsPdfPreviewOpen(false)}
+                  className="p-2 hover:bg-slate-200 rounded-xl text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                  title="Cerrar vista"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Area */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-100/70 print:bg-white print:p-0">
+              <div id="printable-kits-area" className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 sm:p-8 max-w-4xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 space-y-6">
+                
+                {/* Header banner with MVL logo */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b-2 border-slate-200">
+                  <div className="flex items-center gap-4">
+                    <div className="h-16 w-20 flex items-center justify-center bg-white shrink-0">
+                      <img 
+                        src="/mvl.png" 
+                        alt="MVL Logo" 
+                        className="h-14 max-w-full object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://appdesignproyectos.com/mvl.png';
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <h1 className="text-xl font-black text-slate-900 tracking-tight">KITS DE CLIENTES MVL</h1>
+                      <p className="text-xs font-bold text-[#00A2E8] uppercase tracking-wide">MVL CONTROL Y MANTENIMIENTO INDUSTRIAL</p>
+                      <p className="text-[11px] text-slate-500">Catálogo Maestro de Refacciones, Compresores y Maquinaria</p>
+                    </div>
+                  </div>
+
+                  <div className="text-left sm:text-right text-xs space-y-1 bg-slate-50 sm:bg-transparent p-3 sm:p-0 rounded-xl sm:rounded-none w-full sm:w-auto border sm:border-0 border-slate-100">
+                    <div className="font-semibold text-slate-800">
+                      Fecha: <span className="font-normal text-slate-600">{new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                    </div>
+                    <div className="font-semibold text-slate-800">
+                      Total de Partidas: <span className="font-bold text-[#00A2E8]">{filteredItems.length}</span>
+                    </div>
+                    {selectedClientFilter !== 'all' && (
+                      <div className="text-[11px] text-slate-600 font-medium">
+                        Cliente: <strong className="text-slate-900">{selectedClientFilter}</strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Cyan table matching user's reference image */}
+                <div className="overflow-hidden border border-slate-300 rounded-lg">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="bg-[#00A2E8] text-white">
+                        <th className="py-2.5 px-3 font-bold border-r border-sky-400">No. De de parte</th>
+                        <th className="py-2.5 px-3 font-bold border-r border-sky-400">descripción</th>
+                        <th className="py-2.5 px-3 font-bold border-r border-sky-400 text-right">precio</th>
+                        <th className="py-2.5 px-3 font-bold border-r border-sky-400">cliente</th>
+                        <th className="py-2.5 px-3 font-bold border-r border-sky-400">modelo</th>
+                        <th className="py-2.5 px-3 font-bold">serie</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {filteredItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-400 font-medium italic">
+                            No hay registros para mostrar.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredItems.map((item, idx) => (
+                          <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
+                            <td className="py-2 px-3 font-mono font-bold text-slate-900 border-r border-slate-200 whitespace-nowrap">
+                              {item.partNumber}
+                            </td>
+                            <td className="py-2 px-3 text-slate-800 border-r border-slate-200">
+                              {item.description}
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold text-slate-900 border-r border-slate-200 whitespace-nowrap">
+                              {item.price > 0 ? `$ ${item.price.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$ 0.00'}
+                            </td>
+                            <td className="py-2 px-3 font-semibold text-slate-900 border-r border-slate-200 whitespace-nowrap">
+                              {item.clientName}
+                            </td>
+                            <td className="py-2 px-3 text-slate-700 border-r border-slate-200 whitespace-nowrap">
+                              {item.equipmentModel}
+                            </td>
+                            <td className="py-2 px-3 text-slate-700 whitespace-nowrap">
+                              {item.serialNumber}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Document Footer */}
+                <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-400 gap-2">
+                  <span>MVL CONTROL Y MANTENIMIENTO INDUSTRIAL • DOCUMENTO OFICIAL</span>
+                  <span>Generado electrónicamente desde el sistema de control</span>
+                </div>
+
               </div>
             </div>
           </div>
