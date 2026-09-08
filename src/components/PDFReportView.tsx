@@ -47,7 +47,7 @@ export default function PDFReportView({ workOrder, client, equipment, onClose }:
 
         {/* Printable Report Content */}
         <div className="flex-1 overflow-y-auto p-8 print:p-0 print:overflow-visible">
-          <div className="border border-slate-200 rounded-2xl p-8 print:border-none print:p-0 space-y-6 max-w-3xl mx-auto">
+          <div id="printable-report-area" className="border border-slate-200 rounded-2xl p-8 print:border-none print:p-0 space-y-6 max-w-3xl mx-auto bg-white">
             
             {/* Report Header Logo & Details */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 border-b border-slate-100 gap-4">

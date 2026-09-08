@@ -92,6 +92,8 @@ export interface QuoteItem {
   stockQty?: number;
   compatibleCodes?: { code: string; brand: string }[];
   isCustomPriceRequest?: boolean;
+  priority?: 'alta' | 'baja';
+  trRange?: '1_1.5_TR' | '2_3_TR' | '4_5_TR' | '6_10_TR' | '11_20_TR' | 'gt_20_TR' | 'compresor' | 'otro' | string;
 }
 
 export interface Quote {
@@ -328,7 +330,7 @@ export interface LaborRate {
   id: string;
   serviceCategory: 'instalacion' | 'preventivo' | 'correctivo' | 'predictivo' | 'revision';
   capacityRange: '5_15kW' | '37_50kW' | '75_120kW' | 'otros';
-  maintenanceHours?: '2000' | '4000' | '6000' | '8000';
+  maintenanceHours?: '2000' | '4000' | '6000' | '8000' | '16000' | '24000';
   hourlyPrice: number;
   distanceKmPrice: number;
 }

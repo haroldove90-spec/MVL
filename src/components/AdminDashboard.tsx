@@ -64,13 +64,17 @@ export default function AdminDashboard({
   // New part form states
   const [newPartName, setNewPartName] = useState('');
   const [newPartCode, setNewPartCode] = useState('');
+  const [newPartBrand, setNewPartBrand] = useState('Kaeser');
   const [newPartCategory, setNewPartCategory] = useState<'electronic' | 'pneumatic' | 'refrigeration' | 'consumable'>('consumable');
   const [newPartStock, setNewPartStock] = useState(10);
   const [newPartMinStock, setNewPartMinStock] = useState(3);
   const [newPartPrice, setNewPartPrice] = useState(1500);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [inventorySearchQuery, setInventorySearchQuery] = useState('');
+  const [inventoryBrandFilter, setInventoryBrandFilter] = useState('all');
 
   // Brands list
-  const [brands, setBrands] = useState<string[]>(['Kaeser', 'Atlas Copco', 'Ingersoll Rand', 'Sullair', 'Siemens']);
+  const [brands, setBrands] = useState<string[]>(['Kaeser', 'Atlas Copco', 'Ingersoll Rand', 'Sullair', 'Siemens', 'York', 'Carrier', 'Trane', 'Mirage', 'MVL']);
   const [newBrand, setNewBrand] = useState('');
 
   // CRM Form state variables
@@ -716,14 +720,38 @@ export default function AdminDashboard({
     setStaff(prev => prev.filter(s => s.id !== id));
   };
 
-  // Add parts handler
+  // Add parts handler with duplicate detection
   const handleAddPart = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPartName || !newPartCode) return;
+    setDuplicateWarning(null);
+    if (!newPartName.trim() || !newPartCode.trim()) return;
+
+    const cleanCode = newPartCode.trim().toUpperCase();
+    const cleanName = newPartName.trim().toLowerCase();
+    const cleanBrand = (newPartBrand.trim() || 'MVL').toLowerCase();
+
+    // 1. Check duplicate code
+    const existingCode = inventory.find(i => i.code.trim().toUpperCase() === cleanCode);
+    if (existingCode) {
+      setDuplicateWarning(`⚠️ Ya existe una refacción con el código "${cleanCode}" (${existingCode.name}, Marca: ${existingCode.brand || 'N/A'}, Stock actual: ${existingCode.stock} pzas). No se permiten códigos duplicados.`);
+      return;
+    }
+
+    // 2. Check duplicate name + brand
+    const existingNameBrand = inventory.find(i => 
+      i.name.trim().toLowerCase() === cleanName && 
+      (i.brand || '').trim().toLowerCase() === cleanBrand
+    );
+    if (existingNameBrand) {
+      setDuplicateWarning(`⚠️ Ya existe la refacción "${newPartName}" para la marca "${newPartBrand}" con código ${existingNameBrand.code} (Stock: ${existingNameBrand.stock}).`);
+      return;
+    }
+
     const item: InventoryItem = {
       id: `i${Date.now()}`,
-      code: newPartCode.toUpperCase(),
-      name: newPartName,
+      code: cleanCode,
+      name: newPartName.trim(),
+      brand: newPartBrand.trim() || 'MVL',
       category: newPartCategory,
       stock: Number(newPartStock),
       minStock: Number(newPartMinStock),
@@ -732,9 +760,11 @@ export default function AdminDashboard({
     setInventory(prev => [...prev, item]);
     setNewPartName('');
     setNewPartCode('');
+    setNewPartBrand('Kaeser');
     setNewPartStock(10);
     setNewPartMinStock(3);
     setNewPartPrice(1500);
+    setDuplicateWarning(null);
   };
 
   // Delete spare part
@@ -1633,6 +1663,24 @@ export default function AdminDashboard({
               <Package className="w-4 h-4 text-[#0196C1]" />
               Añadir al Inventario
             </h3>
+
+            {duplicateWarning && (
+              <div className="mb-3 p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs space-y-1">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 flex-none" />
+                  <span>Detección de Duplicado</span>
+                </div>
+                <p className="text-[11px] leading-relaxed">{duplicateWarning}</p>
+                <button
+                  type="button"
+                  onClick={() => setDuplicateWarning(null)}
+                  className="text-[10px] text-rose-700 underline font-bold mt-1"
+                >
+                  Entendido, corregir datos
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleAddPart} className="space-y-3">
               <div>
                 <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Nombre Refacción</label>
@@ -1641,9 +1689,46 @@ export default function AdminDashboard({
                   required
                   placeholder="ej. Filtro de Aceite Kaeser"
                   value={newPartName}
-                  onChange={(e) => setNewPartName(e.target.value)}
+                  onChange={(e) => {
+                    setNewPartName(e.target.value);
+                    if (duplicateWarning) setDuplicateWarning(null);
+                  }}
                   className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0196C1]"
                 />
+              </div>
+
+              {/* Brand Field */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Marca del Fabricante / OEM</label>
+                <div className="flex gap-2">
+                  <select
+                    value={brands.includes(newPartBrand) ? newPartBrand : 'other'}
+                    onChange={(e) => {
+                      if (e.target.value !== 'other') {
+                        setNewPartBrand(e.target.value);
+                      }
+                      if (duplicateWarning) setDuplicateWarning(null);
+                    }}
+                    className="w-1/2 text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  >
+                    {brands.map(b => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                    <option value="other">Otra / Personalizada...</option>
+                  </select>
+
+                  <input
+                    type="text"
+                    required
+                    placeholder="Escribir marca"
+                    value={newPartBrand}
+                    onChange={(e) => {
+                      setNewPartBrand(e.target.value);
+                      if (duplicateWarning) setDuplicateWarning(null);
+                    }}
+                    className="w-1/2 text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0196C1]"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -1654,7 +1739,10 @@ export default function AdminDashboard({
                     required
                     placeholder="FIL-50"
                     value={newPartCode}
-                    onChange={(e) => setNewPartCode(e.target.value)}
+                    onChange={(e) => {
+                      setNewPartCode(e.target.value);
+                      if (duplicateWarning) setDuplicateWarning(null);
+                    }}
                     className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
                   />
                 </div>
@@ -1714,11 +1802,47 @@ export default function AdminDashboard({
 
           {/* Parts stock and alerts */}
           <div className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold text-slate-800">Catálogo de Almacén e Inventario</h3>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Catálogo de Almacén e Inventario</h3>
+                <p className="text-[11px] text-slate-400">Refacciones clasificadas con marca OEM y detección de duplicados</p>
+              </div>
+
+              {/* Search & Brand Filter */}
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <input
+                  type="text"
+                  placeholder="Buscar refacción o código..."
+                  value={inventorySearchQuery}
+                  onChange={(e) => setInventorySearchQuery(e.target.value)}
+                  className="text-xs px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                />
+                <select
+                  value={inventoryBrandFilter}
+                  onChange={(e) => setInventoryBrandFilter(e.target.value)}
+                  className="text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none font-medium"
+                >
+                  <option value="all">Todas las marcas</option>
+                  {brands.map(b => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
             
             {/* Minimal warning alerts */}
             <div className="space-y-2">
-              {inventory.map((item) => {
+              {inventory
+                .filter(item => {
+                  const matchesQuery = inventorySearchQuery === '' || 
+                    item.name.toLowerCase().includes(inventorySearchQuery.toLowerCase()) ||
+                    item.code.toLowerCase().includes(inventorySearchQuery.toLowerCase()) ||
+                    (item.brand || '').toLowerCase().includes(inventorySearchQuery.toLowerCase());
+                  const matchesBrand = inventoryBrandFilter === 'all' || 
+                    (item.brand || '').toLowerCase() === inventoryBrandFilter.toLowerCase();
+                  return matchesQuery && matchesBrand;
+                })
+                .map((item) => {
                 const isLow = item.stock <= item.minStock;
                 return (
                   <div 
@@ -1732,7 +1856,14 @@ export default function AdminDashboard({
                     <div className="flex items-start gap-2">
                       {isLow && <AlertTriangle className="w-4 h-4 text-amber-600 flex-none mt-0.5" />}
                       <div>
-                        <p className="font-bold">{item.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold">{item.name}</p>
+                          {item.brand && (
+                            <span className="px-1.5 py-0.5 bg-[#0196C1]/10 text-[#0196C1] rounded text-[10px] font-bold">
+                              {item.brand}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-slate-400 font-semibold uppercase">{item.code} • {item.category}</p>
                       </div>
                     </div>
@@ -1740,7 +1871,7 @@ export default function AdminDashboard({
                     <div className="flex items-center gap-4">
                       <div className="text-right">
                         <p className="font-semibold">Stock: {item.stock} pzas</p>
-                        <p className="text-[10px] text-slate-400">Min. req: {item.minStock}</p>
+                        <p className="text-[10px] text-slate-400">Min. req: {item.minStock} | ${item.price?.toLocaleString('es-MX')} MXN</p>
                       </div>
                       <button
                         onClick={() => deletePart(item.id)}

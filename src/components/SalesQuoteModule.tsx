@@ -12,7 +12,7 @@ import {
   FileCheck, Shield, DollarSign, Wrench, ChevronRight, Eye, Printer, X, Sparkles,
   Copy, Search, Filter, ArrowUpRight, Check, RefreshCw, Cpu, Zap, ShoppingCart,
   Camera, FileDown, Layers, Award, BookmarkPlus, FolderCheck, Hash, Edit3, Trash2,
-  SlidersHorizontal, AlertCircle, HelpCircle, PackageCheck, CheckCheck, Edit, ShieldCheck
+  SlidersHorizontal, AlertCircle, HelpCircle, PackageCheck, CheckCheck, Edit, ShieldCheck, Activity
 } from 'lucide-react';
 
 interface SalesQuoteModuleProps {
@@ -36,6 +36,96 @@ interface QuickTemplate {
   items: QuoteItem[];
 }
 
+export const getCompressorKitItems = (hours: '2k' | '4k' | '6k' | '8k' | '16k' | '24k', brand: string = 'Kaeser', model: string = 'BSD 50'): QuoteItem[] => {
+  const b = brand.trim() || 'Kaeser';
+  switch (hours) {
+    case '2k':
+      return [
+        { partida: 1, description: `Filtro de Aire OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '6.2012.0', catalogPrice: 1250, total: 1250, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 8 },
+        { partida: 2, description: `Filtro de Aceite OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '6.1985.0', catalogPrice: 420, total: 420, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 10 },
+        { partida: 3, description: `Aceite Sintético Grado Compresor Sigma Fluid (Cubeta 19L)`, brand: b, quantity: 1, unit: 'cubeta 19L', partNumber: 'S-460', catalogPrice: 5400, total: 5400, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 12 },
+        { partida: 4, description: `Mano de Obra Mantenimiento Preventivo Menor 2,000 hrs (Inspección general, reapriete eléctrico y limpieza)`, brand: 'MVL Servicio', quantity: 1, unit: 'servicio', partNumber: 'MO-2K', catalogPrice: 2800, total: 2800, deliveryTime: 'Programada', inStock: true }
+      ];
+    case '4k':
+      return [
+        { partida: 1, description: `Filtro de Aire Alta Eficiencia OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '6.2012.0', catalogPrice: 1250, total: 1250, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 8 },
+        { partida: 2, description: `Filtro de Aceite OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '6.1985.0', catalogPrice: 420, total: 420, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 10 },
+        { partida: 3, description: `Filtro Separador Aire/Aceite Spin-On OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '6.1963.0', catalogPrice: 2650, total: 2650, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 4 },
+        { partida: 4, description: `Aceite Sintético Grado Compresor Sigma Fluid (2 Cubetas x 19L = 38L)`, brand: b, quantity: 2, unit: 'cubeta 19L', partNumber: 'S-460', catalogPrice: 5400, total: 10800, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 12 },
+        { partida: 5, description: `Limpieza química y desengrase de serpentín enfriador aire/aceite`, brand: 'MVL Insumo', quantity: 1, unit: 'servicio', partNumber: 'MO-RAD', catalogPrice: 1500, total: 1500, deliveryTime: 'Programada', inStock: true },
+        { partida: 6, description: `Mano de Obra Mantenimiento Preventivo 4,000 hrs (Calibración de presión, tensión y engrase de motor)`, brand: 'MVL Servicio', quantity: 1, unit: 'servicio', partNumber: 'MO-4K', catalogPrice: 3500, total: 3500, deliveryTime: 'Programada', inStock: true }
+      ];
+    case '6k':
+      return [
+        { partida: 1, description: `Filtro de Aire Alta Eficiencia OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '6.2012.0', catalogPrice: 1250, total: 1250, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 8 },
+        { partida: 2, description: `Filtro de Aceite OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '6.1985.0', catalogPrice: 420, total: 420, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 10 },
+        { partida: 3, description: `Filtro Separador Aire/Aceite OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '6.1963.0', catalogPrice: 2650, total: 2650, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 4 },
+        { partida: 4, description: `Aceite Sintético Grado Compresor Sigma Fluid (2 Cubetas x 19L = 38L)`, brand: b, quantity: 2, unit: 'cubeta 19L', partNumber: 'S-460', catalogPrice: 5400, total: 10800, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 12 },
+        { partida: 5, description: `Kit de Válvula Termostática / Elemento Regulador Térmico OEM ${b}`, brand: b, quantity: 1, unit: 'juego', partNumber: '7.0399.0', catalogPrice: 2100, total: 2100, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 3 },
+        { partida: 6, description: `Mano de Obra Mantenimiento Preventivo 6,000 hrs con reemplazo termostático`, brand: 'MVL Servicio', quantity: 1, unit: 'servicio', partNumber: 'MO-6K', catalogPrice: 4200, total: 4200, deliveryTime: 'Programada', inStock: true }
+      ];
+    case '8k':
+      return [
+        { partida: 1, description: `Filtro de Aire Industrial OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '6.2012.0', catalogPrice: 1250, total: 1250, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 8 },
+        { partida: 2, description: `Filtro de Aceite Alta Presión OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '6.1985.0', catalogPrice: 420, total: 420, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 10 },
+        { partida: 3, description: `Cartucho Separador Aire/Aceite Sumergido con aterrizaje OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '6.2132.0', catalogPrice: 3850, total: 3850, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 4 },
+        { partida: 4, description: `Aceite Sintético Grado Compresor Sigma Fluid (2 Cubetas x 19L = 38L)`, brand: b, quantity: 2, unit: 'cubeta 19L', partNumber: 'S-460', catalogPrice: 5400, total: 10800, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 12 },
+        { partida: 5, description: `Kit de Mantenimiento de Válvula de Presión Mínima (MPV) OEM ${b}`, brand: b, quantity: 1, unit: 'juego', partNumber: '4.7333.0', catalogPrice: 2850, total: 2850, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 3 },
+        { partida: 6, description: `Kit de Válvula Termostática OEM ${b}`, brand: b, quantity: 1, unit: 'juego', partNumber: '7.0399.0', catalogPrice: 2450, total: 2450, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 3 },
+        { partida: 7, description: `Kit de Válvula Anti-retorno y Filtro Línea de Barrido`, brand: b, quantity: 1, unit: 'juego', partNumber: '2.0701.0', catalogPrice: 1650, total: 1650, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 2 },
+        { partida: 8, description: `Mano de Obra Preventivo Mayor 8,000 hrs con Termografía de Tablero y Rodamientos`, brand: 'MVL Servicio', quantity: 1, unit: 'servicio', partNumber: 'MO-8K', catalogPrice: 5800, total: 5800, deliveryTime: 'Programada', inStock: true }
+      ];
+    case '16k':
+    case '24k':
+      return [
+        { partida: 1, description: `Reconstrucción y Overhaul Mayor de Unidad Compresora de Tornillo (Rodamientos SKF Explorer + Sellos Labiales Vitón)`, brand: 'SKF / OEM', quantity: 1, unit: 'kit overhaul', partNumber: 'OH-16K', catalogPrice: 28500, total: 28500, deliveryTime: '1 a 2 semanas', inStock: true, stockQty: 1 },
+        { partida: 2, description: `Kit Completo Válvula de Admisión y Cilindro de Control Proporcional OEM ${b}`, brand: b, quantity: 1, unit: 'juego', partNumber: '4.2150.0', catalogPrice: 4600, total: 4600, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 2 },
+        { partida: 3, description: `Kit Completo Válvula de Presión Mínima (MPV) OEM ${b}`, brand: b, quantity: 1, unit: 'juego', partNumber: '4.7333.0', catalogPrice: 2850, total: 2850, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 3 },
+        { partida: 4, description: `Juego de Mangueras Hidráulicas / PTFE de Alta Temperatura para Aceite y Descarga`, brand: 'Aeroquip / Parker', quantity: 1, unit: 'juego', partNumber: 'HOSE-KIT-16K', catalogPrice: 4200, total: 4200, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 4 },
+        { partida: 5, description: `Juego Completo de Filtros (Aire, Aceite y Separador Spin-On/Sumergido) OEM ${b}`, brand: b, quantity: 1, unit: 'juego', partNumber: 'KIT-FILT-16K', catalogPrice: 5100, total: 5100, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 5 },
+        { partida: 6, description: `Aceite Sintético Grado Compresor Especializado (38L)`, brand: b, quantity: 2, unit: 'cubeta 19L', partNumber: 'S-460', catalogPrice: 5400, total: 10800, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 12 },
+        { partida: 7, description: `Alineación Láser de Acoplamiento Flexible / Poleas y Balanceo Dinámico`, brand: 'MVL Especialidad', quantity: 1, unit: 'servicio', partNumber: 'ALIGN-LASER', catalogPrice: 2800, total: 2800, deliveryTime: 'Programada', inStock: true },
+        { partida: 8, description: `Mano de Obra Especializada de Overhaul en Sitio, Reemplazo de Rodamientos y Puesta a Punto`, brand: 'MVL Servicio', quantity: 1, unit: 'servicio', partNumber: 'MO-OVERHAUL', catalogPrice: 9500, total: 9500, deliveryTime: 'Programada', inStock: true }
+      ];
+    default:
+      return [];
+  }
+};
+
+export const getCorrectivePresetItems = (type: 'diagnostico' | 'sobrecalentamiento' | 'presion' | 'fuga_aceite' | 'electrico', brand: string = 'Kaeser', model: string = 'BSD 50'): QuoteItem[] => {
+  const b = brand.trim() || 'Kaeser';
+  switch (type) {
+    case 'diagnostico':
+      return [
+        { partida: 1, description: `Servicio de Diagnóstico Técnico Especializado en Sitio para ${b} ${model} (Revisión electromecánica, mediciones de aislamiento, presiones, temperaturas y código de falla)`, brand: 'MVL Servicio', quantity: 1, unit: 'servicio', partNumber: 'DIAG-SITIO', catalogPrice: 2800, total: 2800, deliveryTime: 'Inmediata (Atención Emergencia)', inStock: true }
+      ];
+    case 'sobrecalentamiento':
+      return [
+        { partida: 1, description: `Kit Termostático / Elemento Regulador Térmico OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '7.0399.0', catalogPrice: 2450, total: 2450, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 3 },
+        { partida: 2, description: `Limpieza química y desincrustante de serpentín enfriador aire/aceite`, brand: 'MVL Insumo', quantity: 1, unit: 'servicio', partNumber: 'MO-RAD', catalogPrice: 1500, total: 1500, deliveryTime: 'Inmediata', inStock: true },
+        { partida: 3, description: `Aceite Sintético Grado Compresor para relleno / purga (Cubeta 19L)`, brand: b, quantity: 1, unit: 'cubeta 19L', partNumber: 'S-460', catalogPrice: 5400, total: 5400, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 12 },
+        { partida: 4, description: `Mano de Obra Correctiva: Corrección de Falla por Alta Temperatura y Calibración`, brand: 'MVL Servicio', quantity: 1, unit: 'servicio', partNumber: 'MO-CORR-TEMP', catalogPrice: 3200, total: 3200, deliveryTime: 'Inmediata', inStock: true }
+      ];
+    case 'presion':
+      return [
+        { partida: 1, description: `Kit de Mantenimiento de Válvula de Admisión y Pistón de Control OEM ${b}`, brand: b, quantity: 1, unit: 'juego', partNumber: '4.2150.0', catalogPrice: 3600, total: 3600, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 2 },
+        { partida: 2, description: `Electroválvula Solenoide de Carga/Alivio 24V/110V OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: 'SOL-24V', catalogPrice: 1850, total: 1850, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 4 },
+        { partida: 3, description: `Mano de Obra Correctiva: Reparación de Falla de Presión / Válvula de Admisión`, brand: 'MVL Servicio', quantity: 1, unit: 'servicio', partNumber: 'MO-CORR-PRES', catalogPrice: 2800, total: 2800, deliveryTime: 'Inmediata', inStock: true }
+      ];
+    case 'fuga_aceite':
+      return [
+        { partida: 1, description: `Filtro Separador Aire/Aceite OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '6.1963.0', catalogPrice: 2650, total: 2650, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 4 },
+        { partida: 2, description: `Línea de Barrido / Válvula Check y Orificio Calibrado`, brand: b, quantity: 1, unit: 'pza', partNumber: 'SCAV-LINE', catalogPrice: 850, total: 850, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 6 },
+        { partida: 3, description: `Mano de Obra Correctiva: Sustitución de Separador, Limpieza de Línea de Barrido y Recuperación`, brand: 'MVL Servicio', quantity: 1, unit: 'servicio', partNumber: 'MO-CORR-OIL', catalogPrice: 2500, total: 2500, deliveryTime: 'Inmediata', inStock: true }
+      ];
+    case 'electrico':
+      return [
+        { partida: 1, description: `Contactor de Potencia Tripolar y Relevador de Sobrecarga Térmico`, brand: 'Schneider / Siemens', quantity: 1, unit: 'pza', partNumber: 'LC1D-40A', catalogPrice: 2900, total: 2900, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 3 },
+        { partida: 2, description: `Mano de Obra Correctiva: Reemplazo de Contactores, Reajuste de Bornes y Medición de Megger`, brand: 'MVL Servicio', quantity: 1, unit: 'servicio', partNumber: 'MO-CORR-ELEC', catalogPrice: 2800, total: 2800, deliveryTime: 'Inmediata', inStock: true }
+      ];
+  }
+};
+
 const DEFAULT_TEMPLATES: QuickTemplate[] = [
   {
     id: 'tmpl_andrea',
@@ -57,17 +147,73 @@ const DEFAULT_TEMPLATES: QuickTemplate[] = [
     ]
   },
   {
+    id: 'tmpl_kaeser_2k',
+    name: 'Kaeser SM 12 / SK 20 - Kit 2,000 hrs',
+    category: 'standard',
+    concept: 'Mantenimiento Preventivo Menor 2,000 Horas - Kaeser SM 12',
+    brand: 'Kaeser',
+    model: 'SM 12',
+    items: getCompressorKitItems('2k', 'Kaeser', 'SM 12')
+  },
+  {
     id: 'tmpl_kaeser_4k',
-    name: 'Preventivo 4,000 hrs Kaeser BSD 50',
+    name: 'Kaeser BSD 50 - Kit 4,000 hrs Intermedio',
     category: 'standard',
     concept: 'Mantenimiento Preventivo 4,000 Horas Kaeser BSD 50',
     brand: 'Kaeser',
     model: 'BSD 50',
+    items: getCompressorKitItems('4k', 'Kaeser', 'BSD 50')
+  },
+  {
+    id: 'tmpl_kaeser_8k',
+    name: 'Kaeser CSD 75 / DSD 200 - Kit 8,000 hrs Mayor',
+    category: 'standard',
+    concept: 'Mantenimiento Preventivo Mayor 8,000 Horas con Válvulas y Separador - Kaeser CSD 75',
+    brand: 'Kaeser',
+    model: 'CSD 75',
+    items: getCompressorKitItems('8k', 'Kaeser', 'CSD 75')
+  },
+  {
+    id: 'tmpl_kaeser_16k',
+    name: 'Overhaul Completo 16,000 hrs (Unidad Compresora)',
+    category: 'standard',
+    concept: 'Reconstrucción y Overhaul Mayor 16,000 Horas Unidad Compresora de Tornillo',
+    brand: 'Kaeser',
+    model: 'BSD 50',
+    items: getCompressorKitItems('16k', 'Kaeser', 'BSD 50')
+  },
+  {
+    id: 'tmpl_correctivo_diagnostico',
+    name: 'Diagnóstico Correctivo en Sitio (Atención Falla)',
+    category: 'standard',
+    concept: 'Servicio Correctivo: Diagnóstico de Falla Mecánica/Eléctrica en Sitio',
+    brand: 'Kaeser',
+    model: 'BSD 50',
+    items: getCorrectivePresetItems('diagnostico', 'Kaeser', 'BSD 50')
+  },
+  {
+    id: 'tmpl_poliza_clima',
+    name: 'Póliza Anual Climas (3 Minisplits + 1 UPA 5 TR - 4 Visitas)',
+    category: 'poliza',
+    concept: 'Cotización de Póliza Anual de Mantenimiento Preventivo a Sistemas de Climatización (4 Visitas Trimestrales)',
+    brand: 'York / Carrier',
+    model: 'Minisplit & UPA',
     items: [
-      { partida: 1, description: 'Filtro de Aire Kaeser 6.2012.0', brand: 'Kaeser', quantity: 1, unit: 'pza', partNumber: '6.2012.0', catalogPrice: 1250, total: 1250, deliveryTime: 'Inmediata', inStock: true, stockQty: 8 },
-      { partida: 2, description: 'Filtro de Aceite Kaeser 6.1985.0', brand: 'Kaeser', quantity: 1, unit: 'pza', partNumber: '6.1985.0', catalogPrice: 420, total: 420, deliveryTime: 'Inmediata', inStock: true, stockQty: 10 },
-      { partida: 3, description: 'Filtro Separador Kaeser 6.1963.0', brand: 'Kaeser', quantity: 1, unit: 'pza', partNumber: '6.1963.0', catalogPrice: 2650, total: 2650, deliveryTime: 'Inmediata', inStock: true, stockQty: 4 },
-      { partida: 4, description: 'Aceite Sigma Fluid S-460 (19L)', brand: 'Kaeser', quantity: 2, unit: 'cubeta', partNumber: 'S-460', catalogPrice: 5400, total: 10800, deliveryTime: 'Inmediata', inStock: true, stockQty: 12 }
+      { partida: 1, description: 'Mantenimiento Preventivo Minisplit 1 a 1.5 TR Alta Prioridad', brand: 'YORK', quantity: 3, unit: 'servicio', partNumber: 'POL-01', catalogPrice: 1550, total: 18600, deliveryTime: 'Programada', inStock: true, priority: 'alta', trRange: '1_1.5_TR' },
+      { partida: 2, description: 'Mantenimiento Preventivo Minisplit 2 a 3 TR Alta Prioridad', brand: 'CARRIER', quantity: 2, unit: 'servicio', partNumber: 'POL-02', catalogPrice: 1900, total: 15200, deliveryTime: 'Programada', inStock: true, priority: 'alta', trRange: '2_3_TR' },
+      { partida: 3, description: 'Mantenimiento Preventivo UPA Paquete 4 a 10 TR Alta Prioridad', brand: 'TRANE', quantity: 1, unit: 'servicio', partNumber: 'POL-03', catalogPrice: 3260, total: 13040, deliveryTime: 'Programada', inStock: true, priority: 'alta', trRange: '4_5_TR' }
+    ]
+  },
+  {
+    id: 'tmpl_poliza_compresores',
+    name: 'Póliza Compresores Industrial (2 Tornillos 50HP - 6 Visitas)',
+    category: 'poliza',
+    concept: 'Póliza Anual de Mantenimiento Preventivo Bimestral para 2 Compresores de Tornillo 50 HP y Secador',
+    brand: 'Kaeser',
+    model: 'BSD 50',
+    items: [
+      { partida: 1, description: 'Revisión y Mantenimiento Bimestral Compresor Tornillo 50 HP (Inspección, lubricación y ajustes)', brand: 'Kaeser', quantity: 2, unit: 'servicio', partNumber: 'POL-COMP-50', catalogPrice: 3800, total: 45600, deliveryTime: 'Programada', inStock: true, priority: 'alta', trRange: 'compresor' },
+      { partida: 2, description: 'Revisión Bimestral Secador Refrigerativo y Purga Automática', brand: 'Kaeser', quantity: 1, unit: 'servicio', partNumber: 'POL-SEC-100', catalogPrice: 1600, total: 9600, deliveryTime: 'Programada', inStock: true, priority: 'alta', trRange: 'compresor' }
     ]
   }
 ];
@@ -174,6 +320,14 @@ export default function SalesQuoteModule({
     { partida: 5, description: 'Mantenimiento preventivo Minisplit 2 a 3 TR Baja prioridad', brand: 'Kaeser / Clima', quantity: 5, unit: 'servicio', partNumber: 'POL-05', catalogPrice: 1680, total: 16800, deliveryTime: 'A programar', inStock: true },
     { partida: 6, description: 'Mantenimiento preventivo UPA de 4 a 10 TR Baja prioridad', brand: 'Clima Ind', quantity: 5, unit: 'servicio', partNumber: 'POL-06', catalogPrice: 2250, total: 22500, deliveryTime: 'A programar', inStock: true }
   ]);
+
+  // Policy Item Creation Inputs
+  const [newPolicyDesc, setNewPolicyDesc] = useState('');
+  const [newPolicyRange, setNewPolicyRange] = useState('1 a 1.5 TR');
+  const [newPolicyPriority, setNewPolicyPriority] = useState<'alta' | 'baja'>('alta');
+  const [newPolicyQty, setNewPolicyQty] = useState<number>(1);
+  const [newPolicyPricePerVisit, setNewPolicyPricePerVisit] = useState<number>(1550);
+  const [newPolicyBrand, setNewPolicyBrand] = useState('Kaeser / Clima');
 
   // Supply & Installation State (2 tables)
   const [supplyEquipmentItems, setSupplyEquipmentItems] = useState<QuoteItem[]>([
@@ -423,11 +577,62 @@ export default function SalesQuoteModule({
       if (field === 'quantity' || field === 'catalogPrice') {
         const qty = field === 'quantity' ? Number(value) : target.quantity;
         const price = field === 'catalogPrice' ? Number(value) : target.catalogPrice;
-        target.total = Number((qty * price).toFixed(2));
+        target.total = Number((qty * price * policyVisitsPerYear).toFixed(2));
       }
       copy[index] = target;
       return copy;
     });
+  };
+
+  const handlePolicyVisitsChange = (newVisits: number) => {
+    setPolicyVisitsPerYear(newVisits);
+    setPolicyItems(prev => prev.map(item => ({
+      ...item,
+      total: Number((item.quantity * item.catalogPrice * newVisits).toFixed(2))
+    })));
+  };
+
+  const handleAddPolicyItem = () => {
+    if (!newPolicyDesc.trim()) return;
+    const qty = newPolicyQty || 1;
+    const price = newPolicyPricePerVisit || 0;
+    const total = qty * price * policyVisitsPerYear;
+    const newItem: QuoteItem = {
+      partida: policyItems.length + 1,
+      description: `${newPolicyDesc.trim()} (${newPolicyRange} - Prioridad ${newPolicyPriority.toUpperCase()})`,
+      brand: newPolicyBrand.trim() || 'MVL / Clima',
+      quantity: qty,
+      unit: 'servicio',
+      priority: newPolicyPriority,
+      trRange: newPolicyRange,
+      partNumber: `POL-0${policyItems.length + 1}`,
+      catalogPrice: price,
+      total,
+      deliveryTime: 'A programar',
+      inStock: true
+    };
+    setPolicyItems(prev => [...prev, newItem]);
+    setNewPolicyDesc('');
+  };
+
+  const handleQuickAddPolicyPreset = (preset: { desc: string; tr: string; priority: 'alta' | 'baja'; price: number; brand?: string }) => {
+    const qty = 1;
+    const total = qty * preset.price * policyVisitsPerYear;
+    const newItem: QuoteItem = {
+      partida: policyItems.length + 1,
+      description: `${preset.desc} (${preset.tr} - Prioridad ${preset.priority.toUpperCase()})`,
+      brand: preset.brand || 'MVL / Clima',
+      quantity: qty,
+      unit: 'servicio',
+      priority: preset.priority,
+      trRange: preset.tr,
+      partNumber: `POL-0${policyItems.length + 1}`,
+      catalogPrice: preset.price,
+      total,
+      deliveryTime: 'A programar',
+      inStock: true
+    };
+    setPolicyItems(prev => [...prev, newItem]);
   };
 
   // Add custom row on the fly
@@ -496,7 +701,11 @@ export default function SalesQuoteModule({
       }
     }
     if (q.itemsTable && q.itemsTable.length > 0) {
-      setStandardItems(q.itemsTable);
+      if (q.quoteCategory === 'poliza') {
+        setPolicyItems(q.itemsTable);
+      } else {
+        setStandardItems(q.itemsTable);
+      }
     }
     if (q.supplyInstallationDetails) {
       setSupplyEquipmentItems(q.supplyInstallationDetails.equipmentItems || []);
@@ -553,6 +762,53 @@ export default function SalesQuoteModule({
       (i.compatibleCodes && i.compatibleCodes.some(c => c.code.toLowerCase().includes(query)))
     ).slice(0, 5);
   }, [customItemDesc, customItemPartNo, inventory]);
+
+  // Auto-linked inventory items specifically matching current equipment brand, model or type
+  const autoLinkedInventory = useMemo(() => {
+    if (!inventory || inventory.length === 0) return [];
+    const brandLower = (eqBrand || '').toLowerCase().trim();
+    const modelLower = (eqModel || '').toLowerCase().trim();
+    const typeLower = (eqType || '').toLowerCase().trim();
+
+    const matches = inventory.filter(item => {
+      const itemBrand = (item.brand || '').toLowerCase();
+      const itemName = item.name.toLowerCase();
+      const itemCategory = (item.category || '').toLowerCase();
+
+      if (brandLower && (itemBrand.includes(brandLower) || itemName.includes(brandLower))) return true;
+      if (modelLower && modelLower.length > 2 && itemName.includes(modelLower)) return true;
+      if (typeLower.includes('compresor') && (itemCategory.includes('filtro') || itemCategory.includes('aceite') || itemCategory.includes('valvula') || itemName.includes('compresor') || itemName.includes('aceite'))) {
+        return true;
+      }
+      if (typeLower.includes('secador') && (itemName.includes('secador') || itemName.includes('filtro linea') || itemName.includes('purga') || itemCategory.includes('filtro'))) {
+        return true;
+      }
+      if (typeLower.includes('aire') && (itemName.includes('gas') || itemName.includes('refrigerante') || itemName.includes('filtro') || itemName.includes('contactor'))) {
+        return true;
+      }
+      return false;
+    });
+
+    if (matches.length > 0) return matches.slice(0, 8);
+    return inventory.slice(0, 6);
+  }, [inventory, eqBrand, eqModel, eqType]);
+
+  const handleQuickAddInventoryItem = (inv: InventoryItem) => {
+    const newItem: QuoteItem = {
+      partida: standardItems.length + 1,
+      description: inv.name,
+      brand: inv.brand || (inv.code.startsWith('K') ? 'Kaeser' : eqBrand || 'MVL'),
+      quantity: 1,
+      unit: inv.unit || 'pza',
+      partNumber: inv.code,
+      catalogPrice: inv.price || 0,
+      total: inv.price || 0,
+      deliveryTime: inv.stock > 0 ? 'Inmediata (Stock)' : '3 a 5 días (Sobre Pedido)',
+      inStock: inv.stock > 0,
+      stockQty: inv.stock
+    };
+    setStandardItems(prev => [...prev, newItem]);
+  };
 
   // Auto-calculated Delivery Time based on item stock status
   const calculatedDeliveryTime = useMemo(() => {
@@ -721,7 +977,11 @@ export default function SalesQuoteModule({
   // Load a Quick Template
   const handleLoadTemplate = (tmpl: QuickTemplate) => {
     setQuoteCategory(tmpl.category);
-    setStandardItems(tmpl.items.map((it, idx) => ({ ...it, partida: idx + 1 })));
+    if (tmpl.category === 'poliza') {
+      setPolicyItems(tmpl.items.map((it, idx) => ({ ...it, partida: idx + 1 })));
+    } else {
+      setStandardItems(tmpl.items.map((it, idx) => ({ ...it, partida: idx + 1 })));
+    }
     setConcept(tmpl.concept);
     if (tmpl.brand) setEqBrand(tmpl.brand);
     if (tmpl.model) setEqModel(tmpl.model);
@@ -773,7 +1033,11 @@ export default function SalesQuoteModule({
     }
 
     if (q.itemsTable && q.itemsTable.length > 0) {
-      setStandardItems(q.itemsTable);
+      if (q.quoteCategory === 'poliza') {
+        setPolicyItems(q.itemsTable);
+      } else {
+        setStandardItems(q.itemsTable);
+      }
     }
     if (q.supplyInstallationDetails) {
       setSupplyEquipmentItems(q.supplyInstallationDetails.equipmentItems || []);
@@ -784,6 +1048,9 @@ export default function SalesQuoteModule({
       setPolicyVisitsPerYear(q.policyDetails.visitsPerYear || 3);
     }
 
+    if (q.serviceTypeCategory) {
+      setServiceTypeCategory(q.serviceTypeCategory);
+    }
     if (q.issuerPartnerId) {
       setSelectedPartnerId(q.issuerPartnerId);
     }
@@ -1619,10 +1886,24 @@ export default function SalesQuoteModule({
 
             {/* Selector de Horómetros para Servicio Preventivo (2k, 4k, 6k, 8k, 16k, 24k hrs) */}
             {serviceTypeCategory === 'preventivo' && (
-              <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
-                <span className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-[#0196C1]" /> Horas de Servicio del Equipo (Horómetro):
-                </span>
+              <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-[#0196C1]" /> Horas de Servicio del Equipo (Horómetro):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const kitItems = getCompressorKitItems(serviceHours as any, eqBrand, eqModel);
+                      setStandardItems(kitItems);
+                      const hoursFormatted = serviceHours === '2k' ? '2,000' : serviceHours === '4k' ? '4,000' : serviceHours === '6k' ? '6,000' : serviceHours === '8k' ? '8,000' : serviceHours === '16k' ? '16,000' : '24,000';
+                      setConcept(`Mantenimiento Preventivo Kit ${serviceHours.toUpperCase()} (${hoursFormatted} hrs) - ${eqType} ${eqBrand} ${eqModel}`);
+                    }}
+                    className="px-3 py-1.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-black rounded-lg cursor-pointer flex items-center gap-1.5 shadow-2xs transition-all self-start sm:self-auto"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-amber-300" /> Cargar Kit de {serviceHours.toUpperCase()} ({eqBrand})
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                   {[
                     { id: '2k', label: '2,000 hrs', desc: 'Filtros y Aceite Básico' },
@@ -1647,6 +1928,108 @@ export default function SalesQuoteModule({
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Presets para Servicio Correctivo (Diagnóstico y Reparación de Falla) */}
+            {serviceTypeCategory === 'correctivo' && (
+              <div className="p-3.5 bg-amber-50/90 rounded-xl border border-amber-300 space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <span className="text-[11px] font-black text-amber-950 uppercase flex items-center gap-1.5">
+                    <Wrench className="w-4 h-4 text-amber-600" /> Diagnóstico y Reparación de Falla (Servicio Correctivo):
+                  </span>
+                  <span className="text-[10px] text-amber-800 font-bold bg-amber-200/70 px-2 py-0.5 rounded self-start sm:self-auto">
+                    Atención Urgente / Diagnóstico en Sitio
+                  </span>
+                </div>
+                <p className="text-xs text-amber-900 leading-snug">
+                  Haz clic en un diagnóstico o tipo de falla técnica para cargar automáticamente la mano de obra especializada y refacciones usuales:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStandardItems(getCorrectivePresetItems('diagnostico', eqBrand, eqModel));
+                      setConcept(`Servicio Correctivo: Diagnóstico Técnico Especializado en Sitio - ${eqBrand} ${eqModel}`);
+                    }}
+                    className="p-2.5 bg-white hover:bg-amber-100 border border-amber-300 rounded-xl text-left cursor-pointer transition-all shadow-2xs flex flex-col justify-between"
+                  >
+                    <span className="text-xs font-black text-amber-950 flex items-center gap-1">🔍 Diagnóstico en Sitio</span>
+                    <span className="text-[9px] text-amber-700 font-medium mt-1">Revisión electromecánica & código de falla ($2,800)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStandardItems(getCorrectivePresetItems('sobrecalentamiento', eqBrand, eqModel));
+                      setConcept(`Servicio Correctivo: Alta Temperatura y Falla Térmica - ${eqBrand} ${eqModel}`);
+                    }}
+                    className="p-2.5 bg-white hover:bg-amber-100 border border-amber-300 rounded-xl text-left cursor-pointer transition-all shadow-2xs flex flex-col justify-between"
+                  >
+                    <span className="text-xs font-black text-amber-950 flex items-center gap-1">🔥 Alta Temperatura</span>
+                    <span className="text-[9px] text-amber-700 font-medium mt-1">Kit termostático, radiador & refrigerante</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStandardItems(getCorrectivePresetItems('presion', eqBrand, eqModel));
+                      setConcept(`Servicio Correctivo: Falla de Presión y Válvula Admisión - ${eqBrand} ${eqModel}`);
+                    }}
+                    className="p-2.5 bg-white hover:bg-amber-100 border border-amber-300 rounded-xl text-left cursor-pointer transition-all shadow-2xs flex flex-col justify-between"
+                  >
+                    <span className="text-xs font-black text-amber-950 flex items-center gap-1">📉 Falla de Presión</span>
+                    <span className="text-[9px] text-amber-700 font-medium mt-1">Kit válvula admisión, solenoide & calibración</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStandardItems(getCorrectivePresetItems('fuga_aceite', eqBrand, eqModel));
+                      setConcept(`Servicio Correctivo: Fuga de Aceite y Paso a Red - ${eqBrand} ${eqModel}`);
+                    }}
+                    className="p-2.5 bg-white hover:bg-amber-100 border border-amber-300 rounded-xl text-left cursor-pointer transition-all shadow-2xs flex flex-col justify-between"
+                  >
+                    <span className="text-xs font-black text-amber-950 flex items-center gap-1">💧 Fuga / Arrastre Aceite</span>
+                    <span className="text-[9px] text-amber-700 font-medium mt-1">Separador de aceite & línea de recuperación</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStandardItems(getCorrectivePresetItems('electrico', eqBrand, eqModel));
+                      setConcept(`Servicio Correctivo: Falla en Circuito Eléctrico y Control - ${eqBrand} ${eqModel}`);
+                    }}
+                    className="p-2.5 bg-white hover:bg-amber-100 border border-amber-300 rounded-xl text-left cursor-pointer transition-all shadow-2xs flex flex-col justify-between"
+                  >
+                    <span className="text-xs font-black text-amber-950 flex items-center gap-1">⚡ Falla Eléctrica / Control</span>
+                    <span className="text-[9px] text-amber-700 font-medium mt-1">Contactores, relevador térmico & meggeo</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Presets para Servicio Predictivo */}
+            {serviceTypeCategory === 'predictivo' && (
+              <div className="p-3.5 bg-indigo-50/90 rounded-xl border border-indigo-200 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <span className="text-[11px] font-black text-indigo-950 uppercase flex items-center gap-1.5">
+                    <Activity className="w-4 h-4 text-indigo-600" /> Mantenimiento Predictivo & Monitoreo de Condición:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStandardItems([
+                        { partida: 1, description: 'Estudio de Termografía Infrarroja en Tableros Eléctricos y Unidad Compresora', brand: 'Fluke / MVL', quantity: 1, unit: 'servicio', catalogPrice: 2400, total: 2400, deliveryTime: 'Inmediata' },
+                        { partida: 2, description: 'Análisis Físico-Químico y Espectrométrico de Aceite Lubricante Sintético en Laboratorio', brand: 'Spectro / MVL', quantity: 1, unit: 'servicio', catalogPrice: 1850, total: 1850, deliveryTime: '3 a 5 días' },
+                        { partida: 3, description: 'Medición de Vibraciones Mecánicas y Detección de Fugas por Ultrasonido Acústico', brand: 'SDT / MVL', quantity: 1, unit: 'servicio', catalogPrice: 2600, total: 2600, deliveryTime: 'Inmediata' }
+                      ]);
+                      setConcept(`Servicio Predictivo Integral: Termografía, Ultrasonido y Análisis de Aceite - ${eqBrand} ${eqModel}`);
+                    }}
+                    className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg cursor-pointer flex items-center gap-1 self-start sm:self-auto"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-amber-300" /> Cargar Paquete Predictivo
+                  </button>
+                </div>
+                <p className="text-xs text-indigo-800">
+                  Incluye termografía con cámara calibrada, análisis de degradación de aceite en laboratorio certificado y reporte de anomalías para prevenir paros no programados.
+                </p>
               </div>
             )}
           </div>
@@ -1895,6 +2278,64 @@ export default function SalesQuoteModule({
                   {standardItems.length} Partidas agregadas
                 </span>
               </div>
+
+              {/* Auto-Linked Refacciones Vinculadas Automáticamente al Equipo */}
+              {autoLinkedInventory.length > 0 && (
+                <div className="bg-sky-50/70 p-3.5 rounded-xl border border-sky-200/80 space-y-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <span className="text-[10px] font-black text-sky-950 uppercase flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-amber-500" />
+                      Refacciones Vinculadas en Almacén para {eqBrand} {eqModel || eqType} ({autoLinkedInventory.length}):
+                    </span>
+                    <span className="text-[9px] text-sky-700 font-bold bg-sky-100/80 px-2 py-0.5 rounded self-start sm:self-auto">
+                      Vinculación Inteligente por Marca / Modelo
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                    {autoLinkedInventory.map(inv => (
+                      <div
+                        key={inv.id}
+                        className="p-2.5 bg-white rounded-xl border border-sky-100 shadow-2xs flex flex-col justify-between hover:border-sky-300 transition-all text-xs"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-[9px] font-bold text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded font-mono">
+                              {inv.code}
+                            </span>
+                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${
+                              inv.stock > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                              {inv.stock > 0 ? `Stock: ${inv.stock}` : 'Sobre Pedido'}
+                            </span>
+                          </div>
+                          <p className="font-bold text-slate-800 text-[11px] line-clamp-2 leading-tight">
+                            {inv.name}
+                          </p>
+                          {inv.brand && (
+                            <span className="text-[9px] text-slate-400 font-semibold block mt-0.5">
+                              Marca: {inv.brand}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-1 pt-2 mt-2 border-t border-slate-100">
+                          <span className="font-black text-slate-900 text-xs">
+                            ${inv.price?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickAddInventoryItem(inv)}
+                            className="px-2 py-1 bg-[#0196C1] hover:bg-[#017fa4] text-white text-[10px] font-black rounded-lg cursor-pointer flex items-center gap-1 transition-all shadow-2xs"
+                          >
+                            <Plus className="w-3 h-3" /> Agregar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Captura con Auto-Complete en Inventario */}
               <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-3">
@@ -2299,15 +2740,18 @@ export default function SalesQuoteModule({
             <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-4">
               <div className="flex justify-between items-center">
                 <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-[#0196C1]" /> 4. Configuración de Póliza Anual de Mantenimiento
+                  <ShieldCheck className="w-4 h-4 text-[#0196C1]" /> 4. Configuración de Póliza Integral Anual & Alcance de Equipos
                 </label>
+                <span className="text-[10px] font-extrabold text-[#0196C1] bg-sky-50 px-2.5 py-0.5 rounded">
+                  {policyItems.length} Equipos / Partidas en Póliza
+                </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-2">
                   <label className="block text-[10px] font-black text-slate-600 uppercase">Modalidad de Póliza:</label>
                   <div className="space-y-1.5">
-                    <label className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer text-xs font-bold">
+                    <label className="flex items-center gap-2 p-2 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 cursor-pointer text-xs font-bold transition-all">
                       <input
                         type="radio"
                         name="policyType"
@@ -2316,7 +2760,7 @@ export default function SalesQuoteModule({
                       />
                       <span>Póliza Tipo A (Mantenimiento Preventivo Periódico Básico)</span>
                     </label>
-                    <label className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer text-xs font-bold">
+                    <label className="flex items-center gap-2 p-2 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 cursor-pointer text-xs font-bold transition-all">
                       <input
                         type="radio"
                         name="policyType"
@@ -2328,27 +2772,196 @@ export default function SalesQuoteModule({
                   </div>
                 </div>
 
-                <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
-                  <label className="block text-[10px] font-black text-slate-600 uppercase">Frecuencia / Visitas al Año:</label>
-                  <div className="grid grid-cols-3 gap-2">
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-2">
+                  <label className="block text-[10px] font-black text-slate-600 uppercase">
+                    Frecuencia / Visitas Programadas al Año:
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                     {[
-                      { num: 4, label: '4 Visitas', desc: 'Trimestral' },
-                      { num: 6, label: '6 Visitas', desc: 'Bimestral' },
                       { num: 12, label: '12 Visitas', desc: 'Mensual' },
+                      { num: 6, label: '6 Visitas', desc: 'Bimestral' },
+                      { num: 4, label: '4 Visitas', desc: 'Trimestral' },
+                      { num: 3, label: '3 Visitas', desc: 'Cuatrimestral' },
+                      { num: 2, label: '2 Visitas', desc: 'Semestral' },
+                      { num: 1, label: '1 Visita', desc: 'Anual' }
                     ].map(v => (
                       <button
                         key={v.num}
                         type="button"
-                        onClick={() => setPolicyVisitsPerYear(v.num)}
+                        onClick={() => handlePolicyVisitsChange(v.num)}
                         className={`p-2 rounded-xl border text-center cursor-pointer transition-all ${
-                          policyVisitsPerYear === v.num ? 'bg-sky-50 border-[#0196C1] text-[#0196C1] font-black' : 'bg-slate-50 text-slate-700 border-slate-200'
+                          policyVisitsPerYear === v.num
+                            ? 'bg-sky-50 border-[#0196C1] text-[#0196C1] font-black ring-1 ring-[#0196C1]'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
-                        <span className="block text-xs">{v.label}</span>
+                        <span className="block text-xs font-bold">{v.label}</span>
                         <span className="text-[9px] text-slate-400 font-normal">{v.desc}</span>
                       </button>
                     ))}
                   </div>
+                </div>
+              </div>
+
+              {/* Botones de Carga Rápida de Equipos HVAC / Compresores para Póliza */}
+              <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                <span className="text-[10px] font-black text-slate-600 uppercase block">
+                  ⚡ Agregar Equipos por Rango de Capacidad (T.R. / HP) y Nivel de Prioridad:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { desc: 'Mantenimiento Minisplit 1 a 1.5 TR Alta prioridad', tr: '1 a 1.5 TR', priority: 'alta' as const, price: 1550 },
+                    { desc: 'Mantenimiento Minisplit 1 a 1.5 TR Baja prioridad', tr: '1 a 1.5 TR', priority: 'baja' as const, price: 1200 },
+                    { desc: 'Mantenimiento Minisplit 2 a 3 TR Alta prioridad', tr: '2 a 3 TR', priority: 'alta' as const, price: 1900 },
+                    { desc: 'Mantenimiento Minisplit 2 a 3 TR Baja prioridad', tr: '2 a 3 TR', priority: 'baja' as const, price: 1680 },
+                    { desc: 'Mantenimiento UPA 4 a 10 TR Alta prioridad', tr: '4 a 10 TR', priority: 'alta' as const, price: 3262 },
+                    { desc: 'Mantenimiento UPA 4 a 10 TR Baja prioridad', tr: '4 a 10 TR', priority: 'baja' as const, price: 2250 },
+                    { desc: 'Mantenimiento Paquete / Central 11 a 20 TR', tr: '11 a 20 TR', priority: 'alta' as const, price: 4500 },
+                    { desc: 'Mantenimiento Sistema Industrial > 20 TR', tr: '> 20 TR', priority: 'alta' as const, price: 6800 },
+                    { desc: 'Mantenimiento Compresor Tornillo 25-50 HP', tr: '25-50 HP', priority: 'alta' as const, price: 3800, brand: 'Kaeser' },
+                    { desc: 'Mantenimiento Compresor Tornillo 75-125 HP', tr: '75-125 HP', priority: 'alta' as const, price: 5400, brand: 'Kaeser' },
+                    { desc: 'Mantenimiento Secador Refrigerativo', tr: 'Secador', priority: 'baja' as const, price: 1600, brand: 'Kaeser' }
+                  ].map((preset, pIdx) => (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={() => handleQuickAddPolicyPreset(preset)}
+                      className="px-2.5 py-1.5 bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-300 rounded-lg text-[10px] font-bold text-slate-700 hover:text-[#0196C1] cursor-pointer transition-all flex items-center gap-1 shadow-2xs"
+                    >
+                      <Plus className="w-3 h-3 text-[#0196C1]" />
+                      <span>{preset.tr}</span>
+                      <span className={`px-1 py-0.2 rounded text-[8px] uppercase font-black ${preset.priority === 'alta' ? 'bg-red-100 text-red-700' : 'bg-slate-200 text-slate-600'}`}>
+                        {preset.priority}
+                      </span>
+                      <span className="text-slate-400 font-mono">${preset.price}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tabla de Equipos y Partidas de la Póliza */}
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-3">
+                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase text-[9px] border-b border-slate-200">
+                        <th className="py-2 px-2.5 w-10 text-center">Part.</th>
+                        <th className="py-2 px-2.5">Equipo / Rango de Capacidad (T.R. o HP)</th>
+                        <th className="py-2 px-2.5 w-24">Prioridad</th>
+                        <th className="py-2 px-2.5 text-center w-20">Cant. Equipos</th>
+                        <th className="py-2 px-2.5 text-right w-28">Costo x Visita</th>
+                        <th className="py-2 px-2.5 text-right w-32">Total Anual ({policyVisitsPerYear} vis.)</th>
+                        <th className="py-2 px-2.5 text-center w-12">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {policyItems.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-2 px-2.5 text-center font-bold text-slate-500">{item.partida || idx + 1}</td>
+                          <td className="py-2 px-2.5 font-bold text-slate-800">
+                            <div>
+                              <span>{item.description}</span>
+                              <span className="text-[10px] text-slate-400 block font-normal">Marca: {item.brand || 'MVL / Clima'}</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2.5">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase inline-block ${
+                              (item.priority || item.description.toLowerCase().includes('alta')) ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-700'
+                            }`}>
+                              {(item.priority || (item.description.toLowerCase().includes('alta') ? 'alta' : 'baja')).toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="py-2 px-2.5 text-center">
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={e => handleUpdatePolicyItem(idx, 'quantity', e.target.value)}
+                              className="w-14 p-1 text-center bg-slate-50 border border-slate-200 rounded font-bold text-xs"
+                            />
+                          </td>
+                          <td className="py-2 px-2.5 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.catalogPrice}
+                              onChange={e => handleUpdatePolicyItem(idx, 'catalogPrice', e.target.value)}
+                              className="w-24 p-1 text-right bg-slate-50 border border-slate-200 rounded font-bold text-xs"
+                            />
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-black text-slate-900">
+                            ${item.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-2 px-2.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setPolicyItems(prev => prev.filter((_, i) => i !== idx).map((it, i) => ({ ...it, partida: i + 1 })))}
+                              className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
+                              title="Eliminar partida"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Form to add custom policy equipment item */}
+                <div className="grid grid-cols-2 sm:grid-cols-7 gap-2 pt-2 border-t border-slate-100">
+                  <input
+                    type="text"
+                    placeholder="Descripción del equipo (ej. Paquete Central)"
+                    value={newPolicyDesc}
+                    onChange={e => setNewPolicyDesc(e.target.value)}
+                    className="sm:col-span-2 text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                  />
+                  <select
+                    value={newPolicyRange}
+                    onChange={e => setNewPolicyRange(e.target.value)}
+                    className="text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                  >
+                    <option value="1 a 1.5 TR">1 a 1.5 TR</option>
+                    <option value="2 a 3 TR">2 a 3 TR</option>
+                    <option value="4 a 10 TR">4 a 10 TR (UPA)</option>
+                    <option value="11 a 20 TR">11 a 20 TR (Paquete)</option>
+                    <option value="> 20 TR">&gt; 20 TR (Industrial)</option>
+                    <option value="25-50 HP">Compresor 25-50 HP</option>
+                    <option value="75-125 HP">Compresor 75-125 HP</option>
+                    <option value="Secador">Secador Refrigerativo</option>
+                  </select>
+                  <select
+                    value={newPolicyPriority}
+                    onChange={e => setNewPolicyPriority(e.target.value as any)}
+                    className="text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                  >
+                    <option value="alta">Prioridad Alta</option>
+                    <option value="baja">Prioridad Baja</option>
+                  </select>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Cant."
+                    value={newPolicyQty}
+                    onChange={e => setNewPolicyQty(Number(e.target.value))}
+                    className="text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none text-center font-bold"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Costo x Visita"
+                    value={newPolicyPricePerVisit || ''}
+                    onChange={e => setNewPolicyPricePerVisit(Number(e.target.value))}
+                    className="text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none text-right font-bold"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddPolicyItem}
+                    className="py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-lg cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Agregar
+                  </button>
                 </div>
               </div>
             </div>
@@ -2448,6 +3061,52 @@ export default function SalesQuoteModule({
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Términos y Condiciones Comerciales Editables */}
+            <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                <span className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-[#0196C1]" /> Términos y Condiciones Comerciales (Persistente en Cotización & PDF):
+                </span>
+                <div className="flex flex-wrap items-center gap-1 text-[9px]">
+                  <span className="text-slate-400 font-bold">Plantillas Rápidas:</span>
+                  <button
+                    type="button"
+                    onClick={() => setCommercialConditions(
+                      '1. Precios en Moneda Nacional (MXN) más 16% de IVA.\n2. Tiempo de entrega: DDP en planta cliente (según disponibilidad de inventario).\n3. Condiciones de pago: Crédito 30 días con Orden de Compra autorizada.\n4. Vigencia de la cotización: 30 días naturales a partir de su emisión.\n5. Garantía: 12 meses en refacciones originales instaladas por MVL y 90 días en mano de obra.'
+                    )}
+                    className="px-2 py-0.5 bg-slate-100 hover:bg-sky-50 text-slate-700 hover:text-[#0196C1] rounded border border-slate-200 cursor-pointer font-bold transition-colors"
+                  >
+                    Crédito 30D
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCommercialConditions(
+                      '1. Precios en Moneda Nacional (MXN) más 16% de IVA.\n2. Condiciones de pago: 50% de anticipo para liberar pedido y 50% contra entrega e instalación.\n3. Tiempo de entrega: Inmediato sujeto a confirmación de inventario.\n4. Vigencia de la cotización: 15 días naturales.\n5. Garantía: 12 meses en refacciones originales y 90 días en servicio técnico.'
+                    )}
+                    className="px-2 py-0.5 bg-slate-100 hover:bg-sky-50 text-slate-700 hover:text-[#0196C1] rounded border border-slate-200 cursor-pointer font-bold transition-colors"
+                  >
+                    50% Anticipo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCommercialConditions(
+                      '1. Precios en Moneda Nacional (MXN) más 16% de IVA.\n2. Modalidad: Facturación mensual programada por visitas preventivas.\n3. Condiciones de pago: Crédito 30 días con OC anual.\n4. Incluye: Informes técnicos certificados, soporte prioritario 24/7 y diagnóstico en sitio sin costo adicional.\n5. Vigencia del contrato: 12 meses renovables.'
+                    )}
+                    className="px-2 py-0.5 bg-slate-100 hover:bg-sky-50 text-slate-700 hover:text-[#0196C1] rounded border border-slate-200 cursor-pointer font-bold transition-colors"
+                  >
+                    Póliza Anual
+                  </button>
+                </div>
+              </div>
+              <textarea
+                rows={4}
+                value={commercialConditions}
+                onChange={e => setCommercialConditions(e.target.value)}
+                placeholder="Escribe o personaliza los términos de pago, entrega, vigencia y garantías..."
+                className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none font-sans text-slate-800 leading-relaxed resize-y focus:border-[#0196C1] focus:bg-white transition-all"
+              />
             </div>
           </div>
 
