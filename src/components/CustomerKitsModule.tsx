@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { CustomerKitItem, Client, Equipment } from '../types';
 import { loadFromStorage, saveToStorage } from '../mockData';
+import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -8,7 +9,7 @@ import {
   Wrench, Plus, Upload, Download, Search, Filter, Trash2, Edit2, 
   FileSpreadsheet, Database, Check, AlertCircle, X, ChevronDown, 
   Copy, RefreshCw, Layers, ShieldCheck, ArrowUpDown, Eye, FileText, CheckCircle2,
-  Printer, Loader2
+  Printer, Loader2, CloudUpload, CloudOff, Cloud
 } from 'lucide-react';
 
 interface CustomerKitsModuleProps {
@@ -22,9 +23,117 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
     loadFromStorage<CustomerKitItem[]>('mvl_customer_kits', [])
   );
 
+  // Supabase synchronization states
+  const [supabaseStatus, setSupabaseStatus] = useState<'connected' | 'disconnected' | 'syncing' | 'checking'>('checking');
+  const [supabaseCount, setSupabaseCount] = useState<number | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<{ current: number; total: number } | null>(null);
+
   const saveItems = (newItems: CustomerKitItem[]) => {
     setItems(newItems);
     saveToStorage('mvl_customer_kits', newItems);
+  };
+
+  // Fetch all kits from Supabase table 'customer_kits'
+  const fetchKitsFromSupabase = async () => {
+    try {
+      setSupabaseStatus('checking');
+      const { data, error } = await supabase
+        .from('customer_kits')
+        .select('*')
+        .order('client_name', { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const mapped: CustomerKitItem[] = data.map((row: any) => ({
+          id: String(row.id),
+          partNumber: row.part_number || '',
+          description: row.description || '',
+          price: Number(row.price || 0),
+          currency: (row.currency as 'USD' | 'MXN') || 'USD',
+          clientName: row.client_name || '',
+          equipmentModel: row.equipment_model || '',
+          serialNumber: row.serial_number || '',
+          notes: row.notes || '',
+          createdAt: row.created_at || new Date().toISOString()
+        }));
+        setItems(mapped);
+        saveToStorage('mvl_customer_kits', mapped);
+        setSupabaseCount(mapped.length);
+        setSupabaseStatus('connected');
+      } else {
+        setSupabaseCount(0);
+        setSupabaseStatus('connected');
+        // If Supabase has 0 rows, preserve any items currently in local storage
+        const localSaved = loadFromStorage<CustomerKitItem[]>('mvl_customer_kits', []);
+        if (localSaved.length > 0) {
+          setItems(localSaved);
+        }
+      }
+    } catch (err: any) {
+      console.warn('Could not load customer_kits from Supabase:', err);
+      setSupabaseStatus('disconnected');
+    }
+  };
+
+  useEffect(() => {
+    fetchKitsFromSupabase();
+  }, []);
+
+  // Sync / Upload items to Supabase customer_kits table
+  const syncItemsToSupabase = async (itemsToSync: CustomerKitItem[], mode: 'replace' | 'append' = 'replace') => {
+    if (itemsToSync.length === 0) {
+      showFeedback('No hay registros para sincronizar con Supabase.', 'error');
+      return;
+    }
+    setIsSyncing(true);
+    setSupabaseStatus('syncing');
+    setSyncProgress({ current: 0, total: itemsToSync.length });
+
+    try {
+      if (mode === 'replace') {
+        // Clear existing rows in customer_kits table
+        await supabase
+          .from('customer_kits')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+      }
+
+      // Map to PostgreSQL columns matching schema
+      const rows = itemsToSync.map(item => ({
+        part_number: item.partNumber || 'S/N',
+        description: item.description || 'Sin descripción',
+        price: Number(item.price || 0),
+        currency: item.currency || 'USD',
+        client_name: item.clientName || 'Cliente General',
+        equipment_model: item.equipmentModel || 'Equipo General',
+        serial_number: item.serialNumber || 'S/N',
+        notes: item.notes || null
+      }));
+
+      // Insert in chunks of 50 to avoid network payload limits
+      const chunkSize = 50;
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        const chunk = rows.slice(i, i + chunkSize);
+        const { error: insErr } = await supabase.from('customer_kits').insert(chunk);
+        if (insErr) {
+          console.error('Insert chunk error:', insErr);
+          throw insErr;
+        }
+        setSyncProgress({ current: Math.min(i + chunkSize, rows.length), total: rows.length });
+      }
+
+      await fetchKitsFromSupabase();
+      showFeedback(`¡Éxito! ${rows.length} registros guardados en la tabla customer_kits de Supabase.`);
+    } catch (err: any) {
+      console.error('Error in syncItemsToSupabase:', err);
+      setSupabaseStatus('disconnected');
+      showFeedback(`Error al guardar en Supabase: ${err?.message || 'Error de conexión'}. Tus datos siguen seguros en el navegador.`, 'error');
+    } finally {
+      setIsSyncing(false);
+      setSyncProgress(null);
+    }
   };
 
   // Search and filter
@@ -174,7 +283,7 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
       }
 
       const newItemsToAdd: CustomerKitItem[] = validParts.map((p, idx) => ({
-        id: `kit_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 5)}`,
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `kit_${Date.now()}_${idx}`,
         partNumber: p.partNumber.trim(),
         description: p.description.trim(),
         price: parseFloat(p.price) || 0,
@@ -187,9 +296,31 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
       }));
 
       saveItems([...items, ...newItemsToAdd]);
-      showFeedback(`Se agregaron ${newItemsToAdd.length} refacciones al kit de ${formClientName}.`);
+      showFeedback(`Guardando ${newItemsToAdd.length} refacciones en Supabase...`);
       setIsFormOpen(false);
       resetForm();
+
+      // Async write to Supabase
+      (async () => {
+        try {
+          const rows = newItemsToAdd.map(p => ({
+            part_number: p.partNumber,
+            description: p.description,
+            price: p.price,
+            currency: 'USD',
+            client_name: p.clientName,
+            equipment_model: p.equipmentModel,
+            serial_number: p.serialNumber,
+            notes: p.notes || null
+          }));
+          const { error } = await supabase.from('customer_kits').insert(rows);
+          if (error) throw error;
+          fetchKitsFromSupabase();
+          showFeedback(`Se guardaron ${newItemsToAdd.length} refacciones en Supabase con éxito.`);
+        } catch (err: any) {
+          console.warn('Supabase batch insert error:', err);
+        }
+      })();
     } else {
       if (!formPartNumber.trim()) {
         showFeedback('El No. de parte es obligatorio.', 'error');
@@ -216,9 +347,28 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
         } : it);
         saveItems(updated);
         showFeedback('Refacción actualizada correctamente.');
+
+        // Async update to Supabase if valid UUID
+        (async () => {
+          try {
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(editingItem.id)) {
+              await supabase.from('customer_kits').update({
+                part_number: formPartNumber.trim(),
+                description: formDescription.trim(),
+                price: priceVal,
+                client_name: formClientName.trim(),
+                equipment_model: formEquipmentModel.trim(),
+                serial_number: formSerialNumber.trim() || 'S/N',
+                notes: formNotes.trim()
+              }).eq('id', editingItem.id);
+            }
+          } catch (err) {
+            console.warn('Supabase update error:', err);
+          }
+        })();
       } else {
         const newItem: CustomerKitItem = {
-          id: `kit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `kit_${Date.now()}`,
           partNumber: formPartNumber.trim(),
           description: formDescription.trim(),
           price: priceVal,
@@ -231,24 +381,62 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
         };
         saveItems([newItem, ...items]);
         showFeedback('Refacción registrada con éxito.');
+
+        // Async insert into Supabase
+        (async () => {
+          try {
+            const { data, error } = await supabase.from('customer_kits').insert([{
+              part_number: newItem.partNumber,
+              description: newItem.description,
+              price: newItem.price,
+              currency: 'USD',
+              client_name: newItem.clientName,
+              equipment_model: newItem.equipmentModel,
+              serial_number: newItem.serialNumber,
+              notes: newItem.notes || null
+            }]).select();
+
+            if (!error && data && data[0]) {
+              fetchKitsFromSupabase();
+            }
+          } catch (err) {
+            console.warn('Supabase single insert error:', err);
+          }
+        })();
       }
       setIsFormOpen(false);
       resetForm();
     }
   };
 
-  const handleDeleteItem = (id: string) => {
+  const handleDeleteItem = async (id: string) => {
     if (confirm('¿Eliminar esta refacción del catálogo de clientes?')) {
       const updated = items.filter(it => it.id !== id);
       saveItems(updated);
       showFeedback('Refacción eliminada.');
+
+      try {
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+          await supabase.from('customer_kits').delete().eq('id', id);
+          setSupabaseCount(prev => prev !== null ? Math.max(0, prev - 1) : null);
+        }
+      } catch (err) {
+        console.warn('Supabase delete error:', err);
+      }
     }
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (confirm('¿Estás seguro de que deseas eliminar TODOS los registros de kits de clientes? Esta acción no se puede deshacer.')) {
       saveItems([]);
       showFeedback('Catálogo vaciado con éxito.');
+
+      try {
+        await supabase.from('customer_kits').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        setSupabaseCount(0);
+      } catch (err) {
+        console.warn('Supabase clear error:', err);
+      }
     }
   };
 
@@ -663,19 +851,26 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
     }
   };
 
-  const handleConfirmImport = () => {
+  const handleConfirmImport = async () => {
     if (importPreview.length === 0) return;
 
-    if (importMode === 'replace') {
-      saveItems(importPreview);
-      showFeedback(`Se reemplazó el catálogo con ${importPreview.length} registros exitosamente.`);
-    } else {
-      saveItems([...items, ...importPreview]);
-      showFeedback(`Se agregaron ${importPreview.length} registros exitosamente.`);
-    }
+    const count = importPreview.length;
+    const mode = importMode;
+    const itemsToSave = importPreview;
 
     setIsImportModalOpen(false);
     setImportPreview([]);
+
+    if (mode === 'replace') {
+      saveItems(itemsToSave);
+      showFeedback(`Guardando ${count} registros en Supabase...`);
+      await syncItemsToSupabase(itemsToSave, 'replace');
+    } else {
+      const combined = [...items, ...itemsToSave];
+      saveItems(combined);
+      showFeedback(`Guardando ${count} nuevos registros en Supabase...`);
+      await syncItemsToSupabase(itemsToSave, 'append');
+    }
   };
 
   // ==========================================
@@ -779,6 +974,45 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
 
           {/* Action buttons */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* Supabase status badge */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold bg-slate-50 border-slate-200">
+              {supabaseStatus === 'connected' ? (
+                <span className="flex items-center gap-1.5 text-emerald-700 font-bold" title="Conectado a la tabla customer_kits en Supabase">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="hidden sm:inline">Supabase:</span>
+                  <span>{supabaseCount ?? 0} en BD</span>
+                </span>
+              ) : supabaseStatus === 'syncing' ? (
+                <span className="flex items-center gap-1.5 text-sky-700 font-bold">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                  <span>Sincronizando... {syncProgress ? `${syncProgress.current}/${syncProgress.total}` : ''}</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-slate-500 font-medium">
+                  <CloudOff className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Supabase Local</span>
+                </span>
+              )}
+              <button 
+                onClick={fetchKitsFromSupabase}
+                className="p-1 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                title="Refrescar datos desde Supabase"
+              >
+                <RefreshCw className={`w-3 h-3 ${supabaseStatus === 'checking' ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            {/* Sync button to push items to Supabase */}
+            <button
+              onClick={() => syncItemsToSupabase(items, 'replace')}
+              disabled={isSyncing || items.length === 0}
+              className="px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 transition-all shadow-2xs disabled:opacity-50 active:scale-98"
+              title="Guardar / Sincronizar todos los registros mostrados en pantalla con la tabla customer_kits de Supabase"
+            >
+              {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CloudUpload className="w-3.5 h-3.5" />}
+              <span>Guardar en Supabase</span>
+            </button>
+
             <button
               onClick={() => setIsSqlModalOpen(true)}
               className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 transition-all shadow-2xs"
@@ -866,6 +1100,34 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
           </div>
         </div>
       </div>
+
+      {/* SYNC TO SUPABASE BANNER (Alerting user when local items exist but Supabase is empty) */}
+      {items.length > 0 && (supabaseCount === 0 || (supabaseCount !== null && supabaseCount < items.length)) && (
+        <div className="bg-gradient-to-r from-amber-50 to-sky-50 border-2 border-amber-300/80 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 shrink-0 shadow-2xs">
+              <CloudUpload className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                <span>Tienes {items.length} partidas en tu pantalla listas para guardar en Supabase</span>
+                <span className="bg-amber-200 text-amber-900 text-[10px] px-2 py-0.5 rounded-full font-bold">Acción pendiente</span>
+              </p>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                La tabla <code className="bg-white/80 border border-slate-200 px-1.5 py-0.5 rounded font-mono font-bold text-slate-800">customer_kits</code> en Supabase tiene {supabaseCount ?? 0} registros. Haz clic en el botón para subirlos ahora mismo.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => syncItemsToSupabase(items, 'replace')}
+            disabled={isSyncing}
+            className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-sky-600 hover:from-amber-700 hover:to-sky-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer shadow-md transition-all shrink-0 active:scale-98 disabled:opacity-50"
+          >
+            {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudUpload className="w-4 h-4" />}
+            <span>{isSyncing ? `Subiendo a Supabase (${syncProgress?.current || 0}/${syncProgress?.total || items.length})...` : `⚡ Subir las ${items.length} partidas a Supabase`}</span>
+          </button>
+        </div>
+      )}
 
       {/* FILTER & SEARCH BAR */}
       <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
