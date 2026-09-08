@@ -9,7 +9,7 @@ import {
   UserCog, CalendarCheck2, Hammer, Building2, 
   ArrowLeft, LogOut, Check, Sparkles, AlertCircle, RefreshCw,
   LayoutGrid, DollarSign, Users, Layers, Package, Clock,
-  FileText, Calendar, AlertOctagon, BookOpen, FileCheck, ShieldCheck, ChevronRight
+  FileText, Calendar, AlertOctagon, BookOpen, FileCheck, ShieldCheck, ChevronRight, Wrench
 } from 'lucide-react';
 
 // Data models & Storage helpers
@@ -63,8 +63,8 @@ export default function App() {
   );
 
   // --- Sub-module Tab/Filter States ---
-  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial'>(() =>
-    loadFromStorage<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial'>('mvl_admin_tab', 'financial')
+  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial' | 'customer_kits'>(() =>
+    loadFromStorage<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial' | 'customer_kits'>('mvl_admin_tab', 'financial')
   );
   const [coordFilter, setCoordFilter] = useState<'quotes' | 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial'>(() =>
     loadFromStorage<'quotes' | 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial'>('mvl_coord_filter', 'quotes')
@@ -302,6 +302,15 @@ export default function App() {
                     >
                       <Building2 className="w-4 h-4 shrink-0" />
                       <span>CRM Clientes & Plantas</span>
+                    </button>
+                    <button
+                      onClick={() => setAdminTab('customer_kits')}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        adminTab === 'customer_kits' ? 'bg-[#00A2E8] text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <Wrench className="w-4 h-4 shrink-0 text-sky-400" />
+                      <span>Kit de clientes</span>
                     </button>
                     <button
                       onClick={() => setAdminTab('catalog')}
@@ -671,6 +680,15 @@ export default function App() {
                 >
                   <Building2 className="w-5 h-5 mb-0.5" />
                   <span className="text-[8px] uppercase tracking-wider font-semibold">CRM</span>
+                </button>
+                <button
+                  onClick={() => setAdminTab('customer_kits')}
+                  className={`flex flex-col items-center justify-center min-w-[50px] flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                    adminTab === 'customer_kits' ? 'text-[#00A2E8] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Wrench className="w-5 h-5 mb-0.5" />
+                  <span className="text-[8px] uppercase tracking-wider font-semibold">Kits</span>
                 </button>
                 <button
                   onClick={() => setAdminTab('catalog')}

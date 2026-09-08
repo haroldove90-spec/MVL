@@ -455,5 +455,18 @@ export interface OemCatalogItem {
   date: string; // 25/06/2026
 }
 
+export interface CustomerKitItem {
+  id: string;
+  partNumber: string;      // No. De de parte (ej. 2903 7526 00)
+  description: string;     // descripción (ej. filtro de aceite)
+  price: number;           // precio (ej. 77.16)
+  clientName: string;      // cliente (ej. Isocindu)
+  equipmentModel: string;  // modelo (ej. GA 18 Pack)
+  serialNumber: string;    // serie (ej. CAI 847490)
+  currency?: 'USD' | 'MXN';
+  createdAt?: string;
+  notes?: string;
+}
+
 
 
