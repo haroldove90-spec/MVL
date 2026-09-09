@@ -14,8 +14,6 @@ import {
   BookOpen, HelpCircle, Lightbulb, PlayCircle, CheckCircle2, ChevronRight, Info, Building2
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import CustomerKitsModule from './CustomerKitsModule';
-
 interface AdminDashboardProps {
   staff: Staff[];
   setStaff: React.Dispatch<React.SetStateAction<Staff[]>>;
@@ -28,8 +26,8 @@ interface AdminDashboardProps {
   setWorkOrders?: React.Dispatch<React.SetStateAction<WorkOrder[]>>;
   purchaseOrders?: PurchaseOrder[];
   setPurchaseOrders?: React.Dispatch<React.SetStateAction<PurchaseOrder[]>>;
-  activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial' | 'customer_kits';
-  setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial' | 'customer_kits') => void;
+  activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial';
+  setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial') => void;
 }
 
 export default function AdminDashboard({ 
@@ -48,7 +46,7 @@ export default function AdminDashboard({
   setActiveTab: propSetActiveTab
 }: AdminDashboardProps) {
   // Navigation tabs with parent-control fallback
-  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial' | 'customer_kits'>('financial');
+  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial'>('financial');
   const activeTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
   const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
 
@@ -3361,13 +3359,6 @@ export default function AdminDashboard({
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* --- Tab: Kits de Clientes MVL --- */}
-      {activeTab === 'customer_kits' && (
-        <div className="animate-fadeIn">
-          <CustomerKitsModule clients={clients} equipment={equipment} />
         </div>
       )}
     </div>

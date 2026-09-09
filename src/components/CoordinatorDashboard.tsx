@@ -8,9 +8,23 @@ import { WorkOrder, Staff, Client, Equipment, InventoryItem } from '../types';
 import { 
   Calendar, Plus, Clock, FileCheck, CheckCircle2, 
   MapPin, UserCheck, AlertCircle, FileEdit, Eye, Check,
-  BookOpen, HelpCircle, Lightbulb, PlayCircle, ChevronRight, Wrench, ShieldCheck
+  BookOpen, HelpCircle, Lightbulb, PlayCircle, ChevronRight, Wrench, ShieldCheck,
+  Package, Layers
 } from 'lucide-react';
 import SalesQuoteModule from './SalesQuoteModule';
+import CustomerKitsModule from './CustomerKitsModule';
+import SalesCatalogModule from './SalesCatalogModule';
+
+export type CoordinatorFilterType = 
+  | 'quotes' 
+  | 'customer_kits' 
+  | 'catalog' 
+  | 'all' 
+  | 'pending' 
+  | 'in_progress' 
+  | 'review' 
+  | 'completed' 
+  | 'tutorial';
 
 interface CoordinatorDashboardProps {
   workOrders: WorkOrder[];
@@ -23,8 +37,8 @@ interface CoordinatorDashboardProps {
   inventory: InventoryItem[];
   setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
   onOpenReport: (ot: WorkOrder) => void;
-  statusFilter?: 'quotes' | 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial';
-  setStatusFilter?: (val: 'quotes' | 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial') => void;
+  statusFilter?: CoordinatorFilterType;
+  setStatusFilter?: (val: CoordinatorFilterType) => void;
 }
 
 export default function CoordinatorDashboard({
@@ -51,7 +65,7 @@ export default function CoordinatorDashboard({
   const [observations, setObservations] = useState('');
 
   // Active filter with parent-control fallback
-  const [localStatusFilter, setLocalStatusFilter] = useState<'quotes' | 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial'>('all');
+  const [localStatusFilter, setLocalStatusFilter] = useState<CoordinatorFilterType>('quotes');
   const statusFilter = propStatusFilter !== undefined ? propStatusFilter : localStatusFilter;
   const setStatusFilter = propSetStatusFilter !== undefined ? propSetStatusFilter : setLocalStatusFilter;
 
@@ -155,23 +169,124 @@ export default function CoordinatorDashboard({
     }
   };
 
+  // Navigation header for Coordinator
+  const navHeader = (
+    <div className="bg-white p-2.5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-wrap items-center gap-1.5 mb-6">
+      <button
+        type="button"
+        onClick={() => setStatusFilter('quotes')}
+        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          statusFilter === 'quotes' 
+            ? 'bg-[#0196C1] text-white shadow-xs' 
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        }`}
+      >
+        <FileCheck className="w-4 h-4 text-emerald-400" />
+        <span>1. Cotizaciones & Ventas</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setStatusFilter('customer_kits')}
+        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          statusFilter === 'customer_kits' 
+            ? 'bg-[#00A2E8] text-white shadow-xs' 
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        }`}
+      >
+        <Wrench className="w-4 h-4 text-sky-400" />
+        <span>2. Kit de Clientes</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setStatusFilter('catalog')}
+        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          statusFilter === 'catalog' 
+            ? 'bg-indigo-600 text-white shadow-xs' 
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        }`}
+      >
+        <Package className="w-4 h-4 text-indigo-300" />
+        <span>3. Catálogo de Equipos y Refacciones</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setStatusFilter('all')}
+        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          ['all', 'pending', 'in_progress', 'review', 'completed'].includes(statusFilter)
+            ? 'bg-slate-800 text-white shadow-xs' 
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        }`}
+      >
+        <Clock className="w-4 h-4 text-amber-400" />
+        <span>4. Órdenes de Trabajo OT ({workOrders.length})</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setStatusFilter('tutorial')}
+        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ml-auto ${
+          statusFilter === 'tutorial' 
+            ? 'bg-[#0196C1] text-white shadow-xs' 
+            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+        }`}
+      >
+        <BookOpen className="w-4 h-4" />
+        <span>Guía</span>
+      </button>
+    </div>
+  );
+
   if (statusFilter === 'quotes') {
     return (
-      <SalesQuoteModule
-        clients={clients}
-        setClients={setClients || (() => {})}
-        equipment={equipment}
-        setEquipment={setEquipment}
-        inventory={inventory}
-        staff={staff}
-        workOrders={workOrders}
-        setWorkOrders={setWorkOrders}
-      />
+      <div className="space-y-4">
+        {navHeader}
+        <SalesQuoteModule
+          clients={clients}
+          setClients={setClients || (() => {})}
+          equipment={equipment}
+          setEquipment={setEquipment}
+          inventory={inventory}
+          staff={staff}
+          workOrders={workOrders}
+          setWorkOrders={setWorkOrders}
+        />
+      </div>
+    );
+  }
+
+  if (statusFilter === 'customer_kits') {
+    return (
+      <div className="space-y-4">
+        {navHeader}
+        <CustomerKitsModule
+          clients={clients}
+          equipment={equipment}
+        />
+      </div>
+    );
+  }
+
+  if (statusFilter === 'catalog') {
+    return (
+      <div className="space-y-4">
+        {navHeader}
+        <SalesCatalogModule
+          clients={clients}
+          onNavigateToKits={() => setStatusFilter('customer_kits')}
+          onSelectForQuote={(_item) => {
+            setStatusFilter('quotes');
+          }}
+        />
+      </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {navHeader}
       
       {/* Top statistics overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

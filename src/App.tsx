@@ -63,11 +63,13 @@ export default function App() {
   );
 
   // --- Sub-module Tab/Filter States ---
-  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial' | 'customer_kits'>(() =>
-    loadFromStorage<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial' | 'customer_kits'>('mvl_admin_tab', 'financial')
-  );
-  const [coordFilter, setCoordFilter] = useState<'quotes' | 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial'>(() =>
-    loadFromStorage<'quotes' | 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial'>('mvl_coord_filter', 'quotes')
+  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial'>(() => {
+    const saved = loadFromStorage<string>('mvl_admin_tab', 'financial');
+    if (saved === 'customer_kits') return 'financial';
+    return (saved as any) || 'financial';
+  });
+  const [coordFilter, setCoordFilter] = useState<'quotes' | 'customer_kits' | 'catalog' | 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial'>(() =>
+    loadFromStorage<'quotes' | 'customer_kits' | 'catalog' | 'all' | 'pending' | 'in_progress' | 'review' | 'completed' | 'tutorial'>('mvl_coord_filter', 'quotes')
   );
   const [accountingTab, setAccountingTab] = useState<'fiscal_mvl' | 'billing' | 'clients_fiscal' | 'tutorial'>(() =>
     loadFromStorage<'fiscal_mvl' | 'billing' | 'clients_fiscal' | 'tutorial'>('mvl_accounting_tab', 'fiscal_mvl')
@@ -304,15 +306,6 @@ export default function App() {
                       <span>CRM Clientes & Plantas</span>
                     </button>
                     <button
-                      onClick={() => setAdminTab('customer_kits')}
-                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        adminTab === 'customer_kits' ? 'bg-[#00A2E8] text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                      }`}
-                    >
-                      <Wrench className="w-4 h-4 shrink-0 text-sky-400" />
-                      <span>Kit de clientes</span>
-                    </button>
-                    <button
                       onClick={() => setAdminTab('catalog')}
                       className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                         adminTab === 'catalog' ? 'bg-[#0196C1] text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -371,6 +364,24 @@ export default function App() {
                     >
                       <FileCheck className="w-4 h-4 shrink-0 text-emerald-400" />
                       <span>Cotizaciones & Ventas</span>
+                    </button>
+                    <button
+                      onClick={() => setCoordFilter('customer_kits')}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        coordFilter === 'customer_kits' ? 'bg-[#00A2E8] text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <Wrench className="w-4 h-4 shrink-0 text-sky-400" />
+                      <span>Kit de Clientes</span>
+                    </button>
+                    <button
+                      onClick={() => setCoordFilter('catalog')}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        coordFilter === 'catalog' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <Package className="w-4 h-4 shrink-0 text-indigo-400" />
+                      <span>Catálogo de Ventas</span>
                     </button>
                     <button
                       onClick={() => setCoordFilter('all')}
@@ -682,15 +693,6 @@ export default function App() {
                   <span className="text-[8px] uppercase tracking-wider font-semibold">CRM</span>
                 </button>
                 <button
-                  onClick={() => setAdminTab('customer_kits')}
-                  className={`flex flex-col items-center justify-center min-w-[50px] flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
-                    adminTab === 'customer_kits' ? 'text-[#00A2E8] font-bold scale-105' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Wrench className="w-5 h-5 mb-0.5" />
-                  <span className="text-[8px] uppercase tracking-wider font-semibold">Kits</span>
-                </button>
-                <button
                   onClick={() => setAdminTab('catalog')}
                   className={`flex flex-col items-center justify-center min-w-[50px] flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
                     adminTab === 'catalog' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
@@ -742,7 +744,7 @@ export default function App() {
               <>
                 <button
                   onClick={() => setCoordFilter('quotes')}
-                  className={`flex flex-col items-center justify-center min-w-[50px] flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  className={`flex flex-col items-center justify-center min-w-[48px] flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
                     coordFilter === 'quotes' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -750,8 +752,26 @@ export default function App() {
                   <span className="text-[8px] uppercase tracking-wider font-semibold">Ventas</span>
                 </button>
                 <button
+                  onClick={() => setCoordFilter('customer_kits')}
+                  className={`flex flex-col items-center justify-center min-w-[48px] flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                    coordFilter === 'customer_kits' ? 'text-[#00A2E8] font-bold scale-105' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Wrench className="w-5 h-5 mb-0.5 text-sky-400" />
+                  <span className="text-[8px] uppercase tracking-wider font-semibold">Kits</span>
+                </button>
+                <button
+                  onClick={() => setCoordFilter('catalog')}
+                  className={`flex flex-col items-center justify-center min-w-[48px] flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                    coordFilter === 'catalog' ? 'text-indigo-400 font-bold scale-105' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Package className="w-5 h-5 mb-0.5 text-indigo-400" />
+                  <span className="text-[8px] uppercase tracking-wider font-semibold">Catálogo</span>
+                </button>
+                <button
                   onClick={() => setCoordFilter('all')}
-                  className={`flex flex-col items-center justify-center min-w-[50px] flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
+                  className={`flex flex-col items-center justify-center min-w-[48px] flex-1 h-full py-1 transition-all duration-200 cursor-pointer ${
                     coordFilter === 'all' ? 'text-[#0196C1] font-bold scale-105' : 'text-slate-400 hover:text-white'
                   }`}
                 >
