@@ -93,11 +93,14 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
 
     try {
       if (mode === 'replace') {
-        // Clear existing rows in customer_kits table
-        await supabase
+        // Clear existing rows in customer_kits table safely
+        const { error: delErr } = await supabase
           .from('customer_kits')
           .delete()
           .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (delErr) {
+          console.warn('Notice clearing customer_kits:', delErr.message);
+        }
       }
 
       // Map to PostgreSQL columns matching schema
@@ -129,7 +132,8 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
     } catch (err: any) {
       console.error('Error in syncItemsToSupabase:', err);
       setSupabaseStatus('disconnected');
-      showFeedback(`Error al guardar en Supabase: ${err?.message || 'Error de conexión'}. Tus datos siguen seguros en el navegador.`, 'error');
+      const errDetail = err?.message || 'Error de conexión';
+      showFeedback(`Error al guardar en Supabase: ${errDetail}. Tus datos siguen seguros en el navegador.`, 'error');
     } finally {
       setIsSyncing(false);
       setSyncProgress(null);
