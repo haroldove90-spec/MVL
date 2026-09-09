@@ -9,7 +9,7 @@ import {
   Wrench, Plus, Upload, Download, Search, Filter, Trash2, Edit2, 
   FileSpreadsheet, Database, Check, AlertCircle, X, ChevronDown, 
   Copy, RefreshCw, Layers, ShieldCheck, ArrowUpDown, Eye, FileText, CheckCircle2,
-  Printer, Loader2, CloudUpload, CloudOff, Cloud
+  Printer, Loader2, CloudUpload, CloudOff, Cloud, ToggleLeft, ToggleRight, Package, Sparkles
 } from 'lucide-react';
 
 interface CustomerKitsModuleProps {
@@ -55,6 +55,9 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
           clientName: row.client_name || '',
           equipmentModel: row.equipment_model || '',
           serialNumber: row.serial_number || '',
+          stock: row.stock !== undefined && row.stock !== null ? Number(row.stock) : 0,
+          minStock: row.min_stock !== undefined && row.min_stock !== null ? Number(row.min_stock) : 0,
+          isActive: row.is_active !== undefined ? Boolean(row.is_active) : true,
           notes: row.notes || '',
           createdAt: row.created_at || new Date().toISOString()
         }));
@@ -112,6 +115,9 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
         client_name: item.clientName || 'Cliente General',
         equipment_model: item.equipmentModel || 'Equipo General',
         serial_number: item.serialNumber || 'S/N',
+        stock: Number(item.stock || 0),
+        min_stock: Number(item.minStock || 0),
+        is_active: item.isActive !== undefined ? Boolean(item.isActive) : true,
         notes: item.notes || null
       }));
 
@@ -143,12 +149,14 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
   // Search and filter
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>('all');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [sortField, setSortField] = useState<keyof CustomerKitItem>('clientName');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Form modal / drawer states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CustomerKitItem | null>(null);
+  const [viewingKitItem, setViewingKitItem] = useState<CustomerKitItem | null>(null);
 
   // Form fields
   const [formPartNumber, setFormPartNumber] = useState('');
@@ -157,6 +165,9 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
   const [formClientName, setFormClientName] = useState('');
   const [formEquipmentModel, setFormEquipmentModel] = useState('');
   const [formSerialNumber, setFormSerialNumber] = useState('');
+  const [formStock, setFormStock] = useState<string>('0');
+  const [formMinStock, setFormMinStock] = useState<string>('0');
+  const [formIsActive, setFormIsActive] = useState<boolean>(true);
   const [formNotes, setFormNotes] = useState('');
 
   // Mode: single item or batch kit adding
@@ -212,7 +223,13 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
         item.serialNumber.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchClient = selectedClientFilter === 'all' || item.clientName === selectedClientFilter;
-      return matchSearch && matchClient;
+      
+      const isItemActive = item.isActive !== false;
+      const matchStatus = selectedStatusFilter === 'all' || 
+        (selectedStatusFilter === 'active' && isItemActive) || 
+        (selectedStatusFilter === 'inactive' && !isItemActive);
+
+      return matchSearch && matchClient && matchStatus;
     }).sort((a, b) => {
       const valA = (a[sortField] || '').toString().toLowerCase();
       const valB = (b[sortField] || '').toString().toLowerCase();
@@ -221,15 +238,17 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
       }
       return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
     });
-  }, [items, searchTerm, selectedClientFilter, sortField, sortOrder]);
+  }, [items, searchTerm, selectedClientFilter, selectedStatusFilter, sortField, sortOrder]);
 
   // Stats calculation
   const stats = useMemo(() => {
     const totalParts = items.length;
+    const activeCount = items.filter(i => i.isActive !== false).length;
+    const inactiveCount = items.filter(i => i.isActive === false).length;
     const uniqueClientsCount = new Set(items.map(i => i.clientName.trim().toLowerCase())).size;
     const uniqueEquipmentsCount = new Set(items.map(i => `${i.clientName}-${i.equipmentModel}-${i.serialNumber}`.toLowerCase())).size;
     const totalCatalogValue = items.reduce((sum, it) => sum + (it.price || 0), 0);
-    return { totalParts, uniqueClientsCount, uniqueEquipmentsCount, totalCatalogValue };
+    return { totalParts, activeCount, inactiveCount, uniqueClientsCount, uniqueEquipmentsCount, totalCatalogValue };
   }, [items]);
 
   // Form management
@@ -241,6 +260,9 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
     setFormClientName('');
     setFormEquipmentModel('');
     setFormSerialNumber('');
+    setFormStock('0');
+    setFormMinStock('0');
+    setFormIsActive(true);
     setFormNotes('');
     setIsBatchMode(false);
     setBatchParts([{ partNumber: '', description: '', price: '' }]);
@@ -262,9 +284,76 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
     setFormClientName(item.clientName);
     setFormEquipmentModel(item.equipmentModel);
     setFormSerialNumber(item.serialNumber);
+    setFormStock(item.stock !== undefined ? item.stock.toString() : '0');
+    setFormMinStock(item.minStock !== undefined ? item.minStock.toString() : '0');
+    setFormIsActive(item.isActive !== false);
     setFormNotes(item.notes || '');
     setIsBatchMode(false);
     setIsFormOpen(true);
+  };
+
+  // Toggle active status
+  const handleToggleActive = async (item: CustomerKitItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const nextActive = item.isActive !== false ? false : true;
+    const updated = items.map(it => it.id === item.id ? { ...it, isActive: nextActive } : it);
+    saveItems(updated);
+    showFeedback(`El registro "${item.partNumber}" ahora está ${nextActive ? 'ACTIVO' : 'DESACTIVADO'}.`);
+
+    try {
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.id)) {
+        await supabase.from('customer_kits').update({ is_active: nextActive }).eq('id', item.id);
+      }
+    } catch (err) {
+      console.warn('Supabase toggle active error:', err);
+    }
+  };
+
+  // Synchronize with Sales Catalog
+  const handleSyncToSalesCatalog = async () => {
+    try {
+      const existingCatalog = loadFromStorage<any[]>('mvl_sales_catalog', []);
+      const existingCodes = new Set(existingCatalog.map(c => (c.itemCode || '').trim().toLowerCase()));
+
+      const newEntries: any[] = [];
+      items.forEach(k => {
+        const code = (k.partNumber || '').trim().toLowerCase();
+        if (code && !existingCodes.has(code)) {
+          existingCodes.add(code);
+          newEntries.push({
+            id: `cat_sync_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+            type: 'part',
+            itemCode: k.partNumber,
+            nameOrModel: k.description,
+            description: `Refacción registrada para cliente ${k.clientName} - Equipo ${k.equipmentModel}`,
+            brand: 'OEM / Multimarca',
+            category: 'Filtros y Consumibles',
+            price: k.price || 0,
+            currency: k.currency || 'USD',
+            stock: k.stock || 0,
+            minStock: k.minStock || 0,
+            unit: 'pza',
+            clientName: k.clientName,
+            equipmentModel: k.equipmentModel,
+            serialNumber: k.serialNumber,
+            deliveryTime: 'Inmediata (Stock)',
+            isActive: k.isActive !== false,
+            notes: k.notes || 'Sincronizado desde Kit de Clientes',
+            createdAt: new Date().toISOString()
+          });
+        }
+      });
+
+      if (newEntries.length > 0) {
+        const updatedCatalog = [...newEntries, ...existingCatalog];
+        saveToStorage('mvl_sales_catalog', updatedCatalog);
+        showFeedback(`¡Catálogo de Ventas sincronizado! Se exportaron ${newEntries.length} refacciones al Catálogo General.`);
+      } else {
+        showFeedback('Todas las refacciones de los kits ya están presentes en el Catálogo de Ventas.');
+      }
+    } catch (e: any) {
+      showFeedback('Error sincronizando con catálogo: ' + e.message, 'error');
+    }
   };
 
   const handleSaveForm = (e: React.FormEvent) => {
@@ -295,6 +384,9 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
         equipmentModel: formEquipmentModel.trim(),
         serialNumber: formSerialNumber.trim() || 'S/N',
         currency: 'USD',
+        stock: 0,
+        minStock: 0,
+        isActive: true,
         notes: formNotes.trim(),
         createdAt: new Date().toISOString()
       }));
@@ -315,6 +407,9 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
             client_name: p.clientName,
             equipment_model: p.equipmentModel,
             serial_number: p.serialNumber,
+            stock: 0,
+            min_stock: 0,
+            is_active: true,
             notes: p.notes || null
           }));
           const { error } = await supabase.from('customer_kits').insert(rows);
@@ -336,6 +431,8 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
       }
 
       const priceVal = parseFloat(formPrice) || 0;
+      const stockVal = parseFloat(formStock) || 0;
+      const minStockVal = parseFloat(formMinStock) || 0;
 
       if (editingItem) {
         const updated = items.map(it => it.id === editingItem.id ? {
@@ -346,6 +443,9 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
           clientName: formClientName.trim(),
           equipmentModel: formEquipmentModel.trim(),
           serialNumber: formSerialNumber.trim() || 'S/N',
+          stock: stockVal,
+          minStock: minStockVal,
+          isActive: formIsActive,
           notes: formNotes.trim(),
           updatedAt: new Date().toISOString()
         } : it);
@@ -363,6 +463,9 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
                 client_name: formClientName.trim(),
                 equipment_model: formEquipmentModel.trim(),
                 serial_number: formSerialNumber.trim() || 'S/N',
+                stock: stockVal,
+                min_stock: minStockVal,
+                is_active: formIsActive,
                 notes: formNotes.trim()
               }).eq('id', editingItem.id);
             }
@@ -380,6 +483,9 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
           equipmentModel: formEquipmentModel.trim(),
           serialNumber: formSerialNumber.trim() || 'S/N',
           currency: 'USD',
+          stock: stockVal,
+          minStock: minStockVal,
+          isActive: formIsActive,
           notes: formNotes.trim(),
           createdAt: new Date().toISOString()
         };
@@ -397,6 +503,9 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
               client_name: newItem.clientName,
               equipment_model: newItem.equipmentModel,
               serial_number: newItem.serialNumber,
+              stock: newItem.stock || 0,
+              min_stock: newItem.minStock || 0,
+              is_active: newItem.isActive !== false,
               notes: newItem.notes || null
             }]).select();
 
@@ -881,11 +990,11 @@ export default function CustomerKitsModule({ clients = [], equipment = [] }: Cus
   // SQL DDL SCRIPT GENERATOR
   // ==========================================
   const sqlScript = `-- ====================================================================
--- SISTEMA MVL: TABLA PARA EL MÓDULO "KITS DE CLIENTES"
+-- SISTEMA MVL: TABLAS PARA "KITS DE CLIENTES" Y "CATÁLOGO DE VENTAS"
 -- Compatible con PostgreSQL / Supabase / Google Cloud SQL
 -- ====================================================================
 
--- 1. Creación de la tabla customer_kits
+-- 1. Creación o actualización de la tabla customer_kits
 CREATE TABLE IF NOT EXISTS public.customer_kits (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     part_number VARCHAR(100) NOT NULL,            -- "No. De de parte" (ej. 2903 7526 00)
@@ -895,19 +1004,53 @@ CREATE TABLE IF NOT EXISTS public.customer_kits (
     client_name VARCHAR(150) NOT NULL,            -- "cliente" (ej. Isocindu, Impresos Leon)
     equipment_model VARCHAR(100) NOT NULL,        -- "modelo" (ej. GA 18 Pack, GA 45 FF)
     serial_number VARCHAR(100) NOT NULL,          -- "serie" (ej. CAI 847490, API 540370)
+    stock NUMERIC(10, 2) DEFAULT 0,               -- Stock actual disponible en inventario
+    min_stock NUMERIC(10, 2) DEFAULT 0,           -- Nivel de stock mínimo para alertas
+    is_active BOOLEAN DEFAULT true,               -- Estado activo (true) o desactivado (false)
     notes TEXT,                                   -- Observaciones técnicas adicionales
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. Índices para búsquedas y autocompletado en milisegundos
+-- Si la tabla ya existía previamente, agregar las nuevas columnas:
+ALTER TABLE public.customer_kits ADD COLUMN IF NOT EXISTS stock NUMERIC(10, 2) DEFAULT 0;
+ALTER TABLE public.customer_kits ADD COLUMN IF NOT EXISTS min_stock NUMERIC(10, 2) DEFAULT 0;
+ALTER TABLE public.customer_kits ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+
+-- 2. Creación de la tabla sales_catalog (Catálogo de Ventas para Equipos y Refacciones)
+CREATE TABLE IF NOT EXISTS public.sales_catalog (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    type VARCHAR(50) NOT NULL DEFAULT 'refaccion', -- 'equipo', 'refaccion', 'consumible', 'servicio'
+    part_number VARCHAR(100) NOT NULL,             -- Número de parte o código
+    name VARCHAR(255) NOT NULL,                    -- Nombre o descripción comercial
+    description TEXT,                              -- Descripción técnica detallada
+    category VARCHAR(100),                         -- Categoría (Compresores, Secadores, Filtros, etc.)
+    brand VARCHAR(100),                            -- Marca (Atlas Copco, Sullair, Kaeser, etc.)
+    model VARCHAR(100),                            -- Modelo de equipo compatible
+    client_name VARCHAR(150),                      -- Cliente asignado o específico (opcional)
+    price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,    -- Precio unitario de lista
+    currency VARCHAR(10) DEFAULT 'USD',            -- Moneda ('USD' o 'MXN')
+    stock NUMERIC(10, 2) DEFAULT 0,                -- Stock actual
+    min_stock NUMERIC(10, 2) DEFAULT 0,            -- Stock mínimo
+    unit VARCHAR(20) DEFAULT 'PZA',                -- Unidad de medida ('PZA', 'LT', 'JGO', etc.)
+    is_active BOOLEAN DEFAULT true,                -- Activo / Inactivo
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 3. Índices para búsquedas ultra-rápidas en cotizaciones
 CREATE INDEX IF NOT EXISTS idx_customer_kits_client ON public.customer_kits(client_name);
 CREATE INDEX IF NOT EXISTS idx_customer_kits_model ON public.customer_kits(equipment_model);
 CREATE INDEX IF NOT EXISTS idx_customer_kits_part ON public.customer_kits(part_number);
-CREATE INDEX IF NOT EXISTS idx_customer_kits_serial ON public.customer_kits(serial_number);
+CREATE INDEX IF NOT EXISTS idx_customer_kits_active ON public.customer_kits(is_active);
 
--- 3. Trigger para actualizar el campo updated_at automáticamente
-CREATE OR REPLACE FUNCTION update_customer_kits_updated_at()
+CREATE INDEX IF NOT EXISTS idx_sales_catalog_part ON public.sales_catalog(part_number);
+CREATE INDEX IF NOT EXISTS idx_sales_catalog_type ON public.sales_catalog(type);
+CREATE INDEX IF NOT EXISTS idx_sales_catalog_client ON public.sales_catalog(client_name);
+CREATE INDEX IF NOT EXISTS idx_sales_catalog_active ON public.sales_catalog(is_active);
+
+-- 4. Triggers automáticos para updated_at
+CREATE OR REPLACE FUNCTION update_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
@@ -919,14 +1062,13 @@ DROP TRIGGER IF EXISTS trigger_customer_kits_updated_at ON public.customer_kits;
 CREATE TRIGGER trigger_customer_kits_updated_at
 BEFORE UPDATE ON public.customer_kits
 FOR EACH ROW
-EXECUTE FUNCTION update_customer_kits_updated_at();
+EXECUTE FUNCTION update_timestamp();
 
--- 4. Comentarios de documentación en el catálogo de BD
-COMMENT ON TABLE public.customer_kits IS 'Matriz de refacciones y kits de mantenimiento por cliente, equipo y número de serie';
-COMMENT ON COLUMN public.customer_kits.part_number IS 'Número de parte oficial o de fabricante';
-COMMENT ON COLUMN public.customer_kits.client_name IS 'Nombre de la empresa cliente';
-COMMENT ON COLUMN public.customer_kits.equipment_model IS 'Modelo del compresor, secador o equipo';
-COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físico de placa del equipo';
+DROP TRIGGER IF EXISTS trigger_sales_catalog_updated_at ON public.sales_catalog;
+CREATE TRIGGER trigger_sales_catalog_updated_at
+BEFORE UPDATE ON public.sales_catalog
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();
 `;
 
   const handleCopySql = () => {
@@ -967,7 +1109,7 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-black text-slate-900 tracking-tight">Kits de clientes MVL</h1>
                 <span className="bg-[#0196C1]/10 text-[#0196C1] text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">
-                  Módulo Administrador
+                  Módulo Ventas / Coordinación
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -1015,6 +1157,16 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
             >
               {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CloudUpload className="w-3.5 h-3.5" />}
               <span>Guardar en Supabase</span>
+            </button>
+
+            {/* Synchronize to Sales Catalog button */}
+            <button
+              onClick={handleSyncToSalesCatalog}
+              className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 transition-all shadow-2xs active:scale-98"
+              title="Sincronizar automáticamente las refacciones de estos kits con el nuevo Catálogo de Ventas"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Sincronizar a Catálogo</span>
             </button>
 
             <button
@@ -1154,7 +1306,38 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Status filter tabs */}
+          <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setSelectedStatusFilter('all')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                selectedStatusFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Todos ({items.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedStatusFilter('active')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                selectedStatusFilter === 'active' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Activos ({stats.activeCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedStatusFilter('inactive')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                selectedStatusFilter === 'inactive' ? 'bg-amber-600 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Desactivados ({stats.inactiveCount})
+            </button>
+          </div>
+
           <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200">
             <Filter className="w-3.5 h-3.5 text-slate-400" />
             <span className="text-[10px] font-bold text-slate-500 uppercase">Cliente:</span>
@@ -1234,7 +1417,7 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
                   </th>
                   <th 
                     onClick={() => { setSortField('description'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}
-                    className="py-3 px-3.5 cursor-pointer select-none hover:bg-[#0092d0] transition-colors border-r border-sky-400/50 min-w-[220px]"
+                    className="py-3 px-3.5 cursor-pointer select-none hover:bg-[#0092d0] transition-colors border-r border-sky-400/50 min-w-[200px]"
                   >
                     <div className="flex items-center justify-between gap-1">
                       <span>descripción</span>
@@ -1243,7 +1426,7 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
                   </th>
                   <th 
                     onClick={() => { setSortField('price'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}
-                    className="py-3 px-3.5 cursor-pointer select-none hover:bg-[#0092d0] transition-colors border-r border-sky-400/50 w-32 text-right"
+                    className="py-3 px-3.5 cursor-pointer select-none hover:bg-[#0092d0] transition-colors border-r border-sky-400/50 w-28 text-right"
                   >
                     <div className="flex items-center justify-end gap-1">
                       <span>precio</span>
@@ -1252,7 +1435,7 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
                   </th>
                   <th 
                     onClick={() => { setSortField('clientName'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}
-                    className="py-3 px-3.5 cursor-pointer select-none hover:bg-[#0092d0] transition-colors border-r border-sky-400/50 w-48"
+                    className="py-3 px-3.5 cursor-pointer select-none hover:bg-[#0092d0] transition-colors border-r border-sky-400/50 w-44"
                   >
                     <div className="flex items-center justify-between gap-1">
                       <span>cliente</span>
@@ -1261,7 +1444,7 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
                   </th>
                   <th 
                     onClick={() => { setSortField('equipmentModel'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}
-                    className="py-3 px-3.5 cursor-pointer select-none hover:bg-[#0092d0] transition-colors border-r border-sky-400/50 w-40"
+                    className="py-3 px-3.5 cursor-pointer select-none hover:bg-[#0092d0] transition-colors border-r border-sky-400/50 w-36"
                   >
                     <div className="flex items-center justify-between gap-1">
                       <span>modelo</span>
@@ -1270,14 +1453,20 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
                   </th>
                   <th 
                     onClick={() => { setSortField('serialNumber'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}
-                    className="py-3 px-3.5 cursor-pointer select-none hover:bg-[#0092d0] transition-colors border-r border-sky-400/50 w-40"
+                    className="py-3 px-3.5 cursor-pointer select-none hover:bg-[#0092d0] transition-colors border-r border-sky-400/50 w-36"
                   >
                     <div className="flex items-center justify-between gap-1">
                       <span>serie</span>
                       <ChevronDown className="w-3.5 h-3.5 opacity-80" />
                     </div>
                   </th>
-                  <th className="py-3 px-3 text-center w-20">Acciones</th>
+                  <th className="py-3 px-3.5 border-r border-sky-400/50 w-24 text-center">
+                    Stock
+                  </th>
+                  <th className="py-3 px-3.5 border-r border-sky-400/50 w-24 text-center">
+                    Estado
+                  </th>
+                  <th className="py-3 px-3 text-center w-28">Acciones</th>
                 </tr>
               </thead>
 
@@ -1286,11 +1475,18 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
                 {filteredItems.map((item, idx) => (
                   <tr 
                     key={item.id} 
-                    className="hover:bg-sky-50/40 transition-colors group"
+                    className={`hover:bg-sky-50/40 transition-colors group ${
+                      item.isActive === false ? 'opacity-60 bg-slate-50/60' : ''
+                    }`}
                   >
                     {/* No. De de parte */}
                     <td className="py-2.5 px-3.5 font-mono font-bold text-slate-900 border-r border-slate-100 text-[11px]">
-                      {item.partNumber}
+                      <div className="flex items-center gap-1.5">
+                        <span>{item.partNumber}</span>
+                        {item.isActive === false && (
+                          <span className="text-[9px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded">Desactivado</span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Descripción */}
@@ -1325,9 +1521,54 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
                       {item.serialNumber}
                     </td>
 
+                    {/* Stock */}
+                    <td className="py-2.5 px-3.5 text-center border-r border-slate-100">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-mono font-bold ${
+                        (item.stock || 0) > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {item.stock ?? 0} pzas
+                      </span>
+                    </td>
+
+                    {/* Estado */}
+                    <td className="py-2.5 px-3.5 text-center border-r border-slate-100">
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleActive(item, e)}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-all ${
+                          item.isActive !== false
+                            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                            : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                        }`}
+                        title={item.isActive !== false ? 'Clic para desactivar' : 'Clic para activar'}
+                      >
+                        {item.isActive !== false ? (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span>Activo</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                            <span>Inactivo</span>
+                          </>
+                        )}
+                      </button>
+                    </td>
+
                     {/* Acciones */}
                     <td className="py-2.5 px-2 text-center">
-                      <div className="flex items-center justify-center gap-1 opacity-80 group-hover:opacity-100">
+                      <div className="flex items-center justify-center gap-1 opacity-90 group-hover:opacity-100">
+                        {/* Ver Ficha Detallada */}
+                        <button
+                          type="button"
+                          onClick={() => setViewingKitItem(item)}
+                          className="p-1 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg cursor-pointer transition-colors"
+                          title="Ver ficha técnica detallada"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        {/* Editar */}
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(item)}
@@ -1336,6 +1577,20 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
+                        {/* Desactivar / Activar */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleActive(item, e)}
+                          className={`p-1 rounded-lg cursor-pointer transition-colors ${
+                            item.isActive !== false 
+                              ? 'text-emerald-600 hover:text-amber-600 hover:bg-amber-50' 
+                              : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
+                          }`}
+                          title={item.isActive !== false ? 'Desactivar registro' : 'Activar registro'}
+                        >
+                          {item.isActive !== false ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                        </button>
+                        {/* Eliminar */}
                         <button
                           type="button"
                           onClick={() => handleDeleteItem(item.id)}
@@ -1569,6 +1824,51 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
                           className="w-full pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-lg outline-none text-xs font-mono font-bold text-slate-900 focus:border-[#0196C1]"
                         />
                       </div>
+                    </div>
+
+                    {/* Stock disponible */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Stock Actual (piezas)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={formStock}
+                        onChange={(e) => setFormStock(e.target.value)}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-mono font-bold text-slate-900 focus:border-[#0196C1]"
+                      />
+                    </div>
+
+                    {/* Stock mínimo */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Stock Mínimo (alerta)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={formMinStock}
+                        onChange={(e) => setFormMinStock(e.target.value)}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-mono font-bold text-slate-900 focus:border-[#0196C1]"
+                      />
+                    </div>
+
+                    {/* Estado activo / inactivo */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Estado en Catálogo
+                      </label>
+                      <select
+                        value={formIsActive ? 'active' : 'inactive'}
+                        onChange={(e) => setFormIsActive(e.target.value === 'active')}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-bold text-slate-800 focus:border-[#0196C1]"
+                      >
+                        <option value="active">Activo (Disponible para cotizar)</option>
+                        <option value="inactive">Desactivado (Fuera de catálogo)</option>
+                      </select>
                     </div>
 
                     {/* Observaciones */}
@@ -1990,6 +2290,115 @@ COMMENT ON COLUMN public.customer_kits.serial_number IS 'Número de serie físic
                   <span>Generado electrónicamente desde el sistema de control</span>
                 </div>
 
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* DETAILED ITEM VIEW MODAL                                                  */}
+      {/* ========================================================================= */}
+      {viewingKitItem && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#0196C1] flex items-center justify-center text-white font-bold">
+                  <Package className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">Ficha Técnica de Refacción</h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Parte No. {viewingKitItem.partNumber}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingKitItem(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Estado</span>
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                    viewingKitItem.isActive !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {viewingKitItem.isActive !== false ? 'Activo en Catálogo' : 'Desactivado'}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Precio Unitario</span>
+                  <span className="text-xl font-mono font-black text-slate-900">
+                    ${viewingKitItem.price.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Cliente Asignado</span>
+                  <span className="text-sm font-bold text-slate-900">{viewingKitItem.clientName}</span>
+                </div>
+
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Equipo / Modelo</span>
+                  <span className="text-sm font-bold text-slate-900">{viewingKitItem.equipmentModel}</span>
+                </div>
+
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Número de Serie</span>
+                  <span className="text-sm font-mono font-bold text-slate-700">{viewingKitItem.serialNumber || 'N/A'}</span>
+                </div>
+
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Stock Disponible</span>
+                  <span className="text-sm font-mono font-black text-emerald-600">
+                    {viewingKitItem.stock ?? 0} piezas
+                  </span>
+                  {viewingKitItem.minStock && (
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      Mínimo: {viewingKitItem.minStock} pzas
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-sky-50/60 p-4 rounded-xl border border-sky-100">
+                <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider block mb-1">Descripción del Ítem</span>
+                <p className="text-xs text-slate-800 font-semibold">{viewingKitItem.description}</p>
+                {viewingKitItem.notes && (
+                  <p className="text-xs text-slate-500 mt-2 italic bg-white/70 p-2 rounded-lg border border-sky-100">
+                    Notas: {viewingKitItem.notes}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const itemToEdit = viewingKitItem;
+                    setViewingKitItem(null);
+                    handleOpenEdit(itemToEdit);
+                  }}
+                  className="px-4 py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Editar Datos</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewingKitItem(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Cerrar
+                </button>
               </div>
             </div>
           </div>

@@ -464,8 +464,38 @@ export interface CustomerKitItem {
   equipmentModel: string;  // modelo (ej. GA 18 Pack)
   serialNumber: string;    // serie (ej. CAI 847490)
   currency?: 'USD' | 'MXN';
+  stock?: number;          // Cantidad en inventario / stock disponible
+  minStock?: number;       // Stock mínimo recomendado
+  unit?: string;           // pza, juego, cubeta 19L, etc.
+  isActive?: boolean;      // Estado: activo (true) o desactivado (false)
   createdAt?: string;
   notes?: string;
+}
+
+export interface CatalogItem {
+  id: string;
+  type: 'equipment' | 'part'; // 'equipment' = Compresor/Secador/etc, 'part' = Refacción
+  itemCode: string;           // No. de parte o código interno de equipo
+  nameOrModel: string;        // Modelo de equipo (ej. AS 30 T) o Nombre de refacción (ej. Filtro de Aire)
+  description: string;        // Descripción detallada
+  brand: string;              // Kaeser, Atlas Copco, Sullair, etc.
+  category: string;           // Compresores, Secadores, Filtros, Válvulas, Aceites, etc.
+  price: number;              // Precio unitario base
+  currency: 'USD' | 'MXN';    // Moneda
+  stock: number;              // Cantidad física actual en stock
+  minStock: number;           // Stock de seguridad mínimo
+  unit: string;               // pza, juego, kit, cubeta 19L, servicio, etc.
+  clientName?: string;        // Cliente específico asignado o 'General / Todos'
+  equipmentModel?: string;    // Equipo compatible para refacciones
+  serialNumber?: string;      // Número de serie físico para equipos
+  capacity?: string;          // Ej: 50 HP / 37 kW / 215 CFM
+  voltage?: string;           // Ej: 440V 3F / 220V 3F
+  location?: string;          // Ubicación en almacén (ej. Almacén Central - Rack B3)
+  deliveryTime?: string;      // Tiempo de entrega (ej. 'Inmediata (Stock)', '2-3 días')
+  isActive: boolean;          // Activo / Desactivado
+  notes?: string;             // Notas adicionales u observaciones
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 
