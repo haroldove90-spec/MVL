@@ -378,6 +378,67 @@ export const generateCatalogCode = (
 };
 
 /**
+ * Check if a catalog item matches a filter category intelligently.
+ * Handles:
+ * 1. Exact string matches
+ * 2. Case-insensitive and accent-insensitive normalization
+ * 3. Dash variations (em-dash —, en-dash –, standard hyphen -)
+ * 4. Class number matching (e.g. selecting "CLASE 01 — ..." matches all items of Class 01, including "CLASE 01 — FILTRACIÓN", itemCode "01.03", or "F-01-...")
+ * 5. Partial title and keyword matches
+ */
+export const doesItemMatchCategory = (
+  itemCategory: string | undefined,
+  filterCategory: string,
+  itemCode?: string,
+  itemSubcategory?: string
+): boolean => {
+  if (!filterCategory || filterCategory === 'all') return true;
+  const rawItemCat = (itemCategory || '').trim();
+  const rawFilter = filterCategory.trim();
+
+  // 1. Exact or case-insensitive match
+  if (rawItemCat.toLowerCase() === rawFilter.toLowerCase()) return true;
+
+  // 2. Normalized match (strip em-dash, en-dash, hyphens, multiple spaces, accents)
+  const normalizeStr = (s: string) =>
+    s.toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[—–-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const normItem = normalizeStr(rawItemCat);
+  const normFilter = normalizeStr(rawFilter);
+
+  if (normItem === normFilter) return true;
+  if (normItem && normFilter && (normFilter.includes(normItem) || normItem.includes(normFilter))) return true;
+
+  // 3. Class number extraction match (e.g. "CLASE 01" matches "CLASE 01 — FILTRACIÓN" and "CLASE 01 — REFRIGERACIÓN")
+  const getClaseNum = (str: string): string | null => {
+    const m = str.match(/\b(?:clase|class|categoria|grupo)\s*(\d{1,2})\b/i) || str.match(/^(\d{1,2})\b/);
+    return m ? m[1].padStart(2, '0') : null;
+  };
+
+  const itemClaseNum = getClaseNum(rawItemCat) || (itemCode ? getClaseNum(itemCode) : null);
+  const filterClaseNum = getClaseNum(rawFilter);
+
+  if (itemClaseNum && filterClaseNum && itemClaseNum === filterClaseNum) {
+    return true;
+  }
+
+  // 4. Subcategory or keyword match
+  if (itemSubcategory) {
+    const normSub = normalizeStr(itemSubcategory);
+    if (normSub && (normFilter.includes(normSub) || normSub.includes(normFilter))) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+/**
  * Intelligent category inference based on product naming, description, and coding conventions
  */
 export const inferCategoryFromProduct = (
@@ -393,6 +454,9 @@ export const inferCategoryFromProduct = (
     currentCategory.trim() === 'General' ||
     currentCategory.toLowerCase().includes('definir');
 
+  // If a specific, non-generic category was detected from a section header, preserve it!
+  const targetCategory = (!isGeneric && currentCategory.trim()) ? currentCategory.trim() : '';
+
   // Filtros y Separación
   if (
     fullText.includes('filtro') ||
@@ -406,7 +470,7 @@ export const inferCategoryFromProduct = (
     /^01\./.test(itemCode)
   ) {
     return {
-      category: 'CLASE 01 — FILTRACIÓN Y SEPARACIÓN',
+      category: targetCategory || 'CLASE 01 — FILTRACIÓN Y SEPARACIÓN',
       subcategory: fullText.includes('separador') ? 'Filtros Separadores de Aceite' : (fullText.includes('aire') ? 'Filtros de Aire' : 'Elementos Filtrantes'),
       detectedType: 'part'
     };
@@ -429,7 +493,7 @@ export const inferCategoryFromProduct = (
     /^02\./.test(itemCode)
   ) {
     return {
-      category: 'CLASE 02 — LUBRICACIÓN Y ACEITES',
+      category: targetCategory || 'CLASE 02 — LUBRICACIÓN Y ACEITES',
       subcategory: fullText.includes('sintet') ? 'Aceite Sintético' : (fullText.includes('refrigerante') ? 'Gases Refrigerantes' : 'Lubricantes Industriales'),
       detectedType: 'part'
     };
@@ -455,7 +519,7 @@ export const inferCategoryFromProduct = (
     /^v-\d/i.test(itemCode)
   ) {
     return {
-      category: 'CLASE 05 — VÁLVULAS Y CONTROL DE REFRIGERANTE',
+      category: targetCategory || 'CLASE 05 — VÁLVULAS Y CONTROL DE REFRIGERANTE',
       subcategory: fullText.includes('termost') ? 'Válvulas Termostáticas' : (fullText.includes('solen') ? 'Válvulas Solenoide' : 'Válvulas de Presión y Retención'),
       detectedType: 'part'
     };
@@ -477,7 +541,7 @@ export const inferCategoryFromProduct = (
     /^03\./.test(itemCode)
   ) {
     return {
-      category: 'CLASE 03 — CONTROLES, SENSORES Y ELECTRÓNICA',
+      category: targetCategory || 'CLASE 03 — CONTROLES, SENSORES Y ELECTRÓNICA',
       subcategory: fullText.includes('pres') ? 'Transductores de Presión' : (fullText.includes('temp') ? 'Sensores de Temperatura' : 'Sensores Industriales'),
       detectedType: 'part'
     };
@@ -499,7 +563,7 @@ export const inferCategoryFromProduct = (
     /^11\./.test(itemCode)
   ) {
     return {
-      category: 'CLASE 11 — TRANSMISIÓN Y BANDAS',
+      category: targetCategory || 'CLASE 11 — TRANSMISIÓN Y BANDAS',
       subcategory: fullText.includes('polea') ? 'Poleas y Bujes' : 'Bandas de Transmisión',
       detectedType: 'part'
     };
@@ -521,7 +585,7 @@ export const inferCategoryFromProduct = (
     /^04\./.test(itemCode)
   ) {
     return {
-      category: 'CLASE 04 — ELÉCTRICO Y MOTORES',
+      category: targetCategory || 'CLASE 04 — ELÉCTRICO Y MOTORES',
       subcategory: fullText.includes('motor') ? 'Motores Eléctricos' : 'Componentes de Control Eléctrico',
       detectedType: fullText.includes('motor') && (fullText.includes('hp') || fullText.includes('kw')) ? 'equipment' : 'part'
     };
@@ -541,7 +605,7 @@ export const inferCategoryFromProduct = (
     /^06\./.test(itemCode)
   ) {
     return {
-      category: 'CLASE 12 — MANGUERAS Y CONEXIONES',
+      category: targetCategory || 'CLASE 12 — MANGUERAS Y CONEXIONES',
       subcategory: fullText.includes('manguera') ? 'Mangueras de Alta Presión' : 'Conexiones y Coples',
       detectedType: 'part'
     };
@@ -562,7 +626,7 @@ export const inferCategoryFromProduct = (
     /^13\./.test(itemCode)
   ) {
     return {
-      category: 'CLASE 13 — KITS DE SERVICIO',
+      category: targetCategory || 'CLASE 13 — KITS DE SERVICIO',
       subcategory: fullText.includes('overhaul') ? 'Kit Overhaul' : 'Kits Preventivos por Horas',
       detectedType: 'part'
     };
@@ -580,7 +644,7 @@ export const inferCategoryFromProduct = (
     fullText.includes('evaporador')
   ) {
     return {
-      category: fullText.includes('chiller') ? 'CLASE 08 — CHILLER — REFRIGERACIÓN' : 'CLASE 15 — REFACCIONES MAYORES',
+      category: targetCategory || (fullText.includes('chiller') ? 'CLASE 08 — CHILLER — REFRIGERACIÓN' : 'CLASE 15 — REFACCIONES MAYORES'),
       subcategory: fullText.includes('chiller') ? 'Unidades Chiller' : (fullText.includes('airend') ? 'Air-end / Tornillo' : 'Compresores'),
       detectedType: 'equipment'
     };
@@ -597,7 +661,7 @@ export const inferCategoryFromProduct = (
     /^17\./.test(itemCode)
   ) {
     return {
-      category: 'CLASE 17 — VSD — PROGRAMACIÓN Y DIAGNÓSTICO',
+      category: targetCategory || 'CLASE 17 — VSD — PROGRAMACIÓN Y DIAGNÓSTICO',
       subcategory: 'Variadores de Frecuencia y Control',
       detectedType: 'part'
     };
@@ -614,16 +678,16 @@ export const inferCategoryFromProduct = (
     fullText.includes('retén')
   ) {
     return {
-      category: 'CLASE 06 — TUBERÍA, CONEXIONES Y SELLOS',
+      category: targetCategory || 'CLASE 06 — TUBERÍA, CONEXIONES Y SELLOS',
       subcategory: 'Sellos y Empaques',
       detectedType: 'part'
     };
   }
 
   // If a specific category was detected from a section header, respect it
-  if (!isGeneric && currentCategory) {
+  if (targetCategory) {
     return {
-      category: currentCategory,
+      category: targetCategory,
       subcategory: '',
       detectedType: 'part'
     };

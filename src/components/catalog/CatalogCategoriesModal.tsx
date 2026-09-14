@@ -13,6 +13,8 @@ interface CatalogCategoriesModalProps {
   categories: CatalogCategory[];
   onSaveCategories: (newCategories: CatalogCategory[]) => void;
   onRestoreDefaultCategories: () => void;
+  onSelectCategoryFilter?: (categoryName: string) => void;
+  itemCountsByCategory?: Record<string, number>;
 }
 
 export default function CatalogCategoriesModal({
@@ -20,7 +22,9 @@ export default function CatalogCategoriesModal({
   onClose,
   categories,
   onSaveCategories,
-  onRestoreDefaultCategories
+  onRestoreDefaultCategories,
+  onSelectCategoryFilter,
+  itemCountsByCategory = {}
 }: CatalogCategoriesModalProps) {
   const [activeTab, setActiveTab] = useState<'list' | 'new_cat'>('list');
   const [selectedCatId, setSelectedCatId] = useState<string>(categories[0]?.id || '');
@@ -298,9 +302,15 @@ export default function CatalogCategoriesModal({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0 ml-2">
-                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-500 font-bold">
-                        {cat.subcategories.length}
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                      {/* Product count badge if any */}
+                      {(itemCountsByCategory[cat.name] || 0) > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold" title={`${itemCountsByCategory[cat.name]} productos en esta clase`}>
+                          {itemCountsByCategory[cat.name]} prods
+                        </span>
+                      )}
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-500 font-bold" title={`${cat.subcategories.length} subclases`}>
+                        {cat.subcategories.length} sub
                       </span>
                       {confirmDeleteCatId === cat.id ? (
                         <div className="flex items-center gap-1 bg-rose-50 p-1 rounded border border-rose-200" onClick={e => e.stopPropagation()}>
@@ -355,9 +365,25 @@ export default function CatalogCategoriesModal({
                         {selectedCategory.scope || 'general'}
                       </span>
                     </div>
-                    <h4 className="text-sm font-extrabold text-slate-900 mt-0.5">
-                      {selectedCategory.name}
-                    </h4>
+                    <div className="flex items-center justify-between gap-2 mt-1">
+                      <h4 className="text-sm font-extrabold text-slate-900">
+                        {selectedCategory.name}
+                      </h4>
+                      {onSelectCategoryFilter && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSelectCategoryFilter(selectedCategory.name);
+                            onClose();
+                          }}
+                          className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-[#0196C1] border border-sky-200 text-[11px] font-bold rounded-lg cursor-pointer transition-colors shrink-0 flex items-center gap-1"
+                          title="Filtrar catálogo por esta clase"
+                        >
+                          <span>Ver en Catálogo ({itemCountsByCategory[selectedCategory.name] || 0})</span>
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Add Subcategory Form */}
