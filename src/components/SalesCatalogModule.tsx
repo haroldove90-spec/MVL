@@ -27,10 +27,11 @@ import {
   loadCatalogCategories, 
   saveCatalogCategories, 
   INITIAL_CATALOG_CATEGORIES, 
-  generateCatalogSupabaseSql 
+  generateCatalogSupabaseSql,
+  isUUID,
+  generateUUID,
+  ensureUUID
 } from '../lib/catalogMasterData';
-
-const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
 // Modular Catalog Modals
 import CatalogGlobalDeleteModal from './catalog/CatalogGlobalDeleteModal';
@@ -55,13 +56,23 @@ export default function SalesCatalogModule({
   const [items, setItems] = useState<CatalogItem[]>(() => {
     const isCleared = localStorage.getItem('mvl_sales_catalog_cleared') === 'true';
     if (isCleared) {
-      const stored = localStorage.getItem('mvl_sales_catalog');
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length === 0) return [];
-        } catch (e) {}
-      }
+      return [];
+    }
+    const stored = localStorage.getItem('mvl_sales_catalog');
+    if (stored !== null) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          const deletedIds = getDeletedRecordIds();
+          return parsed.filter(item => {
+            if (!item) return false;
+            if (item.id && deletedIds.has(item.id)) return false;
+            if (item.itemCode && (deletedIds.has(item.itemCode) || deletedIds.has('code_' + item.itemCode))) return false;
+            if (item.nameOrModel && deletedIds.has('name_' + item.nameOrModel)) return false;
+            return true;
+          });
+        }
+      } catch (e) {}
     }
     return loadFromStorage<CatalogItem[]>('mvl_sales_catalog', INITIAL_CATALOG_ITEMS);
   });
@@ -176,16 +187,38 @@ export default function SalesCatalogModule({
     setSupabaseStatus('syncing');
 
     try {
-      const rows = items.map(item => ({
-        id: item.id.startsWith('cat_') ? undefined : item.id,
+      // 1. Sanitize all items and guarantee a valid RFC4122 UUID for every record
+      const sanitizedItems: CatalogItem[] = items.map((item, idx) => ({
+        ...item,
+        id: ensureUUID(item.id),
+        itemCode: item.itemCode?.trim() || `AUTO-${String(idx + 1).padStart(3, '0')}`,
+        nameOrModel: item.nameOrModel?.trim() || 'Sin Nombre / Modelo',
+        price: Number(item.price) || 0,
+        stock: Number(item.stock) || 0,
+        minStock: Number(item.minStock) || 1,
+        unit: item.unit?.trim() || 'pza',
+        currency: (item.currency === 'USD' ? 'USD' : 'MXN') as 'USD' | 'MXN',
+        type: (item.type === 'equipment' ? 'equipment' : 'part') as 'equipment' | 'part',
+        category: item.category?.trim() || 'Catálogo General',
+        brand: item.brand?.trim() || 'Multimarca',
+        deliveryTime: item.deliveryTime?.trim() || 'Inmediata (Stock)',
+        isActive: item.isActive !== undefined ? Boolean(item.isActive) : true
+      }));
+
+      // Update state and local storage with sanitized items (so local UUIDs match Supabase UUIDs)
+      setItems(sanitizedItems);
+      saveToStorage('mvl_sales_catalog', sanitizedItems);
+
+      const rows = sanitizedItems.map(item => ({
+        id: item.id,
         type: item.type,
         item_code: item.itemCode,
         name_or_model: item.nameOrModel,
-        description: item.description,
+        description: item.description || '',
         brand: item.brand,
         category: item.category,
         subcategory: item.subcategory || null,
-        bullet_items: item.bulletItems || null,
+        bullet_items: item.bulletItems && item.bulletItems.length > 0 ? item.bulletItems : null,
         price: item.price,
         currency: item.currency,
         stock: item.stock,
@@ -197,19 +230,26 @@ export default function SalesCatalogModule({
         capacity: item.capacity || '',
         voltage: item.voltage || '',
         location: item.location || '',
-        delivery_time: item.deliveryTime || 'Inmediata (Stock)',
+        delivery_time: item.deliveryTime,
         is_active: item.isActive,
         notes: item.notes || ''
       }));
 
+      // Clear existing records from Supabase table
       await supabase.from('catalog_items').delete().neq('name_or_model', '___NONE___');
-      const { error } = await supabase.from('catalog_items').insert(rows);
 
-      if (error) throw error;
+      // Insert in chunks of 50 to guarantee smooth ingestion without payload caps
+      if (rows.length > 0) {
+        const CHUNK_SIZE = 50;
+        for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+          const chunk = rows.slice(i, i + CHUNK_SIZE);
+          const { error } = await supabase.from('catalog_items').insert(chunk);
+          if (error) throw error;
+        }
+      }
 
       setSupabaseStatus('connected');
       showFeedback(`¡Éxito! ${rows.length} registros del catálogo guardados en Supabase (tabla catalog_items).`);
-      fetchCatalogFromSupabase();
     } catch (err: any) {
       console.error('Error syncing catalog to Supabase:', err);
       setSupabaseStatus('disconnected');
@@ -364,28 +404,29 @@ export default function SalesCatalogModule({
 
       try {
         await supabase.from('catalog_items').insert([{
+          id: ensureUUID(payload.id),
           type: payload.type,
           item_code: payload.itemCode,
           name_or_model: payload.nameOrModel,
-          description: payload.description,
+          description: payload.description || '',
           brand: payload.brand,
           category: payload.category,
           subcategory: payload.subcategory || null,
-          bullet_items: payload.bulletItems || null,
-          price: payload.price,
-          currency: payload.currency,
-          stock: payload.stock,
-          min_stock: payload.minStock,
-          unit: payload.unit,
-          client_name: payload.clientName,
-          equipment_model: payload.equipmentModel,
-          serial_number: payload.serialNumber,
-          capacity: payload.capacity,
-          voltage: payload.voltage,
-          location: payload.location,
-          delivery_time: payload.deliveryTime,
-          is_active: payload.isActive,
-          notes: payload.notes
+          bullet_items: payload.bulletItems && payload.bulletItems.length > 0 ? payload.bulletItems : null,
+          price: Number(payload.price) || 0,
+          currency: payload.currency || 'USD',
+          stock: Number(payload.stock) || 0,
+          min_stock: Number(payload.minStock) || 1,
+          unit: payload.unit || 'pza',
+          client_name: payload.clientName || 'General / Todos',
+          equipment_model: payload.equipmentModel || '',
+          serial_number: payload.serialNumber || '',
+          capacity: payload.capacity || '',
+          voltage: payload.voltage || '',
+          location: payload.location || '',
+          delivery_time: payload.deliveryTime || 'Inmediata (Stock)',
+          is_active: payload.isActive !== undefined ? Boolean(payload.isActive) : true,
+          notes: payload.notes || ''
         }]);
       } catch (err) {
         console.warn('Could not insert row in Supabase:', err);
@@ -549,11 +590,29 @@ export default function SalesCatalogModule({
     importMode: 'append' | 'replace'
   ) => {
     localStorage.removeItem('mvl_sales_catalog_cleared');
+    // Sanitize imported rows to guarantee valid UUIDs and types
+    const sanitizedImported = importedRows.map((item, idx) => ({
+      ...item,
+      id: ensureUUID(item.id),
+      itemCode: item.itemCode?.trim() || `AUTO-${String(idx + 1).padStart(3, '0')}`,
+      nameOrModel: item.nameOrModel?.trim() || 'Sin Nombre / Modelo',
+      price: Number(item.price) || 0,
+      stock: Number(item.stock) || 0,
+      minStock: Number(item.minStock) || 1,
+      unit: item.unit?.trim() || 'pza',
+      currency: (item.currency === 'USD' ? 'USD' : 'MXN') as 'USD' | 'MXN',
+      type: (item.type === 'equipment' ? 'equipment' : 'part') as 'equipment' | 'part',
+      category: item.category?.trim() || 'Catálogo General',
+      brand: item.brand?.trim() || 'Multimarca',
+      deliveryTime: item.deliveryTime?.trim() || 'Inmediata (Stock)',
+      isActive: item.isActive !== undefined ? Boolean(item.isActive) : true
+    }));
+
     // Unmark any tombstone records for the imported items
-    const importedIds = importedRows.map(i => i.id);
-    const importedCodes = importedRows.map(i => i.itemCode).filter(Boolean);
+    const importedIds = sanitizedImported.map(i => i.id);
+    const importedCodes = sanitizedImported.map(i => i.itemCode).filter(Boolean);
     const importedPrefixed = importedCodes.map(c => 'code_' + c);
-    const importedNames = importedRows.map(i => 'name_' + i.nameOrModel);
+    const importedNames = sanitizedImported.map(i => 'name_' + i.nameOrModel);
     unmarkRecordsAsDeleted([...importedIds, ...importedCodes, ...importedPrefixed, ...importedNames]);
 
     let newFullList: CatalogItem[] = [];
@@ -566,12 +625,15 @@ export default function SalesCatalogModule({
           markRecordAsDeleted(i.itemCode);
           markRecordAsDeleted('code_' + i.itemCode);
         }
+        if (i.nameOrModel) {
+          markRecordAsDeleted('name_' + i.nameOrModel);
+        }
       });
-      newFullList = importedRows;
+      newFullList = sanitizedImported;
     } else {
       // Append without duplicating identical item codes
       const existingCodes = new Set(items.map(i => (i.itemCode || '').trim().toLowerCase()));
-      const uniqueImported = importedRows.filter(
+      const uniqueImported = sanitizedImported.filter(
         i => !existingCodes.has((i.itemCode || '').trim().toLowerCase())
       );
       newFullList = [...uniqueImported, ...items];
@@ -586,14 +648,15 @@ export default function SalesCatalogModule({
     // Sync to Supabase in background
     try {
       const dbRows = newFullList.map(item => ({
+        id: item.id,
         type: item.type,
         item_code: item.itemCode,
         name_or_model: item.nameOrModel,
-        description: item.description,
+        description: item.description || '',
         brand: item.brand,
         category: item.category,
         subcategory: item.subcategory || null,
-        bullet_items: item.bulletItems || null,
+        bullet_items: item.bulletItems && item.bulletItems.length > 0 ? item.bulletItems : null,
         price: item.price,
         currency: item.currency,
         stock: item.stock,
@@ -605,16 +668,23 @@ export default function SalesCatalogModule({
         capacity: item.capacity || '',
         voltage: item.voltage || '',
         location: item.location || '',
-        delivery_time: item.deliveryTime || 'Inmediata (Stock)',
+        delivery_time: item.deliveryTime,
         is_active: item.isActive,
         notes: item.notes || ''
       }));
 
       await supabase.from('catalog_items').delete().neq('name_or_model', '___NONE___');
-      await supabase.from('catalog_items').insert(dbRows);
+      
+      const CHUNK_SIZE = 50;
+      for (let i = 0; i < dbRows.length; i += CHUNK_SIZE) {
+        const chunk = dbRows.slice(i, i + CHUNK_SIZE);
+        const { error } = await supabase.from('catalog_items').insert(chunk);
+        if (error) throw error;
+      }
       setSupabaseStatus('connected');
-    } catch (e) {
+    } catch (e: any) {
       console.warn('Background sync after import notice:', e);
+      setSupabaseStatus('disconnected');
     }
   };
 

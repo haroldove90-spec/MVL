@@ -14,7 +14,8 @@ import {
   parseCatalogFromExcel, 
   parseCatalogText,
   ParsedCatalogRow,
-  CatalogCategory
+  CatalogCategory,
+  generateUUID
 } from '../../lib/catalogMasterData';
 
 interface CatalogImportModalProps {
@@ -37,7 +38,7 @@ export default function CatalogImportModal({
   const [rawText, setRawText] = useState<string>('');
   const [parsedRows, setParsedRows] = useState<ParsedCatalogRow[]>([]);
   const [selectedRowIndices, setSelectedRowIndices] = useState<Set<number>>(new Set());
-  const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
+  const [importMode, setImportMode] = useState<'append' | 'replace'>('replace');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [parseLog, setParseLog] = useState<string>('');
 
@@ -138,25 +139,25 @@ export default function CatalogImportModal({
     }
 
     const newCatalogItems: CatalogItem[] = selectedRows.map((row, idx) => ({
-      id: `cat_import_${Date.now()}_${idx}`,
-      type: row.type,
-      itemCode: row.code || `AUTO-${String(idx + 1).padStart(3, '0')}`,
-      nameOrModel: row.nameOrModel,
+      id: generateUUID(),
+      type: row.type || 'part',
+      itemCode: row.code?.trim() || `AUTO-${String(idx + 1).padStart(3, '0')}`,
+      nameOrModel: row.nameOrModel?.trim() || 'Sin modelo',
       description: row.description || (row.bulletItems && row.bulletItems.length > 0 ? row.bulletItems.join(' • ') : ''),
-      brand: row.brand || 'OEM / Universal',
-      category: row.category || 'Catálogo General',
+      brand: row.brand?.trim() || 'OEM / Universal',
+      category: row.category?.trim() || 'Catálogo General',
       subcategory: row.subcategory,
       bulletItems: row.bulletItems,
-      price: row.price || 0,
+      price: Number(row.price) || 0,
       currency: row.currency || 'USD',
-      stock: row.stock !== undefined ? row.stock : (row.type === 'equipment' ? 1 : 5),
+      stock: row.stock !== undefined ? Number(row.stock) : (row.type === 'equipment' ? 1 : 5),
       minStock: row.type === 'equipment' ? 1 : 2,
       unit: row.unit || (row.type === 'equipment' ? 'equipo' : 'pza'),
       clientName: 'General / Todos',
       equipmentModel: '',
       serialNumber: '',
       location: 'Almacén Central',
-      deliveryTime: 'Inmediata (Stock)',
+      deliveryTime: row.deliveryTime || 'Inmediata (Stock)',
       isActive: true,
       notes: `Importado de ${fileName || 'archivo/texto'} el ${new Date().toLocaleDateString('es-MX')}`,
       createdAt: new Date().toISOString()

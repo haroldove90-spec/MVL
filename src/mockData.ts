@@ -1933,10 +1933,18 @@ export const loadFromStorage = <T>(key: string, defaultValue: T): T => {
   const data = localStorage.getItem(key);
   const deletedIds = getDeletedRecordIds();
 
+  const isItemActive = (item: any): boolean => {
+    if (!item) return false;
+    if (item.id && deletedIds.has(item.id)) return false;
+    if (item.itemCode && (deletedIds.has(item.itemCode) || deletedIds.has('code_' + item.itemCode))) return false;
+    if (item.nameOrModel && deletedIds.has('name_' + item.nameOrModel)) return false;
+    return true;
+  };
+
   if (!data) {
     // If using defaultValue and it's an array with id fields, filter out any previously deleted IDs
     if (Array.isArray(defaultValue)) {
-      const filtered = (defaultValue as any[]).filter(item => !item || !item.id || !deletedIds.has(item.id));
+      const filtered = (defaultValue as any[]).filter(isItemActive);
       return filtered as unknown as T;
     }
     return defaultValue;
@@ -1945,7 +1953,7 @@ export const loadFromStorage = <T>(key: string, defaultValue: T): T => {
   try {
     const parsed = JSON.parse(data);
     if (Array.isArray(parsed)) {
-      const filtered = (parsed as any[]).filter(item => !item || !item.id || !deletedIds.has(item.id));
+      const filtered = (parsed as any[]).filter(isItemActive);
       return filtered as unknown as T;
     }
     return parsed as T;

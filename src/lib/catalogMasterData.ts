@@ -37,6 +37,38 @@ export interface ParsedProductCandidate {
 export type ParsedCatalogRow = ParsedProductCandidate;
 
 /**
+ * Validates whether a string is a standard RFC4122 UUID
+ */
+export const isUUID = (str?: string): boolean => {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+};
+
+/**
+ * Generates an RFC4122 v4 compliant UUID
+ */
+export const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+/**
+ * Ensures an ID is a valid UUID, generating one if not
+ */
+export const ensureUUID = (id?: string): string => {
+  if (id && isUUID(id)) {
+    return id;
+  }
+  return generateUUID();
+};
+
+/**
  * Pre-loaded official catalog categories analyzed from MVL HVAC & Screw Compressor PDFs
  */
 export const INITIAL_CATALOG_CATEGORIES: CatalogCategory[] = [

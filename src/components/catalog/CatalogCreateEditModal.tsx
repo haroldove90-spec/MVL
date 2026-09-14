@@ -9,7 +9,7 @@ import {
   HelpCircle, DollarSign, Calculator, Tag, FolderTree, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { CatalogItem } from '../../types';
-import { CatalogCategory, generateCatalogCode } from '../../lib/catalogMasterData';
+import { CatalogCategory, generateCatalogCode, ensureUUID } from '../../lib/catalogMasterData';
 
 interface CatalogCreateEditModalProps {
   isOpen: boolean;
@@ -155,7 +155,7 @@ export default function CatalogCreateEditModal({
       .filter(line => line.length > 0);
 
     const itemPayload: CatalogItem = {
-      id: editingItem?.id || `cat_${Date.now()}`,
+      id: ensureUUID(editingItem?.id),
       type: itemType === 'service' ? 'part' : itemType,
       itemCode: itemCode.trim() || `AUTO-${Date.now().toString().slice(-4)}`,
       nameOrModel: nameOrModel.trim(),
