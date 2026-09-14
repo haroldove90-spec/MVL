@@ -1900,6 +1900,16 @@ export const markRecordAsDeleted = (id: string): void => {
   }
 };
 
+export const unmarkRecordsAsDeleted = (ids: string[]): void => {
+  try {
+    const set = getDeletedRecordIds();
+    ids.forEach(id => set.delete(id));
+    localStorage.setItem('mvl_deleted_record_ids', JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.error('Error unmarking deleted record ids:', e);
+  }
+};
+
 export const clearSystemCache = (reload: boolean = true): void => {
   // Clears all application cache and data from localStorage
   const keysToRemove: string[] = [];

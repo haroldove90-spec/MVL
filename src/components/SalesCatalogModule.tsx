@@ -13,7 +13,14 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { CatalogItem, Client, CustomerKitItem } from '../types';
-import { INITIAL_CATALOG_ITEMS, loadFromStorage, saveToStorage } from '../mockData';
+import { 
+  INITIAL_CATALOG_ITEMS, 
+  loadFromStorage, 
+  saveToStorage, 
+  markRecordAsDeleted, 
+  unmarkRecordsAsDeleted, 
+  getDeletedRecordIds 
+} from '../mockData';
 import { supabase } from '../lib/supabase';
 import { 
   CatalogCategory, 
@@ -22,6 +29,8 @@ import {
   INITIAL_CATALOG_CATEGORIES, 
   generateCatalogSupabaseSql 
 } from '../lib/catalogMasterData';
+
+const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
 // Modular Catalog Modals
 import CatalogGlobalDeleteModal from './catalog/CatalogGlobalDeleteModal';
@@ -42,14 +51,28 @@ export default function SalesCatalogModule({
   onNavigateToKits,
   isAdmin = true
 }: SalesCatalogModuleProps) {
-  // --- Persistent items state ---
-  const [items, setItems] = useState<CatalogItem[]>(() =>
-    loadFromStorage<CatalogItem[]>('mvl_sales_catalog', INITIAL_CATALOG_ITEMS)
-  );
+  // --- Persistent items state with explicit empty catalog detection ---
+  const [items, setItems] = useState<CatalogItem[]>(() => {
+    const isCleared = localStorage.getItem('mvl_sales_catalog_cleared') === 'true';
+    if (isCleared) {
+      const stored = localStorage.getItem('mvl_sales_catalog');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length === 0) return [];
+        } catch (e) {}
+      }
+    }
+    return loadFromStorage<CatalogItem[]>('mvl_sales_catalog', INITIAL_CATALOG_ITEMS);
+  });
 
   useEffect(() => {
     saveToStorage('mvl_sales_catalog', items);
   }, [items]);
+
+  // --- Single item deletion state for in-app confirmation modal (eliminates blocked window.confirm in iframe) ---
+  const [itemToDelete, setItemToDelete] = useState<CatalogItem | null>(null);
+  const [isDeletingSingleItem, setIsDeletingSingleItem] = useState(false);
 
   // --- Categories & Classes state ---
   const [categories, setCategories] = useState<CatalogCategory[]>(() => loadCatalogCategories());
@@ -82,6 +105,9 @@ export default function SalesCatalogModule({
         return;
       }
 
+      const isCleared = localStorage.getItem('mvl_sales_catalog_cleared') === 'true';
+      const deletedIds = getDeletedRecordIds();
+
       if (data && data.length > 0) {
         const mapped: CatalogItem[] = data.map(r => ({
           id: r.id,
@@ -110,10 +136,28 @@ export default function SalesCatalogModule({
           createdAt: r.created_at,
           updatedAt: r.updated_at
         }));
-        setItems(mapped);
-        saveToStorage('mvl_sales_catalog', mapped);
+
+        // Filter out any items marked as deleted in the tombstone blacklist
+        const activeItems = mapped.filter(item => {
+          if (deletedIds.has(item.id)) return false;
+          if (item.itemCode && (deletedIds.has(item.itemCode) || deletedIds.has('code_' + item.itemCode))) return false;
+          if (item.nameOrModel && deletedIds.has('name_' + item.nameOrModel)) return false;
+          return true;
+        });
+
+        if (isCleared && activeItems.length === 0) {
+          setItems([]);
+          saveToStorage('mvl_sales_catalog', []);
+        } else if (!isCleared || activeItems.length > 0) {
+          setItems(activeItems);
+          saveToStorage('mvl_sales_catalog', activeItems);
+        }
         setSupabaseStatus('connected');
       } else {
+        if (isCleared) {
+          setItems([]);
+          saveToStorage('mvl_sales_catalog', []);
+        }
         setSupabaseStatus('connected');
       }
     } catch (err: any) {
@@ -313,6 +357,8 @@ export default function SalesCatalogModule({
         console.warn('Could not update row in Supabase:', err);
       }
     } else {
+      localStorage.removeItem('mvl_sales_catalog_cleared');
+      unmarkRecordsAsDeleted([payload.id, payload.itemCode, 'code_' + payload.itemCode].filter(Boolean));
       setItems(prev => [payload, ...prev]);
       showFeedback(`Nuevo registro "${payload.nameOrModel}" dado de alta con éxito en el catálogo de ventas.`);
 
@@ -353,11 +399,37 @@ export default function SalesCatalogModule({
     categoryToDelete?: string
   ) => {
     if (mode === 'all') {
+      // 1. Mark all current and initial items as deleted in tombstone
+      items.forEach(i => {
+        markRecordAsDeleted(i.id);
+        if (i.itemCode) {
+          markRecordAsDeleted(i.itemCode);
+          markRecordAsDeleted('code_' + i.itemCode);
+        }
+        if (i.nameOrModel) {
+          markRecordAsDeleted('name_' + i.nameOrModel);
+        }
+      });
+      INITIAL_CATALOG_ITEMS.forEach(i => {
+        markRecordAsDeleted(i.id);
+        if (i.itemCode) {
+          markRecordAsDeleted(i.itemCode);
+          markRecordAsDeleted('code_' + i.itemCode);
+        }
+        if (i.nameOrModel) {
+          markRecordAsDeleted('name_' + i.nameOrModel);
+        }
+      });
+
+      // 2. Clear state and record persistent empty flag
+      localStorage.setItem('mvl_sales_catalog_cleared', 'true');
       setItems([]);
       setSelectedItemIds(new Set());
       saveToStorage('mvl_sales_catalog', []);
 
+      // 3. Clear from Supabase table
       try {
+        await supabase.from('catalog_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         await supabase.from('catalog_items').delete().neq('name_or_model', '___NONE___');
       } catch (e) {
         console.warn('Could not empty Supabase table:', e);
@@ -365,26 +437,74 @@ export default function SalesCatalogModule({
 
       showFeedback('Catálogo vaciado por completo. Ya no quedan registros.');
     } else if (mode === 'selected') {
-      const idsArray = Array.from(selectedItemIds);
-      setItems(prev => prev.filter(i => !selectedItemIds.has(i.id)));
+      const selectedItemsList = items.filter(i => selectedItemIds.has(i.id));
+      const remainingItems = items.filter(i => !selectedItemIds.has(i.id));
+
+      // Mark selected in tombstone blacklist
+      selectedItemsList.forEach(i => {
+        markRecordAsDeleted(i.id);
+        if (i.itemCode) {
+          markRecordAsDeleted(i.itemCode);
+          markRecordAsDeleted('code_' + i.itemCode);
+        }
+        if (i.nameOrModel) {
+          markRecordAsDeleted('name_' + i.nameOrModel);
+        }
+      });
+
+      setItems(remainingItems);
+      saveToStorage('mvl_sales_catalog', remainingItems);
       setSelectedItemIds(new Set());
 
+      if (remainingItems.length === 0) {
+        localStorage.setItem('mvl_sales_catalog_cleared', 'true');
+      }
+
+      // Safe deletion from Supabase
       try {
-        await supabase.from('catalog_items').delete().in('id', idsArray);
+        const uuids = selectedItemsList.filter(i => isUUID(i.id)).map(i => i.id);
+        if (uuids.length > 0) {
+          await supabase.from('catalog_items').delete().in('id', uuids);
+        }
+        const codes = selectedItemsList.map(i => i.itemCode).filter(Boolean);
+        if (codes.length > 0) {
+          await supabase.from('catalog_items').delete().in('item_code', codes);
+        }
+        const names = selectedItemsList.map(i => i.nameOrModel).filter(Boolean);
+        if (names.length > 0) {
+          await supabase.from('catalog_items').delete().in('name_or_model', names);
+        }
       } catch (e) {
         console.warn('Could not delete selected from Supabase:', e);
       }
 
-      showFeedback(`${idsArray.length} registros seleccionados fueron eliminados.`);
+      showFeedback(`${selectedItemsList.length} registros seleccionados fueron eliminados.`);
     } else if (mode === 'category' && categoryToDelete) {
-      setItems(prev => prev.filter(i => i.category !== categoryToDelete));
+      const categoryItems = items.filter(i => i.category === categoryToDelete);
+      const remainingItems = items.filter(i => i.category !== categoryToDelete);
+
+      categoryItems.forEach(i => {
+        markRecordAsDeleted(i.id);
+        if (i.itemCode) {
+          markRecordAsDeleted(i.itemCode);
+          markRecordAsDeleted('code_' + i.itemCode);
+        }
+        if (i.nameOrModel) {
+          markRecordAsDeleted('name_' + i.nameOrModel);
+        }
+      });
+
+      setItems(remainingItems);
+      saveToStorage('mvl_sales_catalog', remainingItems);
       setSelectedItemIds(prev => {
         const next = new Set(prev);
-        items.forEach(i => {
-          if (i.category === categoryToDelete) next.delete(i.id);
-        });
+        categoryItems.forEach(i => next.delete(i.id));
         return next;
       });
+
+      if (remainingItems.length === 0) {
+        localStorage.setItem('mvl_sales_catalog_cleared', 'true');
+      }
 
       try {
         await supabase.from('catalog_items').delete().eq('category', categoryToDelete);
@@ -397,6 +517,13 @@ export default function SalesCatalogModule({
   };
 
   const handleRestoreDefaultCatalog = () => {
+    localStorage.removeItem('mvl_sales_catalog_cleared');
+    const initialIds = INITIAL_CATALOG_ITEMS.map(i => i.id);
+    const initialCodes = INITIAL_CATALOG_ITEMS.map(i => i.itemCode).filter(Boolean);
+    const initialCodePrefixed = initialCodes.map(c => 'code_' + c);
+    const initialNames = INITIAL_CATALOG_ITEMS.map(i => 'name_' + i.nameOrModel);
+    unmarkRecordsAsDeleted([...initialIds, ...initialCodes, ...initialCodePrefixed, ...initialNames]);
+
     setItems(INITIAL_CATALOG_ITEMS);
     saveToStorage('mvl_sales_catalog', INITIAL_CATALOG_ITEMS);
     setSelectedItemIds(new Set());
@@ -421,9 +548,25 @@ export default function SalesCatalogModule({
     importedRows: CatalogItem[],
     importMode: 'append' | 'replace'
   ) => {
+    localStorage.removeItem('mvl_sales_catalog_cleared');
+    // Unmark any tombstone records for the imported items
+    const importedIds = importedRows.map(i => i.id);
+    const importedCodes = importedRows.map(i => i.itemCode).filter(Boolean);
+    const importedPrefixed = importedCodes.map(c => 'code_' + c);
+    const importedNames = importedRows.map(i => 'name_' + i.nameOrModel);
+    unmarkRecordsAsDeleted([...importedIds, ...importedCodes, ...importedPrefixed, ...importedNames]);
+
     let newFullList: CatalogItem[] = [];
 
     if (importMode === 'replace') {
+      // Mark replaced items as deleted
+      items.forEach(i => {
+        markRecordAsDeleted(i.id);
+        if (i.itemCode) {
+          markRecordAsDeleted(i.itemCode);
+          markRecordAsDeleted('code_' + i.itemCode);
+        }
+      });
       newFullList = importedRows;
     } else {
       // Append without duplicating identical item codes
@@ -524,23 +667,62 @@ export default function SalesCatalogModule({
     }
   };
 
-  // Single item delete
-  const handleDeleteItem = async (item: CatalogItem, e?: React.MouseEvent) => {
+  // Single item delete (In-App modal triggers, eliminating iframe window.confirm blocking)
+  const handleOpenDeleteItemModal = (item: CatalogItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!window.confirm(`¿Está seguro de eliminar "${item.nameOrModel}" del catálogo?`)) return;
+    setItemToDelete(item);
+  };
 
-    setItems(prev => prev.filter(i => i.id !== item.id));
-    setSelectedItemIds(prev => {
-      const next = new Set(prev);
-      next.delete(item.id);
-      return next;
-    });
-    showFeedback(`Registro "${item.nameOrModel}" eliminado.`);
+  const handleConfirmDeleteItem = async () => {
+    if (!itemToDelete) return;
+    const target = itemToDelete;
+    setIsDeletingSingleItem(true);
 
     try {
-      await supabase.from('catalog_items').delete().eq('id', item.id);
-    } catch (err) {
-      console.warn('Could not delete from Supabase:', err);
+      // 1. Mark in tombstone blacklist
+      markRecordAsDeleted(target.id);
+      if (target.itemCode) {
+        markRecordAsDeleted(target.itemCode);
+        markRecordAsDeleted('code_' + target.itemCode);
+      }
+      if (target.nameOrModel) {
+        markRecordAsDeleted('name_' + target.nameOrModel);
+      }
+
+      // 2. Synchronously update state and local storage
+      const remaining = items.filter(i => i.id !== target.id);
+      setItems(remaining);
+      saveToStorage('mvl_sales_catalog', remaining);
+
+      if (remaining.length === 0) {
+        localStorage.setItem('mvl_sales_catalog_cleared', 'true');
+      }
+
+      setSelectedItemIds(prev => {
+        const next = new Set(prev);
+        next.delete(target.id);
+        return next;
+      });
+
+      showFeedback(`Producto "${target.nameOrModel}" eliminado permanentemente.`);
+      setItemToDelete(null);
+
+      // 3. Delete from Supabase safely
+      try {
+        if (isUUID(target.id)) {
+          await supabase.from('catalog_items').delete().eq('id', target.id);
+        }
+        if (target.itemCode) {
+          await supabase.from('catalog_items').delete().eq('item_code', target.itemCode);
+        }
+        if (target.nameOrModel) {
+          await supabase.from('catalog_items').delete().eq('name_or_model', target.nameOrModel);
+        }
+      } catch (err) {
+        console.warn('Could not delete item from Supabase:', err);
+      }
+    } finally {
+      setIsDeletingSingleItem(false);
     }
   };
 
@@ -1333,7 +1515,7 @@ export default function SalesCatalogModule({
 
                           {/* Borrar */}
                           <button
-                            onClick={(e) => handleDeleteItem(item, e)}
+                            onClick={(e) => handleOpenDeleteItemModal(item, e)}
                             className="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
                             title="Eliminar del catálogo"
                           >
@@ -1664,6 +1846,72 @@ export default function SalesCatalogModule({
                 className="px-4 py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-xl cursor-pointer"
               >
                 Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SINGLE ITEM DELETE CONFIRMATION MODAL (In-App Modal to avoid iframe window.confirm blocking) */}
+      {itemToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-rose-200 space-y-4 animate-in zoom-in-95">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    ¿Eliminar producto del catálogo?
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Esta acción quitará el producto de forma definitiva.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setItemToDelete(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1.5">
+              <p className="font-bold text-slate-900 text-sm">{itemToDelete.nameOrModel}</p>
+              <div className="flex flex-wrap items-center gap-2 text-slate-500 text-[11px]">
+                {itemToDelete.itemCode && (
+                  <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                    {itemToDelete.itemCode}
+                  </span>
+                )}
+                <span className="text-slate-400">•</span>
+                <span>{itemToDelete.category}</span>
+                <span className="text-slate-400">•</span>
+                <span className="font-semibold text-[#0196C1]">
+                  ${itemToDelete.price.toLocaleString('es-MX')} {itemToDelete.currency}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setItemToDelete(null)}
+                disabled={isDeletingSingleItem}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteItem}
+                disabled={isDeletingSingleItem}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-sm transition-colors flex items-center gap-1.5"
+              >
+                <Trash2 className={`w-3.5 h-3.5 ${isDeletingSingleItem ? 'animate-spin' : ''}`} />
+                <span>{isDeletingSingleItem ? 'Eliminando...' : 'Sí, eliminar producto'}</span>
               </button>
             </div>
           </div>

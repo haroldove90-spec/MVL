@@ -32,6 +32,8 @@ export default function CatalogGlobalDeleteModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const [isConfirmingRestore, setIsConfirmingRestore] = useState(false);
+
   if (!isOpen) return null;
 
   const requiresKeyword = deleteMode === 'all';
@@ -215,19 +217,38 @@ export default function CatalogGlobalDeleteModal({
 
         {/* Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-3 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={() => {
-              if (confirm('¿Deseas restablecer los productos demo oficiales de demostración en el catálogo?')) {
-                onRestoreDefaultCatalog();
-                onClose();
-              }
-            }}
-            className="text-[11px] text-slate-500 hover:text-slate-800 font-semibold underline cursor-pointer flex items-center gap-1 order-last sm:order-first"
-          >
-            <RefreshCw className="w-3 h-3" />
-            <span>Restaurar catálogo inicial demo</span>
-          </button>
+          {!isConfirmingRestore ? (
+            <button
+              type="button"
+              onClick={() => setIsConfirmingRestore(true)}
+              className="text-[11px] text-slate-500 hover:text-slate-800 font-semibold underline cursor-pointer flex items-center gap-1 order-last sm:order-first"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>Restaurar catálogo inicial demo</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5 p-1 bg-amber-50 rounded-lg border border-amber-200 text-[11px] order-last sm:order-first">
+              <span className="font-bold text-amber-800">¿Restaurar 10 demo?</span>
+              <button
+                type="button"
+                onClick={() => {
+                  onRestoreDefaultCatalog();
+                  setIsConfirmingRestore(false);
+                  onClose();
+                }}
+                className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded text-[10px] cursor-pointer"
+              >
+                Sí, restaurar
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsConfirmingRestore(false)}
+                className="px-1.5 py-0.5 text-slate-500 hover:text-slate-800 text-[10px] cursor-pointer"
+              >
+                No
+              </button>
+            </div>
+          )}
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
