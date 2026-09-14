@@ -378,6 +378,265 @@ export const generateCatalogCode = (
 };
 
 /**
+ * Intelligent category inference based on product naming, description, and coding conventions
+ */
+export const inferCategoryFromProduct = (
+  nameOrModel: string = '',
+  description: string = '',
+  itemCode: string = '',
+  currentCategory: string = ''
+): { category: string; subcategory: string; detectedType: 'part' | 'equipment' } => {
+  const fullText = `${nameOrModel} ${description} ${itemCode}`.toLowerCase();
+
+  const isGeneric = !currentCategory ||
+    currentCategory.includes('GENERAL') ||
+    currentCategory.trim() === 'General' ||
+    currentCategory.toLowerCase().includes('definir');
+
+  // Filtros y Separación
+  if (
+    fullText.includes('filtro') ||
+    fullText.includes('separador') ||
+    fullText.includes('coalescente') ||
+    fullText.includes('cartucho') ||
+    fullText.includes('prefiltro') ||
+    fullText.includes('elemento filtrante') ||
+    fullText.includes('purificador') ||
+    /^f-\d/i.test(itemCode) ||
+    /^01\./.test(itemCode)
+  ) {
+    return {
+      category: 'CLASE 01 — FILTRACIÓN Y SEPARACIÓN',
+      subcategory: fullText.includes('separador') ? 'Filtros Separadores de Aceite' : (fullText.includes('aire') ? 'Filtros de Aire' : 'Elementos Filtrantes'),
+      detectedType: 'part'
+    };
+  }
+
+  // Aceites y Lubricación
+  if (
+    fullText.includes('aceite') ||
+    fullText.includes('lubricante') ||
+    fullText.includes('sintetico') ||
+    fullText.includes('sintético') ||
+    fullText.includes('mineral') ||
+    fullText.includes('rotorcomp') ||
+    fullText.includes('sigma fluid') ||
+    fullText.includes('ultra coolant') ||
+    fullText.includes('refrigerante') ||
+    fullText.includes('r-410') ||
+    fullText.includes('r-134') ||
+    fullText.includes('grasa') ||
+    /^02\./.test(itemCode)
+  ) {
+    return {
+      category: 'CLASE 02 — LUBRICACIÓN Y ACEITES',
+      subcategory: fullText.includes('sintet') ? 'Aceite Sintético' : (fullText.includes('refrigerante') ? 'Gases Refrigerantes' : 'Lubricantes Industriales'),
+      detectedType: 'part'
+    };
+  }
+
+  // Válvulas y Control de Fluido
+  if (
+    fullText.includes('valvula') ||
+    fullText.includes('válvula') ||
+    fullText.includes('solenoide') ||
+    fullText.includes('termostatica') ||
+    fullText.includes('termostática') ||
+    fullText.includes('retencion') ||
+    fullText.includes('retención') ||
+    fullText.includes('check') ||
+    fullText.includes('presion minima') ||
+    fullText.includes('presión mínima') ||
+    fullText.includes('admision') ||
+    fullText.includes('admisión') ||
+    fullText.includes('seguridad') ||
+    fullText.includes('mpv') ||
+    /^05\./.test(itemCode) ||
+    /^v-\d/i.test(itemCode)
+  ) {
+    return {
+      category: 'CLASE 05 — VÁLVULAS Y CONTROL DE REFRIGERANTE',
+      subcategory: fullText.includes('termost') ? 'Válvulas Termostáticas' : (fullText.includes('solen') ? 'Válvulas Solenoide' : 'Válvulas de Presión y Retención'),
+      detectedType: 'part'
+    };
+  }
+
+  // Sensores e Instrumentación
+  if (
+    fullText.includes('sensor') ||
+    fullText.includes('transductor') ||
+    fullText.includes('presostato') ||
+    fullText.includes('manometro') ||
+    fullText.includes('manómetro') ||
+    fullText.includes('termocupla') ||
+    fullText.includes('pt100') ||
+    fullText.includes('sonda') ||
+    fullText.includes('temperatura') ||
+    fullText.includes('presion') ||
+    /^s-\d/i.test(itemCode) ||
+    /^03\./.test(itemCode)
+  ) {
+    return {
+      category: 'CLASE 03 — CONTROLES, SENSORES Y ELECTRÓNICA',
+      subcategory: fullText.includes('pres') ? 'Transductores de Presión' : (fullText.includes('temp') ? 'Sensores de Temperatura' : 'Sensores Industriales'),
+      detectedType: 'part'
+    };
+  }
+
+  // Bandas y Transmisión
+  if (
+    fullText.includes('banda') ||
+    fullText.includes('correa') ||
+    fullText.includes('polea') ||
+    fullText.includes('acoplamiento') ||
+    fullText.includes('buje') ||
+    fullText.includes('taper') ||
+    fullText.includes('xpz') ||
+    fullText.includes('xpa') ||
+    fullText.includes('spz') ||
+    fullText.includes('spa') ||
+    /^b-\d/i.test(itemCode) ||
+    /^11\./.test(itemCode)
+  ) {
+    return {
+      category: 'CLASE 11 — TRANSMISIÓN Y BANDAS',
+      subcategory: fullText.includes('polea') ? 'Poleas y Bujes' : 'Bandas de Transmisión',
+      detectedType: 'part'
+    };
+  }
+
+  // Eléctrico y Motores
+  if (
+    fullText.includes('motor') ||
+    fullText.includes('contactor') ||
+    fullText.includes('arrancador') ||
+    fullText.includes('guardamotor') ||
+    fullText.includes('rele') ||
+    fullText.includes('relé') ||
+    fullText.includes('bobina') ||
+    fullText.includes('transformador') ||
+    fullText.includes('fusible') ||
+    fullText.includes('capacitor') ||
+    /^m-\d/i.test(itemCode) ||
+    /^04\./.test(itemCode)
+  ) {
+    return {
+      category: 'CLASE 04 — ELÉCTRICO Y MOTORES',
+      subcategory: fullText.includes('motor') ? 'Motores Eléctricos' : 'Componentes de Control Eléctrico',
+      detectedType: fullText.includes('motor') && (fullText.includes('hp') || fullText.includes('kw')) ? 'equipment' : 'part'
+    };
+  }
+
+  // Mangueras y Conexiones
+  if (
+    fullText.includes('manguera') ||
+    fullText.includes('conexion') ||
+    fullText.includes('conexión') ||
+    fullText.includes('cople') ||
+    fullText.includes('fitting') ||
+    fullText.includes('tuberia') ||
+    fullText.includes('tubería') ||
+    fullText.includes('niple') ||
+    /^12\./.test(itemCode) ||
+    /^06\./.test(itemCode)
+  ) {
+    return {
+      category: 'CLASE 12 — MANGUERAS Y CONEXIONES',
+      subcategory: fullText.includes('manguera') ? 'Mangueras de Alta Presión' : 'Conexiones y Coples',
+      detectedType: 'part'
+    };
+  }
+
+  // Kits de Mantenimiento y Servicio
+  if (
+    fullText.includes('kit') ||
+    fullText.includes('mantenimiento') ||
+    fullText.includes('servicio') ||
+    fullText.includes('overhaul') ||
+    fullText.includes('preventivo') ||
+    fullText.includes('2000 h') ||
+    fullText.includes('4000 h') ||
+    fullText.includes('8000 h') ||
+    fullText.includes('6000 h') ||
+    fullText.includes('12000 h') ||
+    /^13\./.test(itemCode)
+  ) {
+    return {
+      category: 'CLASE 13 — KITS DE SERVICIO',
+      subcategory: fullText.includes('overhaul') ? 'Kit Overhaul' : 'Kits Preventivos por Horas',
+      detectedType: 'part'
+    };
+  }
+
+  // Equipos y Refacciones Mayores
+  if (
+    fullText.includes('compresor') ||
+    fullText.includes('tornillo') ||
+    fullText.includes('chiller') ||
+    fullText.includes('airend') ||
+    fullText.includes('air-end') ||
+    fullText.includes('unidad compresora') ||
+    fullText.includes('condensador') ||
+    fullText.includes('evaporador')
+  ) {
+    return {
+      category: fullText.includes('chiller') ? 'CLASE 08 — CHILLER — REFRIGERACIÓN' : 'CLASE 15 — REFACCIONES MAYORES',
+      subcategory: fullText.includes('chiller') ? 'Unidades Chiller' : (fullText.includes('airend') ? 'Air-end / Tornillo' : 'Compresores'),
+      detectedType: 'equipment'
+    };
+  }
+
+  // VSD y Variadores
+  if (
+    fullText.includes('vsd') ||
+    fullText.includes('variador') ||
+    fullText.includes('inversor') ||
+    fullText.includes('drive') ||
+    fullText.includes('tarjeta') ||
+    fullText.includes('controlador') ||
+    /^17\./.test(itemCode)
+  ) {
+    return {
+      category: 'CLASE 17 — VSD — PROGRAMACIÓN Y DIAGNÓSTICO',
+      subcategory: 'Variadores de Frecuencia y Control',
+      detectedType: 'part'
+    };
+  }
+
+  // Sellos y Empaques
+  if (
+    fullText.includes('sello') ||
+    fullText.includes('o-ring') ||
+    fullText.includes('oring') ||
+    fullText.includes('junta') ||
+    fullText.includes('empaque') ||
+    fullText.includes('reten') ||
+    fullText.includes('retén')
+  ) {
+    return {
+      category: 'CLASE 06 — TUBERÍA, CONEXIONES Y SELLOS',
+      subcategory: 'Sellos y Empaques',
+      detectedType: 'part'
+    };
+  }
+
+  // If a specific category was detected from a section header, respect it
+  if (!isGeneric && currentCategory) {
+    return {
+      category: currentCategory,
+      subcategory: '',
+      detectedType: 'part'
+    };
+  }
+
+  return {
+    category: 'CLASE 14 — SERVICIO Y MANTENIMIENTO',
+    subcategory: 'Refacciones Generales',
+    detectedType: 'part'
+  };
+};
+
+/**
  * Extract clean text and parse tables from PDF/Excel text representation
  */
 export const parseCatalogText = (rawText: string): ParsedProductCandidate[] => {
@@ -390,9 +649,23 @@ export const parseCatalogText = (rawText: string): ParsedProductCandidate[] => {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Check if line declares a CLASE header
-    // e.g. "CLASE 01 — REFRIGERACIÓN — AIRE ACONDICIONADO" or "CLASE 01 — FILTRACIÓN Y SEPARACIÓN"
-    if (/^CLASE\s+\d+/i.test(line)) {
+    // Check if line declares a category/class header:
+    // Matches:
+    // "CLASE 01 — FILTRACIÓN..."
+    // "CLASE 1: FILTROS"
+    // "CLASE 02 - ACEITES"
+    // "CATEGORÍA: FILTROS"
+    // "CATEGORIA: FILTROS"
+    // "FAMILIA: VÁLVULAS"
+    // "SECCIÓN: COMPRESORES"
+    // "01. FILTRACIÓN Y SEPARACIÓN"
+    const headerClaseMatch = line.match(/^(?:CLASE\s*\d+|CATEGOR[IÍ]A|FAMILIA|SECCI[OÓ]N|GRUPO)\s*[:—–-]?\s*(.+)$/i);
+    if (headerClaseMatch) {
+      currentClase = line.replace(/\s+/g, ' ').trim();
+      continue;
+    }
+
+    if (/^\d{1,2}\.\s+[A-ZÁÉÍÓÚÑ\s/—–-]+$/i.test(line) && line.length < 80) {
       currentClase = line.replace(/\s+/g, ' ').trim();
       continue;
     }
@@ -414,7 +687,6 @@ export const parseCatalogText = (rawText: string): ParsedProductCandidate[] => {
     }
 
     // Pattern 1: HVAC Coding: F-01-01-001 or C-01-02-001 or M-02-01-001
-    // followed by Subclass, refacciones with bullets, and price
     const hvacMatch = line.match(/^([A-Z]-\d{2}-\d{2}-\d{3})\s+([A-ZÁÉÍÓÚÑ\s/]+?)\s{2,}(.+?)(?:\s*\$\s*([_\d.,]+)?)?$/i);
     if (hvacMatch) {
       const itemCode = hvacMatch[1].trim();
@@ -424,25 +696,25 @@ export const parseCatalogText = (rawText: string): ParsedProductCandidate[] => {
       const priceVal = priceStr ? parseFloat(priceStr) : 0;
 
       const bulletItems = refacciones.split('•').map(s => s.trim()).filter(Boolean);
-      const isService = currentClase.includes('SERVICIO') || currentClase.includes('MANTENIMIENTO') || currentClase.includes('PROGRAMACIÓN');
+      const inferred = inferCategoryFromProduct(subclassName, refacciones, itemCode, currentClase);
 
       candidates.push({
-        id: `parsed_hvac_${Date.now()}_${candidateIndex++}`,
-        type: isService ? 'part' : (subclassName.includes('COMPRESOR') ? 'equipment' : 'part'),
+        id: generateUUID(),
+        type: inferred.detectedType,
         itemCode,
         nameOrModel: `${subclassName}: ${bulletItems[0] || refacciones}`,
         description: refacciones,
         brand: 'OEM / Multimarca',
-        category: currentClase,
-        subcategory: subclassName,
+        category: inferred.category,
+        subcategory: inferred.subcategory || subclassName,
         price: priceVal,
         currency: 'MXN',
-        stock: isService ? 99 : 5,
+        stock: 5,
         minStock: 2,
-        unit: isService ? 'servicio' : 'pza',
+        unit: 'pza',
         deliveryTime: 'Inmediata (Stock)',
         bulletItems,
-        notes: `Importado de Catálogo HVAC (${currentClase})`
+        notes: `Importado de Catálogo (${inferred.category})`
       });
       continue;
     }
@@ -457,30 +729,64 @@ export const parseCatalogText = (rawText: string): ParsedProductCandidate[] => {
       const priceVal = priceStr ? parseFloat(priceStr) : 0;
 
       const bulletItems = refacciones.split('•').map(s => s.trim()).filter(Boolean);
-      const isService = currentClase.includes('VSD') || currentClase.includes('SERVICIO') || currentClase.includes('MANTENIMIENTO') || subclassName.toLowerCase().includes('servicio');
+      const inferred = inferCategoryFromProduct(subclassName, refacciones, itemCode, currentClase);
 
       candidates.push({
-        id: `parsed_tornillo_${Date.now()}_${candidateIndex++}`,
-        type: isService ? 'part' : (subclassName.toLowerCase().includes('compresor') || subclassName.toLowerCase().includes('air-end') ? 'equipment' : 'part'),
+        id: generateUUID(),
+        type: inferred.detectedType,
         itemCode,
         nameOrModel: `${subclassName}: ${bulletItems[0] || refacciones}`,
         description: refacciones,
         brand: currentClase.includes('Kaeser') ? 'Kaeser' : (currentClase.includes('Atlas') ? 'Atlas Copco' : 'Kaeser / Atlas Copco / MVL'),
-        category: currentClase,
-        subcategory: subclassName,
+        category: inferred.category,
+        subcategory: inferred.subcategory || subclassName,
         price: priceVal,
         currency: 'MXN',
-        stock: isService ? 99 : 5,
+        stock: 5,
         minStock: 2,
-        unit: isService ? 'servicio' : 'pza',
+        unit: 'pza',
         deliveryTime: 'Inmediata (Stock)',
         bulletItems,
-        notes: `Importado de Catálogo Compresores de Tornillo (${currentClase})`
+        notes: `Importado de Catálogo (${inferred.category})`
       });
       continue;
     }
 
-    // Pattern 3: Generalized line containing bullet points or tab-separated table
+    // Pattern 3: Generalized row with code or model, description, and price (supports multiple columns or spaces)
+    // Example: "1613-8107-00  Filtro de aire para compresor Atlas Copco  $1,850.00"
+    // Example: "VALV-001  Válvula termostática 71C  1,200.00"
+    const generalMatch = line.match(/^([A-Za-z0-9_.\-/]{2,25})\s{2,}(.+?)(?:\s+(?:USD|MXN)?\s*\$?\s*([\d,]+(?:\.\d{2})?))?$/);
+    if (generalMatch && generalMatch[2].length > 3) {
+      const itemCode = generalMatch[1].trim();
+      const descPart = generalMatch[2].trim();
+      const priceStr = generalMatch[3] ? generalMatch[3].replace(/,/g, '') : '0';
+      const priceVal = parseFloat(priceStr) || 0;
+
+      const bulletItems = descPart.split('•').map(s => s.trim()).filter(Boolean);
+      const inferred = inferCategoryFromProduct(descPart, '', itemCode, currentClase);
+
+      candidates.push({
+        id: generateUUID(),
+        type: inferred.detectedType,
+        itemCode,
+        nameOrModel: bulletItems[0] || descPart,
+        description: descPart,
+        brand: 'MVL / OEM',
+        category: inferred.category,
+        subcategory: inferred.subcategory,
+        price: priceVal,
+        currency: 'MXN',
+        stock: 5,
+        minStock: 1,
+        unit: 'pza',
+        deliveryTime: 'Inmediata (Stock)',
+        bulletItems,
+        notes: `Detectado de texto (${inferred.category})`
+      });
+      continue;
+    }
+
+    // Pattern 4: Generalized line containing bullet points or tab-separated table
     if (line.includes('\t') || (line.includes('•') && (line.includes('$') || /\d/.test(line)))) {
       const parts = line.split('\t').map(p => p.trim()).filter(Boolean);
       if (parts.length >= 2) {
@@ -490,16 +796,17 @@ export const parseCatalogText = (rawText: string): ParsedProductCandidate[] => {
         const priceStr = (parts[3] || '').replace(/[^\d.]/g, '');
         const priceVal = priceStr ? parseFloat(priceStr) : 0;
         const bulletItems = refacciones.split('•').map(s => s.trim()).filter(Boolean);
+        const inferred = inferCategoryFromProduct(subclassName, refacciones, itemCode, currentClase);
 
         candidates.push({
-          id: `parsed_gen_${Date.now()}_${candidateIndex++}`,
-          type: 'part',
-          itemCode: itemCode || `GEN-${Date.now().toString().slice(-4)}`,
+          id: generateUUID(),
+          type: inferred.detectedType,
+          itemCode: itemCode || `GEN-${Date.now().toString().slice(-4)}-${candidateIndex++}`,
           nameOrModel: `${subclassName}: ${bulletItems[0] || refacciones}`,
           description: refacciones,
           brand: 'MVL / OEM',
-          category: currentClase,
-          subcategory: subclassName,
+          category: inferred.category,
+          subcategory: inferred.subcategory || subclassName,
           price: priceVal,
           currency: 'MXN',
           stock: 5,
@@ -507,7 +814,7 @@ export const parseCatalogText = (rawText: string): ParsedProductCandidate[] => {
           unit: 'pza',
           deliveryTime: 'Inmediata (Stock)',
           bulletItems,
-          notes: `Detectado de texto tabular (${currentClase})`
+          notes: `Detectado de tabla (${inferred.category})`
         });
       }
     }
@@ -617,19 +924,26 @@ export const parseCatalogFromPdf = async (fileBuffer: ArrayBuffer): Promise<Pars
       const items = textContent.items as any[];
       if (!items || items.length === 0) continue;
 
-      // Group by approximate vertical position
-      const linesMap = new Map<number, string[]>();
+      // Group by approximate vertical position, preserving X coordinate
+      const linesMap = new Map<number, Array<{ x: number; str: string }>>();
       items.forEach(item => {
-        if (!item.str) return;
-        const y = Math.round(item.transform[5] / 4) * 4; // round to nearest 4px line
+        if (!item.str || !item.str.trim()) return;
+        const y = Math.round(item.transform[5] / 4) * 4;
+        const x = item.transform[4] || 0;
         const existing = linesMap.get(y) || [];
-        existing.push(item.str);
+        existing.push({ x, str: item.str });
         linesMap.set(y, existing);
       });
 
       // Sort lines top to bottom (descending Y)
       const sortedYs = Array.from(linesMap.keys()).sort((a, b) => b - a);
-      const pageText = sortedYs.map(y => (linesMap.get(y) || []).join('   ')).join('\n');
+      const pageLines = sortedYs.map(y => {
+        const lineItems = linesMap.get(y) || [];
+        // Sort left to right
+        lineItems.sort((a, b) => a.x - b.x);
+        return lineItems.map(i => i.str).join('   ');
+      });
+      const pageText = pageLines.join('\n');
 
       fullExtractedText += `\n--- PAGE ${pageNum} ---\n` + pageText;
     }

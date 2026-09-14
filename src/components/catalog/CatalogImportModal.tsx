@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
   Upload, FileSpreadsheet, FileText, Check, AlertTriangle, 
-  X, RefreshCw, Layers, Package, CheckCircle2, ChevronRight, HelpCircle
+  X, RefreshCw, Layers, Package, CheckCircle2, ChevronRight, HelpCircle, Tag
 } from 'lucide-react';
 import { CatalogItem } from '../../types';
 import { 
@@ -131,6 +131,19 @@ export default function CatalogImportModal({
     }
   };
 
+  const detectedCategoriesSummary = useMemo(() => {
+    const counts: Record<string, number> = {};
+    parsedRows.forEach(r => {
+      const cat = r.category || 'Sin Categoría';
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    return Object.entries(counts).map(([name, count]) => ({ name, count }));
+  }, [parsedRows]);
+
+  const handleRowCategoryChange = (idx: number, newCat: string) => {
+    setParsedRows(prev => prev.map((r, i) => i === idx ? { ...r, category: newCat } : r));
+  };
+
   const handleConfirmImport = () => {
     const selectedRows = parsedRows.filter((_, i) => selectedRowIndices.has(i));
     if (selectedRows.length === 0) {
@@ -138,30 +151,33 @@ export default function CatalogImportModal({
       return;
     }
 
-    const newCatalogItems: CatalogItem[] = selectedRows.map((row, idx) => ({
-      id: generateUUID(),
-      type: row.type || 'part',
-      itemCode: row.code?.trim() || `AUTO-${String(idx + 1).padStart(3, '0')}`,
-      nameOrModel: row.nameOrModel?.trim() || 'Sin modelo',
-      description: row.description || (row.bulletItems && row.bulletItems.length > 0 ? row.bulletItems.join(' • ') : ''),
-      brand: row.brand?.trim() || 'OEM / Universal',
-      category: row.category?.trim() || 'Catálogo General',
-      subcategory: row.subcategory,
-      bulletItems: row.bulletItems,
-      price: Number(row.price) || 0,
-      currency: row.currency || 'USD',
-      stock: row.stock !== undefined ? Number(row.stock) : (row.type === 'equipment' ? 1 : 5),
-      minStock: row.type === 'equipment' ? 1 : 2,
-      unit: row.unit || (row.type === 'equipment' ? 'equipo' : 'pza'),
-      clientName: 'General / Todos',
-      equipmentModel: '',
-      serialNumber: '',
-      location: 'Almacén Central',
-      deliveryTime: row.deliveryTime || 'Inmediata (Stock)',
-      isActive: true,
-      notes: `Importado de ${fileName || 'archivo/texto'} el ${new Date().toLocaleDateString('es-MX')}`,
-      createdAt: new Date().toISOString()
-    }));
+    const newCatalogItems: CatalogItem[] = selectedRows.map((row, idx) => {
+      const realCode = row.itemCode?.trim() || (row as any).code?.trim() || `ITM-${Date.now().toString().slice(-4)}-${String(idx + 1).padStart(3, '0')}`;
+      return {
+        id: generateUUID(),
+        type: row.type || 'part',
+        itemCode: realCode,
+        nameOrModel: row.nameOrModel?.trim() || 'Sin modelo',
+        description: row.description || (row.bulletItems && row.bulletItems.length > 0 ? row.bulletItems.join(' • ') : ''),
+        brand: row.brand?.trim() || 'OEM / Universal',
+        category: row.category?.trim() || 'Catálogo General',
+        subcategory: row.subcategory,
+        bulletItems: row.bulletItems,
+        price: Number(row.price) || 0,
+        currency: row.currency || 'USD',
+        stock: row.stock !== undefined ? Number(row.stock) : (row.type === 'equipment' ? 1 : 5),
+        minStock: row.type === 'equipment' ? 1 : 2,
+        unit: row.unit || (row.type === 'equipment' ? 'equipo' : 'pza'),
+        clientName: 'General / Todos',
+        equipmentModel: '',
+        serialNumber: '',
+        location: 'Almacén Central',
+        deliveryTime: row.deliveryTime || 'Inmediata (Stock)',
+        isActive: true,
+        notes: `Importado de ${fileName || 'archivo/texto'} el ${new Date().toLocaleDateString('es-MX')}`,
+        createdAt: new Date().toISOString()
+      };
+    });
 
     onImportItems(newCatalogItems, importMode);
     onClose();
@@ -354,6 +370,29 @@ F-01-01-002  Filtro deshidratador líquido              $850.00 USD
               </div>
             </div>
 
+            {/* Detected Categories Pill Summary */}
+            {detectedCategoriesSummary.length > 0 && (
+              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex flex-wrap gap-2 items-center">
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5 shrink-0">
+                  <Tag className="w-3.5 h-3.5 text-[#0196C1]" />
+                  Categorías identificadas ({detectedCategoriesSummary.length}):
+                </span>
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  {detectedCategoriesSummary.map(({ name, count }) => (
+                    <span 
+                      key={name} 
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 shadow-2xs"
+                    >
+                      <span className="truncate max-w-[200px]" title={name}>{name}</span>
+                      <span className="px-1.5 py-0.2 rounded-full bg-sky-100 text-[#0196C1] font-bold text-[10px]">
+                        {count}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Table */}
             <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl">
               <table className="w-full text-left text-xs border-collapse">
@@ -368,7 +407,7 @@ F-01-01-002  Filtro deshidratador líquido              $850.00 USD
                       />
                     </th>
                     <th className="py-2.5 px-3">Código</th>
-                    <th className="py-2.5 px-3">Clase / Categoría</th>
+                    <th className="py-2.5 px-3 min-w-[200px]">Clase / Categoría</th>
                     <th className="py-2.5 px-4">Descripción / Refacciones</th>
                     <th className="py-2.5 px-3 text-right">Precio</th>
                     <th className="py-2.5 px-3 text-center">Moneda</th>
@@ -378,6 +417,7 @@ F-01-01-002  Filtro deshidratador líquido              $850.00 USD
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {parsedRows.map((row, idx) => {
                     const isSelected = selectedRowIndices.has(idx);
+                    const codeDisplay = row.itemCode || (row as any).code || `ITM-${idx + 1}`;
                     return (
                       <tr 
                         key={idx}
@@ -395,14 +435,25 @@ F-01-01-002  Filtro deshidratador líquido              $850.00 USD
                           />
                         </td>
                         <td className="py-2.5 px-3 font-mono font-bold text-slate-800 text-xs">
-                          {row.code || 'AUTO'}
+                          {codeDisplay}
                         </td>
-                        <td className="py-2.5 px-3">
-                          <span className="font-bold text-slate-800 block text-[11px]">
-                            {row.category}
-                          </span>
+                        <td className="py-2.5 px-3" onClick={e => e.stopPropagation()}>
+                          <select
+                            value={row.category || ''}
+                            onChange={(e) => handleRowCategoryChange(idx, e.target.value)}
+                            className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:ring-1 focus:ring-[#0196C1] focus:border-[#0196C1] cursor-pointer truncate"
+                          >
+                            <option value={row.category}>{row.category} (Detectada)</option>
+                            {categories
+                              .filter(c => c.name !== row.category)
+                              .map(c => (
+                                <option key={c.id || c.code} value={c.name}>
+                                  {c.name}
+                                </option>
+                              ))}
+                          </select>
                           {row.subcategory && (
-                            <span className="text-[10px] text-slate-500">
+                            <span className="text-[10px] text-slate-500 block mt-0.5">
                               {row.subcategory}
                             </span>
                           )}

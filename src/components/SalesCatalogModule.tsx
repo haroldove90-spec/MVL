@@ -9,7 +9,7 @@ import {
   ToggleLeft, ToggleRight, CheckCircle2, AlertTriangle, Database, 
   RefreshCw, FileSpreadsheet, ArrowUpDown, Wrench, ShieldCheck, 
   ExternalLink, Building2, Tag, DollarSign, Check, X, Copy, ShoppingCart, 
-  Info, Upload, FolderTree, Sparkles, CheckSquare, Square
+  Info, Upload, FolderTree, Sparkles, CheckSquare, Square, RotateCcw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { CatalogItem, Client, CustomerKitItem } from '../types';
@@ -52,7 +52,7 @@ export default function SalesCatalogModule({
   onNavigateToKits,
   isAdmin = true
 }: SalesCatalogModuleProps) {
-  // --- Persistent items state with explicit empty catalog detection ---
+  // --- Persistent items state strictly derived from real data (no offline mock resurrected) ---
   const [items, setItems] = useState<CatalogItem[]>(() => {
     const isCleared = localStorage.getItem('mvl_sales_catalog_cleared') === 'true';
     if (isCleared) {
@@ -74,7 +74,7 @@ export default function SalesCatalogModule({
         }
       } catch (e) {}
     }
-    return loadFromStorage<CatalogItem[]>('mvl_sales_catalog', INITIAL_CATALOG_ITEMS);
+    return [];
   });
 
   useEffect(() => {
@@ -116,10 +116,10 @@ export default function SalesCatalogModule({
         return;
       }
 
-      const isCleared = localStorage.getItem('mvl_sales_catalog_cleared') === 'true';
+      setSupabaseStatus('connected');
       const deletedIds = getDeletedRecordIds();
 
-      if (data && data.length > 0) {
+      if (data && Array.isArray(data)) {
         const mapped: CatalogItem[] = data.map(r => ({
           id: r.id,
           type: r.type || 'part',
@@ -156,20 +156,13 @@ export default function SalesCatalogModule({
           return true;
         });
 
-        if (isCleared && activeItems.length === 0) {
-          setItems([]);
-          saveToStorage('mvl_sales_catalog', []);
-        } else if (!isCleared || activeItems.length > 0) {
-          setItems(activeItems);
-          saveToStorage('mvl_sales_catalog', activeItems);
+        setItems(activeItems);
+        saveToStorage('mvl_sales_catalog', activeItems);
+        if (activeItems.length === 0) {
+          localStorage.setItem('mvl_sales_catalog_cleared', 'true');
+        } else {
+          localStorage.removeItem('mvl_sales_catalog_cleared');
         }
-        setSupabaseStatus('connected');
-      } else {
-        if (isCleared) {
-          setItems([]);
-          saveToStorage('mvl_sales_catalog', []);
-        }
-        setSupabaseStatus('connected');
       }
     } catch (err: any) {
       console.warn('Could not load catalog_items from Supabase:', err);
@@ -177,9 +170,72 @@ export default function SalesCatalogModule({
     }
   };
 
+  // Fetch categories from Supabase on mount
+  const fetchCategoriesFromSupabase = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('catalog_categories')
+        .select('*')
+        .order('code', { ascending: true });
+
+      if (error) {
+        console.warn('Notice from Supabase catalog_categories:', error.message);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const mapped: CatalogCategory[] = data.map(r => ({
+          id: r.id,
+          code: r.code || '01',
+          name: r.name,
+          scope: r.scope || 'general',
+          subcategories: Array.isArray(r.subcategories) ? r.subcategories : [],
+          description: r.description || ''
+        }));
+        setCategories(mapped);
+        saveCatalogCategories(mapped);
+      } else {
+        // If table exists but is empty, seed initial standard categories into Supabase
+        const initialToSync = INITIAL_CATALOG_CATEGORIES.map(c => ({
+          id: ensureUUID(c.id),
+          code: c.code || '01',
+          name: c.name,
+          scope: c.scope || 'general',
+          subcategories: c.subcategories || [],
+          description: c.description || null
+        }));
+        const { error: seedErr } = await supabase.from('catalog_categories').insert(initialToSync);
+        if (!seedErr) {
+          const seeded = INITIAL_CATALOG_CATEGORIES.map(c => ({ ...c, id: ensureUUID(c.id) }));
+          setCategories(seeded);
+          saveCatalogCategories(seeded);
+        }
+      }
+    } catch (err) {
+      console.warn('Error loading catalog_categories from Supabase:', err);
+    }
+  };
+
   useEffect(() => {
     fetchCatalogFromSupabase();
+    fetchCategoriesFromSupabase();
   }, []);
+
+  // System Cache Purge handler requested by user
+  const handleClearSystemCache = async () => {
+    try {
+      localStorage.removeItem('mvl_sales_catalog');
+      localStorage.removeItem('mvl_catalog_categories');
+      localStorage.removeItem('mvl_deleted_records_tombstone');
+      localStorage.removeItem('mvl_sales_catalog_cleared');
+      sessionStorage.clear();
+    } catch (e) {}
+
+    showFeedback('Limpiando caché local y reconectando a Supabase...', 'info');
+    await fetchCatalogFromSupabase();
+    await fetchCategoriesFromSupabase();
+    showFeedback('¡Caché purgada! Mostrando en tiempo real los registros reales de Supabase.', 'success');
+  };
 
   // Sync current catalog to Supabase
   const syncToSupabase = async () => {
@@ -645,6 +701,47 @@ export default function SalesCatalogModule({
       `¡Importación exitosa! ${importedRows.length} registros procesados e integrados al catálogo.`
     );
 
+    // Extract unique categories and ensure they are registered in Supabase catalog_categories
+    const importedCatNames = Array.from(new Set(sanitizedImported.map(i => i.category?.trim()).filter(Boolean)));
+    const newCatsToCreate: CatalogCategory[] = [];
+
+    importedCatNames.forEach(catName => {
+      const exists = categories.some(c => c.name.toLowerCase() === catName.toLowerCase());
+      if (!exists && !newCatsToCreate.some(c => c.name.toLowerCase() === catName.toLowerCase())) {
+        const numMatch = catName.match(/\b(\d{1,2})\b/);
+        const code = numMatch ? numMatch[1].padStart(2, '0') : String(categories.length + newCatsToCreate.length + 1).padStart(2, '0');
+        newCatsToCreate.push({
+          id: generateUUID(),
+          code,
+          name: catName,
+          scope: 'general',
+          subcategories: [],
+          description: `Categoría creada automáticamente desde catálogo importado`
+        });
+      }
+    });
+
+    if (newCatsToCreate.length > 0) {
+      const updatedCategories = [...categories, ...newCatsToCreate];
+      setCategories(updatedCategories);
+      saveCatalogCategories(updatedCategories);
+
+      // Persist new categories into Supabase catalog_categories table
+      try {
+        const catRows = newCatsToCreate.map(c => ({
+          id: c.id,
+          code: c.code,
+          name: c.name,
+          scope: c.scope,
+          subcategories: c.subcategories || [],
+          description: c.description || null
+        }));
+        await supabase.from('catalog_categories').insert(catRows);
+      } catch (catErr) {
+        console.warn('Notice syncing categories to Supabase catalog_categories:', catErr);
+      }
+    }
+
     // Sync to Supabase in background
     try {
       const dbRows = newFullList.map(item => ({
@@ -673,13 +770,17 @@ export default function SalesCatalogModule({
         notes: item.notes || ''
       }));
 
-      await supabase.from('catalog_items').delete().neq('name_or_model', '___NONE___');
+      if (importMode === 'replace') {
+        await supabase.from('catalog_items').delete().neq('name_or_model', '___NONE___');
+      }
       
       const CHUNK_SIZE = 50;
       for (let i = 0; i < dbRows.length; i += CHUNK_SIZE) {
         const chunk = dbRows.slice(i, i + CHUNK_SIZE);
-        const { error } = await supabase.from('catalog_items').insert(chunk);
-        if (error) throw error;
+        const { error } = await supabase.from('catalog_items').upsert(chunk, { onConflict: 'id' });
+        if (error) {
+          await supabase.from('catalog_items').insert(chunk);
+        }
       }
       setSupabaseStatus('connected');
     } catch (e: any) {
@@ -974,6 +1075,16 @@ export default function SalesCatalogModule({
           >
             <Trash2 className="w-3.5 h-3.5 text-rose-600" />
             <span>Borrado Global</span>
+          </button>
+
+          {/* Botón Borrar Caché Local / Forzar Supabase */}
+          <button
+            onClick={handleClearSystemCache}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold rounded-xl shadow-xs cursor-pointer transition-colors"
+            title="Borrar memoria caché local del navegador y recargar directamente desde Supabase en tiempo real"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+            <span>Borrar Caché</span>
           </button>
 
           {/* 2. Importar PDF o Excel Inteligente */}
