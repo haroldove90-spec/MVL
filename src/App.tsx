@@ -596,6 +596,7 @@ export default function App() {
                     clients={clients}
                     setClients={setClients}
                     equipment={equipment}
+                    setEquipment={setEquipment}
                     workOrders={workOrders}
                     setWorkOrders={setWorkOrders}
                     purchaseOrders={purchaseOrders}

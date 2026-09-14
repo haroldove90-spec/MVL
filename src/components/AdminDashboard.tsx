@@ -6,14 +6,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Staff, InventoryItem, Client, Equipment, WorkOrder, PurchaseOrder, ExpenseControl } from '../types';
 import { supabase } from '../lib/supabase';
-import { INITIAL_EXPENSE_CONTROL, loadFromStorage, saveToStorage } from '../mockData';
+import { INITIAL_EXPENSE_CONTROL, loadFromStorage, saveToStorage, markRecordAsDeleted, clearSystemCache } from '../mockData';
 import { 
   Users, DollarSign, Package, Award, Plus, Trash2, 
   CheckCircle, XCircle, Tag, Layers, TrendingUp, TrendingDown,
-  ShieldCheck, AlertTriangle, Building, Activity, FileText, Search, Edit2, Eye, RefreshCw,
-  BookOpen, HelpCircle, Lightbulb, PlayCircle, CheckCircle2, ChevronRight, Info, Building2
+  ShieldCheck, AlertTriangle, Building, Activity, FileText, Search, Edit2, Edit, X, Eye, RefreshCw,
+  BookOpen, HelpCircle, Lightbulb, PlayCircle, CheckCircle2, ChevronRight, Info, Building2,
+  Power, PowerOff
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import SalesCatalogModule from './SalesCatalogModule';
 interface AdminDashboardProps {
   staff: Staff[];
   setStaff: React.Dispatch<React.SetStateAction<Staff[]>>;
@@ -22,6 +24,7 @@ interface AdminDashboardProps {
   clients: Client[];
   setClients: React.Dispatch<React.SetStateAction<Client[]>>;
   equipment: Equipment[];
+  setEquipment?: React.Dispatch<React.SetStateAction<Equipment[]>>;
   workOrders?: WorkOrder[];
   setWorkOrders?: React.Dispatch<React.SetStateAction<WorkOrder[]>>;
   purchaseOrders?: PurchaseOrder[];
@@ -38,6 +41,7 @@ export default function AdminDashboard({
   clients,
   setClients,
   equipment,
+  setEquipment,
   workOrders = [],
   setWorkOrders,
   purchaseOrders = [],
@@ -49,6 +53,9 @@ export default function AdminDashboard({
   const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial'>('financial');
   const activeTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
   const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
+
+  // Catalog subtab: Sales Catalog vs Quick Brands
+  const [catalogSubTab, setCatalogSubTab] = useState<'sales_catalog' | 'brands'>('sales_catalog');
 
   // Pro features states: tracked invoice list
   const [invoicedOrders, setInvoicedOrders] = useState<string[]>(['ot4']);
@@ -225,6 +232,62 @@ export default function AdminDashboard({
     setFormExpSavings(computedSavings);
   }, [formExpUtility]);
 
+  // Global Editing & Deletion Admin States
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [editingPart, setEditingPart] = useState<InventoryItem | null>(null);
+  const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
+  const [viewingRecord, setViewingRecord] = useState<{ title?: string; type: string; data: Record<string, any> } | null>(null);
+
+  // Deletion helper for global administrative operations
+  const handleAdminDelete = async (type: 'client' | 'staff' | 'inventory' | 'equipment' | 'plant' | 'contact', id: string, name?: string, extraId?: string) => {
+    const label = name ? `"${name}"` : id;
+    if (!confirm(`¿Está seguro de eliminar permanentemente el registro ${label}? Ya no se volverá a mostrar en el sistema ni en la base de datos.`)) {
+      return;
+    }
+
+    markRecordAsDeleted(id);
+
+    if (type === 'client') {
+      setClients(prev => prev.filter(c => c.id !== id));
+      if (selectedCrmClientId === id) {
+        setSelectedCrmClientId('');
+      }
+      try {
+        await supabase.from('clients').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase delete error:', err);
+      }
+    } else if (type === 'staff') {
+      setStaff(prev => prev.filter(s => s.id !== id));
+      try {
+        await supabase.from('staff').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase delete error:', err);
+      }
+    } else if (type === 'inventory') {
+      setInventory(prev => prev.filter(i => i.id !== id));
+      try {
+        await supabase.from('inventory').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase delete error:', err);
+      }
+    } else if (type === 'equipment') {
+      if (setEquipment) {
+        setEquipment(prev => prev.filter(e => e.id !== id));
+      }
+      try {
+        await supabase.from('equipment').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase delete error:', err);
+      }
+    } else if (type === 'plant' && extraId) {
+      setClients(prev => prev.map(c => c.id === extraId ? { ...c, plants: c.plants.filter(p => p.id !== id) } : c));
+    } else if (type === 'contact' && extraId) {
+      setClients(prev => prev.map(c => c.id === extraId ? { ...c, contacts: c.contacts.filter(ct => ct.name !== id) } : c));
+    }
+  };
+
   const handleOpenCreateExp = () => {
     setFormExpDescription('');
     setFormExpClientName('');
@@ -336,7 +399,8 @@ export default function AdminDashboard({
   };
 
   const handleDeleteExpense = async (id: string) => {
-    if (confirm('¿Está seguro de eliminar este registro de control de gastos?')) {
+    if (confirm('¿Está seguro de eliminar este registro de control de gastos? Ya no se volverá a mostrar en el sistema ni en la base de datos.')) {
+      markRecordAsDeleted(id);
       const updatedList = expensesList.filter(item => item.id !== id);
       setExpensesList(updatedList);
       saveToStorage('mvl_expense_control', updatedList);
@@ -608,9 +672,15 @@ export default function AdminDashboard({
   };
 
   const handleDeletePo = (id: string) => {
-    if (confirm('¿Está seguro de eliminar este registro de orden de compra?')) {
+    if (confirm('¿Está seguro de eliminar este registro de orden de compra? Ya no se volverá a mostrar en el sistema ni en la base de datos.')) {
+      markRecordAsDeleted(id);
       if (setPurchaseOrders) {
         setPurchaseOrders(prev => prev.filter(item => item.id !== id));
+      }
+      try {
+        supabase.from('purchase_orders').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase PO delete error:', err);
       }
     }
   };
@@ -715,8 +785,16 @@ export default function AdminDashboard({
   };
 
   // Delete staff
-  const deleteStaff = (id: string) => {
-    setStaff(prev => prev.filter(s => s.id !== id));
+  const deleteStaff = async (id: string) => {
+    if (confirm('¿Está seguro de eliminar a este colaborador? Ya no se volverá a mostrar en el sistema ni en la base de datos.')) {
+      markRecordAsDeleted(id);
+      setStaff(prev => prev.filter(s => s.id !== id));
+      try {
+        await supabase.from('staff').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase staff delete error:', err);
+      }
+    }
   };
 
   // Add parts handler with duplicate detection
@@ -767,8 +845,16 @@ export default function AdminDashboard({
   };
 
   // Delete spare part
-  const deletePart = (id: string) => {
-    setInventory(prev => prev.filter(i => i.id !== id));
+  const deletePart = async (id: string) => {
+    if (confirm('¿Está seguro de eliminar esta refacción? Ya no se volverá a mostrar en el sistema ni en la base de datos.')) {
+      markRecordAsDeleted(id);
+      setInventory(prev => prev.filter(i => i.id !== id));
+      try {
+        await supabase.from('inventory').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase inventory delete error:', err);
+      }
+    }
   };
 
   // Add Brand
@@ -800,9 +886,23 @@ export default function AdminDashboard({
                 Aprende a gestionar todas las funciones clave del sistema MVL Control: desde la rentabilidad financiera y el personal, hasta el control de inventarios, órdenes de compra y gastos.
               </p>
             </div>
-            <div className="bg-white/10 px-4 py-2.5 rounded-xl border border-white/10 backdrop-blur-xs text-right">
-              <span className="block text-[10px] text-slate-300 uppercase tracking-wider font-semibold">Perfil Activo</span>
-              <span className="text-sm font-bold text-sky-400">Administrador General</span>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <button
+                onClick={() => {
+                  if (confirm('¿Desea vaciar la memoria caché del sistema y recargar la aplicación? Esto actualizará todos los módulos y listas con los datos frescos.')) {
+                    clearSystemCache();
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
+                title="Borrar caché de almacenamiento local y recargar"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Borrar Caché del Sistema</span>
+              </button>
+              <div className="bg-white/10 px-4 py-2.5 rounded-xl border border-white/10 backdrop-blur-xs text-right">
+                <span className="block text-[10px] text-slate-300 uppercase tracking-wider font-semibold">Perfil Activo</span>
+                <span className="text-sm font-bold text-sky-400">Administrador General</span>
+              </div>
             </div>
           </div>
 
@@ -1561,7 +1661,21 @@ export default function AdminDashboard({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setViewingRecord({ type: 'Colaborador', data: member })}
+                      className="p-1.5 text-slate-400 hover:text-[#0196C1] transition-colors cursor-pointer"
+                      title="Ver Detalles"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setEditingStaff(member)}
+                      className="p-1.5 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer"
+                      title="Editar Colaborador"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => toggleStaffStatus(member.id)}
                       className={`px-2 py-1 text-[10px] font-bold rounded-full transition-all cursor-pointer ${
@@ -1569,13 +1683,14 @@ export default function AdminDashboard({
                           ? 'bg-emerald-50 text-emerald-700 hover:bg-rose-50 hover:text-rose-700' 
                           : 'bg-slate-100 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700'
                       }`}
+                      title={member.active ? 'Desactivar / Dar de baja' : 'Activar'}
                     >
                       {member.active ? 'Activo' : 'Baja'}
                     </button>
                     <button
                       onClick={() => deleteStaff(member.id)}
                       className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                      title="Eliminar"
+                      title="Eliminar Colaborador"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1589,67 +1704,93 @@ export default function AdminDashboard({
 
       {/* --- Tab 3: Catalogs --- */}
       {activeTab === 'catalog' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Brands list */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
-            <h3 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-1.5">
-              <Tag className="w-4 h-4 text-[#0196C1]" />
-              Catálogo Global de Marcas
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">Marcas industriales autorizadas en la maquinaria del cliente.</p>
-            
-            <form onSubmit={handleAddBrand} className="flex gap-2 mb-4">
-              <input
-                type="text"
-                placeholder="ej. Gardner Denver"
-                value={newBrand}
-                onChange={(e) => setNewBrand(e.target.value)}
-                className="flex-1 text-xs px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0196C1]"
-              />
-              <button
-                type="submit"
-                className="px-4 py-1.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-lg cursor-pointer"
-              >
-                Agregar
-              </button>
-            </form>
+        <div className="space-y-4">
+          {/* Subtab navigation */}
+          <div className="flex bg-slate-100 p-1 rounded-xl max-w-xl">
+            <button
+              onClick={() => setCatalogSubTab('sales_catalog')}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer text-center ${
+                catalogSubTab === 'sales_catalog' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              Catálogo de Ventas (Equipos, Refacciones & Clases)
+            </button>
+            <button
+              onClick={() => setCatalogSubTab('brands')}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer text-center ${
+                catalogSubTab === 'brands' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              Marcas & Tarifas Rápidas
+            </button>
+          </div>
 
-            <div className="flex flex-wrap gap-2">
-              {brands.map((brand) => (
-                <div key={brand} className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-50 border border-slate-200 text-xs font-medium rounded-full text-slate-700">
-                  {brand}
+          {catalogSubTab === 'sales_catalog' ? (
+            <SalesCatalogModule clients={clients} isAdmin={true} />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Brands list */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
+                <h3 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-1.5">
+                  <Tag className="w-4 h-4 text-[#0196C1]" />
+                  Catálogo Global de Marcas
+                </h3>
+                <p className="text-xs text-slate-400 mb-4">Marcas industriales autorizadas en la maquinaria del cliente.</p>
+                
+                <form onSubmit={handleAddBrand} className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    placeholder="ej. Gardner Denver"
+                    value={newBrand}
+                    onChange={(e) => setNewBrand(e.target.value)}
+                    className="flex-1 text-xs px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0196C1]"
+                  />
                   <button
-                    type="button"
-                    onClick={() => handleDeleteBrand(brand)}
-                    className="text-slate-400 hover:text-rose-600 font-bold ml-1 text-[11px]"
+                    type="submit"
+                    className="px-4 py-1.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-lg cursor-pointer"
                   >
-                    ×
+                    Agregar
                   </button>
-                </div>
-              ))}
-            </div>
-          </div>
+                </form>
 
-          {/* Quick Price List view */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
-            <h3 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-1.5">
-              <Layers className="w-4 h-4 text-[#0196C1]" />
-              Tarifas de Componentes y Consumibles
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">Precios de venta de las piezas más comunes cambiadas en sitio.</p>
-
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {inventory.map((item) => (
-                <div key={item.id} className="flex items-center justify-between text-xs p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                  <div>
-                    <p className="font-bold text-slate-800">{item.name}</p>
-                    <p className="text-[10px] text-slate-400 uppercase font-semibold">{item.code} • {item.category}</p>
-                  </div>
-                  <span className="font-bold text-[#0196C1]">${item.price.toLocaleString('es-MX')} MXN</span>
+                <div className="flex flex-wrap gap-2">
+                  {brands.map((brand) => (
+                    <div key={brand} className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-50 border border-slate-200 text-xs font-medium rounded-full text-slate-700">
+                      {brand}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBrand(brand)}
+                        className="text-slate-400 hover:text-rose-600 font-bold ml-1 text-[11px]"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {/* Quick Price List view */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
+                <h3 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-[#0196C1]" />
+                  Tarifas de Componentes y Consumibles
+                </h3>
+                <p className="text-xs text-slate-400 mb-4">Precios de venta de las piezas más comunes cambiadas en sitio.</p>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {inventory.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between text-xs p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                      <div>
+                        <p className="font-bold text-slate-800">{item.name}</p>
+                        <p className="text-[10px] text-slate-400 uppercase font-semibold">{item.code} • {item.category}</p>
+                      </div>
+                      <span className="font-bold text-[#0196C1]">${item.price.toLocaleString('es-MX')} MXN</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -1867,18 +2008,34 @@ export default function AdminDashboard({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       <div className="text-right">
                         <p className="font-semibold">Stock: {item.stock} pzas</p>
                         <p className="text-[10px] text-slate-400">Min. req: {item.minStock} | ${item.price?.toLocaleString('es-MX')} MXN</p>
                       </div>
-                      <button
-                        onClick={() => deletePart(item.id)}
-                        className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                        title="Eliminar refacción"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setViewingRecord({ type: 'Refacción / Inventario', data: item })}
+                          className="p-1.5 text-slate-400 hover:text-[#0196C1] transition-colors cursor-pointer"
+                          title="Ver detalles"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setEditingPart(item)}
+                          className="p-1.5 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer"
+                          title="Editar refacción"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => deletePart(item.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          title="Eliminar refacción"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1985,8 +2142,35 @@ export default function AdminDashboard({
                         : 'bg-slate-50 border-slate-100 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <p className="font-bold">{c.name}</p>
-                    <p className="text-[10px] text-slate-400 font-semibold">{c.companyName}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold">{c.name}</p>
+                        <p className="text-[10px] text-slate-400 font-semibold">{c.companyName}</p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => setViewingRecord({ type: 'Cliente CRM', data: c })}
+                          className="p-1 text-slate-400 hover:text-[#0196C1] transition-colors cursor-pointer"
+                          title="Ver Cliente"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setEditingClient(c)}
+                          className="p-1 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer"
+                          title="Editar Cliente"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleAdminDelete('client', c.id, c.companyName)}
+                          className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          title="Eliminar Cliente"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
                     <div className="flex justify-between items-center mt-2 pt-1 border-t border-slate-200/40 text-[9px] text-slate-500">
                       <span>RFC: {c.rfc}</span>
                       <span className="bg-[#0196C1]/10 text-[#0196C1] px-1.5 py-0.5 rounded font-bold uppercase">
@@ -2006,8 +2190,38 @@ export default function AdminDashboard({
                 {/* Client Main Summary Card */}
                 <div className="bg-[#282829] text-white p-6 rounded-2xl border-b-4 border-[#0196C1] space-y-2 relative overflow-hidden">
                   <div className="absolute right-4 top-4 text-white/5 font-extrabold text-7xl select-none">CRM</div>
-                  <h2 className="text-base font-extrabold text-[#0196C1] uppercase tracking-wide">{activeCrmClient.companyName}</h2>
-                  <p className="text-xs text-slate-300 font-medium">RFC: {activeCrmClient.rfc} • Teléfono: {activeCrmClient.phone} • Email: {activeCrmClient.email}</p>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
+                    <div>
+                      <h2 className="text-base font-extrabold text-[#0196C1] uppercase tracking-wide">{activeCrmClient.companyName}</h2>
+                      <p className="text-xs text-slate-300 font-medium">RFC: {activeCrmClient.rfc} • Teléfono: {activeCrmClient.phone} • Email: {activeCrmClient.email}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => setViewingRecord({ type: 'Cliente CRM', data: activeCrmClient })}
+                        className="px-3 py-1.5 bg-white/10 hover:bg-[#0196C1] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                        title="Ver Ficha Completa"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Ver
+                      </button>
+                      <button
+                        onClick={() => setEditingClient(activeCrmClient)}
+                        className="px-3 py-1.5 bg-white/10 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                        title="Editar Cliente"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleAdminDelete('client', activeCrmClient.id, activeCrmClient.companyName)}
+                        className="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                        title="Eliminar Cliente"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Grid for Plants and Contacts */}
@@ -2026,9 +2240,28 @@ export default function AdminDashboard({
                         <p className="text-slate-400 italic text-[10px]">No hay sucursales/plantas registradas.</p>
                       ) : (
                         activeCrmClient.plants.map((p) => (
-                          <div key={p.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-[10px]">
-                            <p className="font-bold text-slate-800">{p.name}</p>
-                            <p className="text-slate-500">{p.address}, {p.city}</p>
+                          <div key={p.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-[10px] flex items-center justify-between gap-2">
+                            <div>
+                              <p className="font-bold text-slate-800">{p.name}</p>
+                              <p className="text-slate-500">{p.address}, {p.city}</p>
+                            </div>
+                            <button
+                              onClick={() => {
+                                if (confirm(`¿Eliminar la sucursal "${p.name}"?`)) {
+                                  setClients(prev => prev.map(c => {
+                                    if (c.id !== activeCrmClient.id) return c;
+                                    return {
+                                      ...c,
+                                      plants: c.plants.filter(pl => pl.id !== p.id)
+                                    };
+                                  }));
+                                }
+                              }}
+                              className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                              title="Eliminar Sucursal"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         ))
                       )}
@@ -2084,10 +2317,29 @@ export default function AdminDashboard({
                         <p className="text-slate-400 italic text-[10px]">No hay contactos registrados.</p>
                       ) : (
                         activeCrmClient.contacts.map((contact, idx) => (
-                          <div key={idx} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-[10px] space-y-0.5">
-                            <p className="font-bold text-slate-800">{contact.name}</p>
-                            <p className="text-[#0196C1] font-semibold">{contact.role}</p>
-                            <p className="text-slate-500">Tel: {contact.phone} • Email: {contact.email}</p>
+                          <div key={idx} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-[10px] flex items-center justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <p className="font-bold text-slate-800">{contact.name}</p>
+                              <p className="text-[#0196C1] font-semibold">{contact.role}</p>
+                              <p className="text-slate-500">Tel: {contact.phone} • Email: {contact.email}</p>
+                            </div>
+                            <button
+                              onClick={() => {
+                                if (confirm(`¿Eliminar al contacto "${contact.name}"?`)) {
+                                  setClients(prev => prev.map(c => {
+                                    if (c.id !== activeCrmClient.id) return c;
+                                    return {
+                                      ...c,
+                                      contacts: c.contacts.filter((_, i) => i !== idx)
+                                    };
+                                  }));
+                                }
+                              }}
+                              className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                              title="Eliminar Contacto"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         ))
                       )}
@@ -2156,13 +2408,51 @@ export default function AdminDashboard({
                         <div key={eq.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[10px] space-y-1">
                           <div className="flex justify-between items-center">
                             <p className="font-bold text-slate-800">{eq.name}</p>
-                            <span className={`px-2 py-0.2 text-[8px] font-bold rounded-full uppercase ${
-                              eq.status === 'active' ? 'bg-emerald-50 text-emerald-700' :
-                              eq.status === 'warning' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'
-                            }`}>
-                              {eq.status === 'active' ? 'Operando' :
-                               eq.status === 'warning' ? 'Alerta' : 'Mto.'}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`px-2 py-0.5 text-[8px] font-bold rounded-full uppercase ${
+                                eq.status === 'active' ? 'bg-emerald-50 text-emerald-700' :
+                                eq.status === 'warning' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'
+                              }`}>
+                                {eq.status === 'active' ? 'Operando' :
+                                 eq.status === 'warning' ? 'Alerta' : 'Mto.'}
+                              </span>
+                              <button
+                                onClick={() => setViewingRecord({ type: 'Equipo / Compresor', data: eq })}
+                                className="p-1 text-slate-400 hover:text-[#0196C1] transition-colors cursor-pointer"
+                                title="Ver Detalles del Equipo"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setEditingEquipment(eq)}
+                                className="p-1 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer"
+                                title="Editar Equipo"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const nextStatus: Record<string, 'active' | 'warning' | 'critical'> = {
+                                    active: 'warning',
+                                    warning: 'critical',
+                                    critical: 'active',
+                                  };
+                                  const updatedStatus = nextStatus[eq.status] || 'active';
+                                  setEquipment(prev => prev.map(e => e.id === eq.id ? { ...e, status: updatedStatus } : e));
+                                }}
+                                className="p-1 text-slate-400 hover:text-sky-600 transition-colors cursor-pointer"
+                                title="Cambiar Estado Operativo"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleAdminDelete('equipment', eq.id, eq.name)}
+                                className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                title="Eliminar Equipo"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                           <p className="text-slate-400 uppercase font-semibold">{eq.brand} {eq.model} • S/N: {eq.serialNumber}</p>
                           <p className="text-slate-500">Capacidad: {eq.capacity} • Aceite: {eq.oilType}</p>
@@ -3359,6 +3649,474 @@ export default function AdminDashboard({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* GLOBAL MODALS FOR ADMIN CRUD: VIEW & EDIT (Clients, Staff, Parts, Equipment) */}
+      {/* ========================================================================= */}
+
+      {/* 1. Modal: View Record */}
+      {viewingRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden text-slate-800">
+            <div className="p-4 bg-slate-900 text-white flex justify-between items-center border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Eye className="w-5 h-5 text-[#0196C1]" />
+                <h3 className="font-bold text-sm">Detalles del Registro ({viewingRecord.type})</h3>
+              </div>
+              <button
+                onClick={() => setViewingRecord(null)}
+                className="p-1 hover:bg-white/10 rounded-lg transition-colors cursor-pointer text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 max-h-[75vh] overflow-y-auto space-y-3 text-xs">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 space-y-2">
+                {Object.entries(viewingRecord.data).map(([k, val]) => {
+                  if (typeof val === 'object' && val !== null) {
+                    return (
+                      <div key={k} className="pt-2 border-t border-slate-200/50">
+                        <span className="font-bold uppercase text-[10px] text-slate-400 block">{k}</span>
+                        <pre className="text-[10px] bg-white p-2 rounded border border-slate-100 mt-1 overflow-x-auto font-mono text-slate-600">
+                          {JSON.stringify(val, null, 2)}
+                        </pre>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={k} className="flex justify-between items-center py-1 border-b border-slate-100 last:border-0">
+                      <span className="font-bold text-[10px] text-slate-400 uppercase">{k}:</span>
+                      <span className="font-semibold text-slate-700 max-w-[280px] truncate text-right">
+                        {String(val)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setViewingRecord(null)}
+                className="px-4 py-2 bg-[#282829] hover:bg-slate-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
+              >
+                Cerrar Detalle
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Modal: Edit Client */}
+      {editingClient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-100 overflow-hidden text-slate-800">
+            <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <Edit className="w-4 h-4 text-amber-400" />
+                Editar Cliente Comercial
+              </h3>
+              <button
+                onClick={() => setEditingClient(null)}
+                className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setClients(prev => prev.map(c => c.id === editingClient.id ? editingClient : c));
+                setEditingClient(null);
+              }}
+              className="p-5 space-y-3 text-xs"
+            >
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Razón Social</label>
+                <input
+                  type="text"
+                  required
+                  value={editingClient.companyName}
+                  onChange={(e) => setEditingClient({ ...editingClient, companyName: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombre Comercial</label>
+                <input
+                  type="text"
+                  required
+                  value={editingClient.name}
+                  onChange={(e) => setEditingClient({ ...editingClient, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">RFC</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingClient.rfc}
+                    onChange={(e) => setEditingClient({ ...editingClient, rfc: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Teléfono</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingClient.phone}
+                    onChange={(e) => setEditingClient({ ...editingClient, phone: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={editingClient.email}
+                  onChange={(e) => setEditingClient({ ...editingClient, email: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingClient(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-lg cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white font-bold rounded-lg cursor-pointer"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Modal: Edit Staff */}
+      {editingStaff && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-100 overflow-hidden text-slate-800">
+            <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <Edit className="w-4 h-4 text-amber-400" />
+                Editar Colaborador
+              </h3>
+              <button
+                onClick={() => setEditingStaff(null)}
+                className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setStaff(prev => prev.map(s => s.id === editingStaff.id ? editingStaff : s));
+                setEditingStaff(null);
+              }}
+              className="p-5 space-y-3 text-xs"
+            >
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombre Completo</label>
+                <input
+                  type="text"
+                  required
+                  value={editingStaff.name}
+                  onChange={(e) => setEditingStaff({ ...editingStaff, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Rol Operativo</label>
+                  <select
+                    value={editingStaff.role}
+                    onChange={(e) => setEditingStaff({ ...editingStaff, role: e.target.value as any })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  >
+                    <option value="technician">Técnico de Campo</option>
+                    <option value="coordinator">Coordinador</option>
+                    <option value="admin">Administrador</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Teléfono</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingStaff.phone}
+                    onChange={(e) => setEditingStaff({ ...editingStaff, phone: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Correo Electrónico</label>
+                <input
+                  type="email"
+                  required
+                  value={editingStaff.email}
+                  onChange={(e) => setEditingStaff({ ...editingStaff, email: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingStaff(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-lg cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white font-bold rounded-lg cursor-pointer"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Modal: Edit Inventory Part */}
+      {editingPart && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-100 overflow-hidden text-slate-800">
+            <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <Edit className="w-4 h-4 text-amber-400" />
+                Editar Refacción / Stock
+              </h3>
+              <button
+                onClick={() => setEditingPart(null)}
+                className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setInventory(prev => prev.map(p => p.id === editingPart.id ? editingPart : p));
+                setEditingPart(null);
+              }}
+              className="p-5 space-y-3 text-xs"
+            >
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombre Refacción</label>
+                <input
+                  type="text"
+                  required
+                  value={editingPart.name}
+                  onChange={(e) => setEditingPart({ ...editingPart, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Código / Referencia</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingPart.code}
+                    onChange={(e) => setEditingPart({ ...editingPart, code: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Marca</label>
+                  <input
+                    type="text"
+                    value={editingPart.brand || ''}
+                    onChange={(e) => setEditingPart({ ...editingPart, brand: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Stock Actual</label>
+                  <input
+                    type="number"
+                    required
+                    value={editingPart.stock}
+                    onChange={(e) => setEditingPart({ ...editingPart, stock: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Mínimo Req.</label>
+                  <input
+                    type="number"
+                    required
+                    value={editingPart.minStock}
+                    onChange={(e) => setEditingPart({ ...editingPart, minStock: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Precio MXN</label>
+                  <input
+                    type="number"
+                    value={editingPart.price || 0}
+                    onChange={(e) => setEditingPart({ ...editingPart, price: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingPart(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-lg cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white font-bold rounded-lg cursor-pointer"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Modal: Edit Equipment */}
+      {editingEquipment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-100 overflow-hidden text-slate-800">
+            <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <Edit className="w-4 h-4 text-amber-400" />
+                Editar Compresor / Equipo
+              </h3>
+              <button
+                onClick={() => setEditingEquipment(null)}
+                className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setEquipment(prev => prev.map(eq => eq.id === editingEquipment.id ? editingEquipment : eq));
+                setEditingEquipment(null);
+              }}
+              className="p-5 space-y-3 text-xs"
+            >
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombre del Equipo</label>
+                <input
+                  type="text"
+                  required
+                  value={editingEquipment.name}
+                  onChange={(e) => setEditingEquipment({ ...editingEquipment, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Marca</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingEquipment.brand}
+                    onChange={(e) => setEditingEquipment({ ...editingEquipment, brand: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Modelo</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingEquipment.model}
+                    onChange={(e) => setEditingEquipment({ ...editingEquipment, model: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Número de Serie</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingEquipment.serialNumber}
+                    onChange={(e) => setEditingEquipment({ ...editingEquipment, serialNumber: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Capacidad / HP</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingEquipment.capacity}
+                    onChange={(e) => setEditingEquipment({ ...editingEquipment, capacity: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Horómetro (Hrs)</label>
+                  <input
+                    type="number"
+                    required
+                    value={editingEquipment.engineHours}
+                    onChange={(e) => setEditingEquipment({ ...editingEquipment, engineHours: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Estado</label>
+                  <select
+                    value={editingEquipment.status}
+                    onChange={(e) => setEditingEquipment({ ...editingEquipment, status: e.target.value as any })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  >
+                    <option value="active">Operando Normal (Activo)</option>
+                    <option value="warning">Alerta de Horas (Warning)</option>
+                    <option value="critical">En Mantenimiento (Crítico)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingEquipment(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold rounded-lg cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white font-bold rounded-lg cursor-pointer"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

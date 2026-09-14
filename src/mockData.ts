@@ -1878,12 +1878,67 @@ export const INITIAL_CATALOG_ITEMS: CatalogItem[] = [
   }
 ];
 
-// LocalStorage helpers
+// Tombstone blacklist of deleted records (prevents deleted sample/demo records from resurrecting)
+export const getDeletedRecordIds = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem('mvl_deleted_record_ids');
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch (e) {
+    return new Set();
+  }
+};
+
+export const markRecordAsDeleted = (id: string): void => {
+  try {
+    const set = getDeletedRecordIds();
+    set.add(id);
+    localStorage.setItem('mvl_deleted_record_ids', JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.error('Error recording deleted record id:', e);
+  }
+};
+
+export const clearSystemCache = (reload: boolean = true): void => {
+  // Clears all application cache and data from localStorage
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('mvl_')) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach(k => localStorage.removeItem(k));
+  // Clear full storage to ensure zero stale cache
+  localStorage.clear();
+
+  if (reload && typeof window !== 'undefined') {
+    window.location.reload();
+  }
+};
+
+// LocalStorage helpers with automatic deleted id exclusion
 export const loadFromStorage = <T>(key: string, defaultValue: T): T => {
   const data = localStorage.getItem(key);
-  if (!data) return defaultValue;
+  const deletedIds = getDeletedRecordIds();
+
+  if (!data) {
+    // If using defaultValue and it's an array with id fields, filter out any previously deleted IDs
+    if (Array.isArray(defaultValue)) {
+      const filtered = (defaultValue as any[]).filter(item => !item || !item.id || !deletedIds.has(item.id));
+      return filtered as unknown as T;
+    }
+    return defaultValue;
+  }
+
   try {
-    return JSON.parse(data) as T;
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) {
+      const filtered = (parsed as any[]).filter(item => !item || !item.id || !deletedIds.has(item.id));
+      return filtered as unknown as T;
+    }
+    return parsed as T;
   } catch (e) {
     return defaultValue;
   }
@@ -1892,3 +1947,4 @@ export const loadFromStorage = <T>(key: string, defaultValue: T): T => {
 export const saveToStorage = <T>(key: string, data: T): void => {
   localStorage.setItem(key, JSON.stringify(data));
 };
+

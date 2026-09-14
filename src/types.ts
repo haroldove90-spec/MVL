@@ -494,8 +494,19 @@ export interface CatalogItem {
   deliveryTime?: string;      // Tiempo de entrega (ej. 'Inmediata (Stock)', '2-3 días')
   isActive: boolean;          // Activo / Desactivado
   notes?: string;             // Notas adicionales u observaciones
+  subcategory?: string;       // Subclase o subcategoría (ej. Filtros de aire, COMPRESORES)
+  bulletItems?: string[];     // Desglose de servicios o componentes
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface CatalogCategory {
+  id: string;
+  code: string;
+  name: string;
+  scope: 'hvac' | 'screw_compressor' | 'general' | 'custom';
+  subcategories: string[];
+  description?: string;
 }
 
 
