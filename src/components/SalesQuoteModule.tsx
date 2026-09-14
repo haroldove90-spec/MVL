@@ -2561,7 +2561,7 @@ export default function SalesQuoteModule({
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {supplyEquipmentItems.map((item, idx) => (
-                        <tr key={item.id} className="hover:bg-slate-50">
+                        <tr key={`supply-eq-${item.partida || idx}-${item.description}`} className="hover:bg-slate-50">
                           <td className="py-2 px-2.5 font-bold text-slate-800">{item.description}</td>
                           <td className="py-2 px-2.5 text-slate-600">{item.brand} {item.model}</td>
                           <td className="py-2 px-2.5 text-slate-600">{item.capacity}</td>
@@ -2665,7 +2665,7 @@ export default function SalesQuoteModule({
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {supplyElectricalItems.map((item, idx) => (
-                        <tr key={item.id} className="hover:bg-slate-50">
+                        <tr key={`supply-el-${item.partida || idx}-${item.description}`} className="hover:bg-slate-50">
                           <td className="py-2 px-2.5 font-bold text-slate-800">{item.description}</td>
                           <td className="py-2 px-2.5 text-center">
                             <input
