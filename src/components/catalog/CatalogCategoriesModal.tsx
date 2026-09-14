@@ -33,7 +33,8 @@ export default function CatalogCategoriesModal({
   // New Subcategory Input inside selected category
   const [newSubcatName, setNewSubcatName] = useState('');
 
-  if (!isOpen) return null;
+  const [confirmDeleteCatId, setConfirmDeleteCatId] = useState<string | null>(null);
+  const [isConfirmingRestoreCats, setIsConfirmingRestoreCats] = useState(false);
 
   const selectedCategory = categories.find(c => c.id === selectedCatId) || categories[0];
 
@@ -92,9 +93,6 @@ export default function CatalogCategoriesModal({
     onSaveCategories(updated);
   };
 
-  const [confirmDeleteCatId, setConfirmDeleteCatId] = useState<string | null>(null);
-  const [isConfirmingRestoreCats, setIsConfirmingRestoreCats] = useState(false);
-
   const handleDeleteCategory = (catId: string) => {
     const updated = categories.filter(c => c.id !== catId);
     onSaveCategories(updated);
@@ -103,6 +101,8 @@ export default function CatalogCategoriesModal({
       setSelectedCatId(updated[0].id);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">

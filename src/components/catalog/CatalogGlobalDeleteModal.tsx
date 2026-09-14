@@ -34,8 +34,6 @@ export default function CatalogGlobalDeleteModal({
 
   const [isConfirmingRestore, setIsConfirmingRestore] = useState(false);
 
-  if (!isOpen) return null;
-
   const requiresKeyword = deleteMode === 'all';
   const isKeywordValid = !requiresKeyword || confirmKeyword.trim().toUpperCase() === 'BORRAR';
 
@@ -56,6 +54,8 @@ export default function CatalogGlobalDeleteModal({
       setIsProcessing(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">

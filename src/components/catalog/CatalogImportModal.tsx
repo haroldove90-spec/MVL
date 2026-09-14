@@ -44,7 +44,14 @@ export default function CatalogImportModal({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen) return null;
+  const detectedCategoriesSummary = useMemo(() => {
+    const counts: Record<string, number> = {};
+    parsedRows.forEach(r => {
+      const cat = r.category || 'Sin Categoría';
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    return Object.entries(counts).map(([name, count]) => ({ name, count }));
+  }, [parsedRows]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -131,15 +138,6 @@ export default function CatalogImportModal({
     }
   };
 
-  const detectedCategoriesSummary = useMemo(() => {
-    const counts: Record<string, number> = {};
-    parsedRows.forEach(r => {
-      const cat = r.category || 'Sin Categoría';
-      counts[cat] = (counts[cat] || 0) + 1;
-    });
-    return Object.entries(counts).map(([name, count]) => ({ name, count }));
-  }, [parsedRows]);
-
   const handleRowCategoryChange = (idx: number, newCat: string) => {
     setParsedRows(prev => prev.map((r, i) => i === idx ? { ...r, category: newCat } : r));
   };
@@ -182,6 +180,8 @@ export default function CatalogImportModal({
     onImportItems(newCatalogItems, importMode);
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
