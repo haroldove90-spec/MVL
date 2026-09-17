@@ -36,7 +36,32 @@ body {
 
 /* Print Optimization for Official PDF Quotes & Technical Reports */
 @media print {
-  /* Hide all elements by default */
+  html, body {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide unnecessary elements during print */
+  header, nav, aside, footer, button, .print\:hidden, .no-print {
+    display: none !important;
+  }
+
+  /* Un-fix modal overlays so they don't break page flow or create blank pages */
+  .fixed.inset-0 {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    backdrop-filter: none !important;
+    max-height: none !important;
+    height: auto !important;
+  }
+
   body * {
     visibility: hidden;
   }
@@ -54,17 +79,19 @@ body {
   #printable-quote-area,
   #printable-report-area,
   #printable-kits-area {
-    position: absolute;
-    left: 0;
-    top: 0;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
-    padding: 0 !important;
-    background: white !important;
-    color: black !important;
+    padding: 8mm 10mm !important;
+    background: #ffffff !important;
+    color: #111827 !important;
     box-shadow: none !important;
     border: none !important;
+    overflow: visible !important;
+    max-height: none !important;
   }
 
   /* Page breaks and cleanup */
@@ -78,7 +105,7 @@ body {
 
   @page {
     size: letter portrait;
-    margin: 12mm 15mm 15mm 15mm;
+    margin: 8mm 10mm 10mm 10mm;
   }
 }
 

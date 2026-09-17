@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { CustomerKitItem, Client, Equipment } from '../types';
-import { loadFromStorage, saveToStorage } from '../mockData';
+import { loadFromStorage, saveToStorage, INITIAL_CUSTOMER_KITS } from '../mockData';
 import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -18,10 +18,11 @@ interface CustomerKitsModuleProps {
 }
 
 export default function CustomerKitsModule({ clients = [], equipment = [] }: CustomerKitsModuleProps) {
-  // Persistence state - empty by default per user request
-  const [items, setItems] = useState<CustomerKitItem[]>(() => 
-    loadFromStorage<CustomerKitItem[]>('mvl_customer_kits', [])
-  );
+  // Persistence state
+  const [items, setItems] = useState<CustomerKitItem[]>(() => {
+    const loaded = loadFromStorage<CustomerKitItem[]>('mvl_customer_kits', []);
+    return loaded && loaded.length > 0 ? loaded : INITIAL_CUSTOMER_KITS;
+  });
 
   // Supabase synchronization states
   const [supabaseStatus, setSupabaseStatus] = useState<'connected' | 'disconnected' | 'syncing' | 'checking'>('checking');

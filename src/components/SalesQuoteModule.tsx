@@ -3,16 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
-import { Client, Equipment, InventoryItem, Quote, QuoteItem, Staff, WorkOrder, IssuerPartner } from '../types';
-import { INITIAL_QUOTES, INITIAL_ISSUER_PARTNERS, loadFromStorage, saveToStorage } from '../mockData';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Client, Equipment, InventoryItem, Quote, QuoteItem, Staff, WorkOrder, IssuerPartner, CustomerKitItem } from '../types';
+import { INITIAL_QUOTES, INITIAL_ISSUER_PARTNERS, INITIAL_CUSTOMER_KITS, loadFromStorage, saveToStorage } from '../mockData';
+import jsPDF from 'jspdf';
 import { 
   FileText, Plus, UserPlus, Send, CheckCircle2, Clock, XCircle, 
   AlertTriangle, Phone, Mail, MessageSquare, Building2, Upload, 
-  FileCheck, Shield, DollarSign, Wrench, ChevronRight, Eye, Printer, X, Sparkles,
+  FileCheck, Shield, DollarSign, Wrench, ChevronRight, Eye, EyeOff, Printer, X, Sparkles,
   Copy, Search, Filter, ArrowUpRight, Check, RefreshCw, Cpu, Zap, ShoppingCart,
   Camera, FileDown, Layers, Award, BookmarkPlus, FolderCheck, Hash, Edit3, Trash2,
-  SlidersHorizontal, AlertCircle, HelpCircle, PackageCheck, CheckCheck, Edit, ShieldCheck, Activity
+  SlidersHorizontal, AlertCircle, HelpCircle, PackageCheck, CheckCheck, Edit, ShieldCheck, Activity,
+  Share2
 } from 'lucide-react';
 
 interface SalesQuoteModuleProps {
@@ -92,8 +94,17 @@ export const getCompressorKitItems = (hours: '2k' | '4k' | '6k' | '8k' | '16k' |
   }
 };
 
-export const getCorrectivePresetItems = (type: 'diagnostico' | 'sobrecalentamiento' | 'presion' | 'fuga_aceite' | 'electrico', brand: string = 'Kaeser', model: string = 'BSD 50'): QuoteItem[] => {
+export const getCorrectivePresetItems = (
+  type: 'diagnostico' | 'sobrecalentamiento' | 'presion' | 'fuga_aceite' | 'electrico', 
+  brand: string = 'Kaeser', 
+  model: string = 'BSD 50',
+  customerKits?: CustomerKitItem[]
+): QuoteItem[] => {
   const b = brand.trim() || 'Kaeser';
+  const sepKit = customerKits?.find(k => k.description.toLowerCase().includes('separador') || k.description.toLowerCase().includes('separator'));
+  const valveKit = customerKits?.find(k => k.description.toLowerCase().includes('valvula') || k.description.toLowerCase().includes('valve'));
+  const airFilterKit = customerKits?.find(k => k.description.toLowerCase().includes('aire') || k.description.toLowerCase().includes('air'));
+
   switch (type) {
     case 'diagnostico':
       return [
@@ -101,20 +112,56 @@ export const getCorrectivePresetItems = (type: 'diagnostico' | 'sobrecalentamien
       ];
     case 'sobrecalentamiento':
       return [
-        { partida: 1, description: `Kit Termostático / Elemento Regulador Térmico OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '7.0399.0', catalogPrice: 2450, total: 2450, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 3 },
+        { 
+          partida: 1, 
+          description: airFilterKit ? `Filtro de Aire OEM ${b} (${airFilterKit.description})` : `Kit Termostático / Elemento Regulador Térmico OEM ${b}`, 
+          brand: b, 
+          quantity: 1, 
+          unit: 'pza', 
+          partNumber: airFilterKit ? airFilterKit.partNumber : '7.0399.0', 
+          catalogPrice: airFilterKit ? (airFilterKit.currency === 'USD' ? Math.round(airFilterKit.price * 20) : airFilterKit.price) : 2450, 
+          total: airFilterKit ? (airFilterKit.currency === 'USD' ? Math.round(airFilterKit.price * 20) : airFilterKit.price) : 2450, 
+          deliveryTime: 'Inmediata (Stock)', 
+          inStock: true, 
+          stockQty: 3 
+        },
         { partida: 2, description: `Limpieza química y desincrustante de serpentín enfriador aire/aceite`, brand: 'MVL Insumo', quantity: 1, unit: 'servicio', partNumber: 'MO-RAD', catalogPrice: 1500, total: 1500, deliveryTime: 'Inmediata', inStock: true },
         { partida: 3, description: `Aceite Sintético Grado Compresor para relleno / purga (Cubeta 19L)`, brand: b, quantity: 1, unit: 'cubeta 19L', partNumber: 'S-460', catalogPrice: 5400, total: 5400, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 12 },
         { partida: 4, description: `Mano de Obra Correctiva: Corrección de Falla por Alta Temperatura y Calibración`, brand: 'MVL Servicio', quantity: 1, unit: 'servicio', partNumber: 'MO-CORR-TEMP', catalogPrice: 3200, total: 3200, deliveryTime: 'Inmediata', inStock: true }
       ];
     case 'presion':
       return [
-        { partida: 1, description: `Kit de Mantenimiento de Válvula de Admisión y Pistón de Control OEM ${b}`, brand: b, quantity: 1, unit: 'juego', partNumber: '4.2150.0', catalogPrice: 3600, total: 3600, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 2 },
+        { 
+          partida: 1, 
+          description: valveKit ? `Válvula de Regulación / Admisión OEM ${b} (${valveKit.description})` : `Kit de Mantenimiento de Válvula de Admisión y Pistón de Control OEM ${b}`, 
+          brand: b, 
+          quantity: 1, 
+          unit: valveKit?.unit || 'juego', 
+          partNumber: valveKit ? valveKit.partNumber : '4.2150.0', 
+          catalogPrice: valveKit ? (valveKit.currency === 'USD' ? Math.round(valveKit.price * 20) : valveKit.price) : 3600, 
+          total: valveKit ? (valveKit.currency === 'USD' ? Math.round(valveKit.price * 20) : valveKit.price) : 3600, 
+          deliveryTime: 'Inmediata (Stock)', 
+          inStock: true, 
+          stockQty: 2 
+        },
         { partida: 2, description: `Electroválvula Solenoide de Carga/Alivio 24V/110V OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: 'SOL-24V', catalogPrice: 1850, total: 1850, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 4 },
         { partida: 3, description: `Mano de Obra Correctiva: Reparación de Falla de Presión / Válvula de Admisión`, brand: 'MVL Servicio', quantity: 1, unit: 'servicio', partNumber: 'MO-CORR-PRES', catalogPrice: 2800, total: 2800, deliveryTime: 'Inmediata', inStock: true }
       ];
     case 'fuga_aceite':
       return [
-        { partida: 1, description: `Filtro Separador Aire/Aceite OEM ${b}`, brand: b, quantity: 1, unit: 'pza', partNumber: '6.1963.0', catalogPrice: 2650, total: 2650, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 4 },
+        { 
+          partida: 1, 
+          description: sepKit ? `Filtro Separador Aire/Aceite OEM ${b} (${sepKit.description})` : `Filtro Separador Aire/Aceite OEM ${b}`, 
+          brand: b, 
+          quantity: 1, 
+          unit: sepKit?.unit || 'pza', 
+          partNumber: sepKit ? sepKit.partNumber : '6.1963.0', 
+          catalogPrice: sepKit ? (sepKit.currency === 'USD' ? Math.round(sepKit.price * 20) : sepKit.price) : 2650, 
+          total: sepKit ? (sepKit.currency === 'USD' ? Math.round(sepKit.price * 20) : sepKit.price) : 2650, 
+          deliveryTime: 'Inmediata (Stock)', 
+          inStock: true, 
+          stockQty: 4 
+        },
         { partida: 2, description: `Línea de Barrido / Válvula Check y Orificio Calibrado`, brand: b, quantity: 1, unit: 'pza', partNumber: 'SCAV-LINE', catalogPrice: 850, total: 850, deliveryTime: 'Inmediata (Stock)', inStock: true, stockQty: 6 },
         { partida: 3, description: `Mano de Obra Correctiva: Sustitución de Separador, Limpieza de Línea de Barrido y Recuperación`, brand: 'MVL Servicio', quantity: 1, unit: 'servicio', partNumber: 'MO-CORR-OIL', catalogPrice: 2500, total: 2500, deliveryTime: 'Inmediata', inStock: true }
       ];
@@ -236,12 +283,27 @@ export default function SalesQuoteModule({
     loadFromStorage<QuickTemplate[]>('mvl_quick_templates', DEFAULT_TEMPLATES)
   );
 
+  // Quick templates toggle
+  const [showQuickTemplates, setShowQuickTemplates] = useState<boolean>(() =>
+    loadFromStorage<boolean>('mvl_show_quick_templates', true)
+  );
+
   const [activeView, setActiveView] = useState<'list' | 'new_quote' | 'new_client'>('list');
   const [selectedQuoteForPreview, setSelectedQuoteForPreview] = useState<Quote | null>(null);
 
   // Quote editing mode
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
   const [draftSavedNotice, setDraftSavedNotice] = useState<string | null>(null);
+
+  // Customer kits loaded from storage or mock data for intelligent refaction recommendations
+  const [customerKits] = useState<CustomerKitItem[]>(() =>
+    loadFromStorage<CustomerKitItem[]>('mvl_customer_kits', INITIAL_CUSTOMER_KITS)
+  );
+
+  // Edit corrective service package modal
+  const [showEditCorrectiveModal, setShowEditCorrectiveModal] = useState(false);
+  const [correctiveTypeForEdit, setCorrectiveTypeForEdit] = useState<'diagnostico' | 'sobrecalentamiento' | 'presion' | 'fuga_aceite' | 'electrico'>('diagnostico');
+  const [editingCorrectiveItems, setEditingCorrectiveItems] = useState<QuoteItem[]>([]);
 
   // Quote Category: standard | poliza | suministro_instalacion | personalizado
   const [quoteCategory, setQuoteCategory] = useState<'standard' | 'poliza' | 'suministro_instalacion' | 'personalizado'>('standard');
@@ -263,7 +325,12 @@ export default function SalesQuoteModule({
   const [quoteType, setQuoteType] = useState<'vendedor' | 'cliente' | 'publico'>('vendedor');
   const [publicClientName, setPublicClientName] = useState('');
   const [selectedClientId, setSelectedClientId] = useState(clients[0]?.id || '');
+  const [selectedPlantId, setSelectedPlantId] = useState('');
   const [selectedPlantName, setSelectedPlantName] = useState('Planta Principal');
+  const [selectedPlantAddress, setSelectedPlantAddress] = useState('');
+  const [selectedContactName, setSelectedContactName] = useState('');
+  const [selectedContactRole, setSelectedContactRole] = useState('');
+  const [selectedContactEmail, setSelectedContactEmail] = useState('');
   const [crmGiro, setCrmGiro] = useState('Inyección de Plástico / Manufactura');
   const [clientEmail, setClientEmail] = useState('');
   const [clientWhatsapp, setClientWhatsapp] = useState('');
@@ -426,7 +493,74 @@ export default function SalesQuoteModule({
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
 
-  const selectedClient = clients.find(c => c.id === selectedClientId);
+  const selectedClient = clients.find(c => c.id === selectedClientId) || clients[0];
+
+  // Eligible sales staff (filtered by sales, commercial, coordinator, or admin/socio)
+  const eligibleSalesStaff = useMemo(() => {
+    const list = staff.filter(s =>
+      s.active && (
+        s.role === 'sales' ||
+        s.role === 'admin' ||
+        s.role === 'coordinator' ||
+        s.customJobTitle?.toLowerCase().includes('vendedor') ||
+        s.customJobTitle?.toLowerCase().includes('ventas') ||
+        s.customJobTitle?.toLowerCase().includes('comercial') ||
+        s.customJobTitle?.toLowerCase().includes('socio')
+      )
+    );
+    return list.length > 0 ? list : staff;
+  }, [staff]);
+
+  // Customer Kit Items linked to selected equipment (by serial, model, brand, or client)
+  const linkedCustomerKitItems = useMemo(() => {
+    if (!customerKits || customerKits.length === 0) return [];
+    const serialNorm = (eqSerial || '').replace(/[\s-_]/g, '').toLowerCase();
+    const modelNorm = (eqModel || '').replace(/[\s-_]/g, '').toLowerCase();
+    const clientNorm = (selectedClient?.name || '').toLowerCase();
+
+    return customerKits.filter(item => {
+      const itemSerialNorm = (item.serialNumber || '').replace(/[\s-_]/g, '').toLowerCase();
+      const itemModelNorm = (item.equipmentModel || '').replace(/[\s-_]/g, '').toLowerCase();
+      const itemClientNorm = (item.clientName || '').toLowerCase();
+
+      // Serial match
+      if (serialNorm && itemSerialNorm && (serialNorm.includes(itemSerialNorm) || itemSerialNorm.includes(serialNorm))) return true;
+      // Client + Model match
+      if (modelNorm && itemModelNorm && (modelNorm.includes(itemModelNorm) || itemModelNorm.includes(modelNorm))) {
+        if (clientNorm && itemClientNorm && (clientNorm.includes(itemClientNorm) || itemClientNorm.includes(clientNorm))) return true;
+        return true;
+      }
+      // Client match
+      if (clientNorm && itemClientNorm && (clientNorm.includes(itemClientNorm) || itemClientNorm.includes(clientNorm))) return true;
+      return false;
+    });
+  }, [customerKits, eqSerial, eqModel, selectedClient]);
+
+  // Initialize client plants, address and contact on mount
+  useEffect(() => {
+    if (selectedClient) {
+      if (selectedClient.plants && selectedClient.plants.length > 0) {
+        setSelectedPlantId(selectedClient.plants[0].id);
+        setSelectedPlantName(selectedClient.plants[0].name);
+        setSelectedPlantAddress(selectedClient.plants[0].address ? `${selectedClient.plants[0].address}, ${selectedClient.plants[0].city || ''}` : selectedClient.plants[0].city || '');
+      } else {
+        setSelectedPlantName('Planta Principal');
+        setSelectedPlantAddress(selectedClient.city || 'León, Gto.');
+      }
+
+      if (selectedClient.contacts && selectedClient.contacts.length > 0) {
+        const c0 = selectedClient.contacts[0];
+        setSelectedContactName(c0.name);
+        setSelectedContactRole(c0.role);
+        setSelectedContactEmail(c0.email);
+        setClientWhatsapp(c0.phone || selectedClient.phone || '');
+        setClientEmail(c0.email || selectedClient.email || '');
+      } else {
+        setClientWhatsapp(selectedClient.phone || '');
+        setClientEmail(selectedClient.email || '');
+      }
+    }
+  }, [selectedClientId]);
 
   // Equipment registered specifically for the selected client
   const clientEquipments = useMemo(() => {
@@ -434,10 +568,38 @@ export default function SalesQuoteModule({
     return equipment.filter(eq => eq.clientId === selectedClientId);
   }, [equipment, selectedClientId]);
 
-  // Handle client selection change: update selected equipment
+  // Handle client selection change: update selected equipment, plant and contact
   const handleClientChange = (clientId: string) => {
     setSelectedClientId(clientId);
     setSelectedEquipmentId('');
+    const foundClient = clients.find(c => c.id === clientId);
+    if (foundClient) {
+      if (foundClient.plants && foundClient.plants.length > 0) {
+        setSelectedPlantId(foundClient.plants[0].id);
+        setSelectedPlantName(foundClient.plants[0].name);
+        setSelectedPlantAddress(foundClient.plants[0].address ? `${foundClient.plants[0].address}, ${foundClient.plants[0].city || ''}` : foundClient.plants[0].city || '');
+      } else {
+        setSelectedPlantId('');
+        setSelectedPlantName('Planta Principal');
+        setSelectedPlantAddress(foundClient.city || 'León, Gto.');
+      }
+
+      if (foundClient.contacts && foundClient.contacts.length > 0) {
+        const firstContact = foundClient.contacts[0];
+        setSelectedContactName(firstContact.name);
+        setSelectedContactRole(firstContact.role);
+        setSelectedContactEmail(firstContact.email);
+        setClientWhatsapp(firstContact.phone || foundClient.phone || '');
+        setClientEmail(firstContact.email || foundClient.email || '');
+      } else {
+        setSelectedContactName('');
+        setSelectedContactRole('');
+        setSelectedContactEmail('');
+        setClientWhatsapp(foundClient.phone || '');
+        setClientEmail(foundClient.email || '');
+      }
+    }
+
     const clientEqs = equipment.filter(eq => eq.clientId === clientId);
     if (clientEqs.length > 0) {
       const firstEq = clientEqs[0];
@@ -1163,6 +1325,10 @@ export default function SalesQuoteModule({
             deliveryLeadTime: calculatedDeliveryTime,
             agentName,
             plantName: selectedPlantName,
+            plantAddress: selectedPlantAddress,
+            contactName: selectedContactName,
+            contactRole: selectedContactRole,
+            contactEmail: selectedContactEmail,
             crmGiro,
             whatsapp: clientWhatsapp,
             clientEmail,
@@ -1254,6 +1420,10 @@ export default function SalesQuoteModule({
       deliveryLeadTime: calculatedDeliveryTime,
       agentName,
       plantName: selectedPlantName,
+      plantAddress: selectedPlantAddress,
+      contactName: selectedContactName,
+      contactRole: selectedContactRole,
+      contactEmail: selectedContactEmail,
       crmGiro,
       whatsapp: clientWhatsapp,
       clientEmail,
@@ -1457,6 +1627,39 @@ export default function SalesQuoteModule({
     setTimeout(() => {
       document.title = prevTitle;
     }, 1000);
+  };
+
+  // Native PDF / Quote Sharing via Web Share API or WhatsApp Fallback
+  const handleShareQuoteWhatsApp = async (q: Quote) => {
+    const phone = (q.whatsapp || '').replace(/\D/g, '');
+    const cleanPhone = phone.length === 10 ? `52${phone}` : phone;
+    const msg = `*MVL CONTROL INDUSTRIAL - COTIZACIÓN OFICIAL*\n\n` +
+      `Estimado cliente: *${q.clientName}*\n` +
+      `Folio: *${q.folNum}*\n` +
+      `Concepto: *${q.concept}*\n` +
+      `Total: *$${q.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN* (IVA Incluido)\n` +
+      `Tiempo de Entrega: *${q.deliveryLeadTime || 'Inmediata'}*\n` +
+      `Asesor Responsable: *${q.agentName || 'Ing. Leonardo Daniel Torres'}*\n` +
+      `Socio Emisor: *${q.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'}*\n\n` +
+      `Consulte el expediente digital y formato oficial en nuestra plataforma web.`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Cotización ${q.folNum} - ${q.clientName}`,
+          text: msg,
+          url: window.location.href
+        });
+        return;
+      } catch {
+        // Fallback to direct WhatsApp web/app link if native share modal closed or rejected
+      }
+    }
+
+    const url = cleanPhone
+      ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
   };
 
   // Filtered quotes list
@@ -1699,27 +1902,73 @@ export default function SalesQuoteModule({
             </div>
           </div>
 
-          {/* Plantillas Rápidas Dinámicas */}
+          {/* Plantillas Rápidas Dinámicas con opción de Ocultar/Mostrar y Eliminar */}
           <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-2">
             <div className="flex justify-between items-center">
               <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-[#0196C1]" /> Plantillas Rápidas & Historial de Partidas
               </label>
-              <span className="text-[10px] text-slate-500 font-bold">{quickTemplates.length} plantillas disponibles</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {quickTemplates.map(tmpl => (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-500 font-bold">{quickTemplates.length} plantillas</span>
                 <button
-                  key={tmpl.id}
                   type="button"
-                  onClick={() => handleLoadTemplate(tmpl)}
-                  className="px-3 py-1.5 bg-white hover:bg-sky-50 border border-slate-200 hover:border-[#0196C1] rounded-xl text-xs font-bold text-slate-700 hover:text-[#0196C1] flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                  onClick={() => {
+                    const nextVal = !showQuickTemplates;
+                    setShowQuickTemplates(nextVal);
+                    saveToStorage('mvl_show_quick_templates', nextVal);
+                  }}
+                  className="px-2.5 py-1 text-[10px] font-extrabold bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                  title="Ocultar o mostrar barra de plantillas rápidas"
                 >
-                  <Sparkles className="w-3 h-3 text-[#0196C1]" />
-                  <span>{tmpl.name}</span>
+                  {showQuickTemplates ? (
+                    <>
+                      <EyeOff className="w-3 h-3 text-slate-500" /> Ocultar Plantillas
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3 h-3 text-[#0196C1]" /> Mostrar Plantillas
+                    </>
+                  )}
                 </button>
-              ))}
+              </div>
             </div>
+            
+            {showQuickTemplates ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {quickTemplates.map(tmpl => (
+                  <div
+                    key={tmpl.id}
+                    className="inline-flex items-center bg-white border border-slate-200 hover:border-[#0196C1] rounded-xl text-xs font-bold text-slate-700 hover:text-[#0196C1] shadow-2xs transition-all overflow-hidden"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleLoadTemplate(tmpl)}
+                      className="px-3 py-1.5 flex items-center gap-1.5 cursor-pointer hover:bg-sky-50"
+                    >
+                      <Sparkles className="w-3 h-3 text-[#0196C1]" />
+                      <span>{tmpl.name}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        const updated = quickTemplates.filter(t => t.id !== tmpl.id);
+                        setQuickTemplates(updated);
+                        saveToStorage('mvl_quick_templates', updated);
+                      }}
+                      className="px-2 py-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 cursor-pointer border-l border-slate-100 transition-colors"
+                      title="Eliminar plantilla"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-400 italic">
+                Plantillas rápidas ocultas. Puedes volver a mostrarlas en cualquier momento con el botón superior.
+              </p>
+            )}
           </div>
 
           {/* 1. SELECCIÓN DE ORIGEN, TIPO DE CLIENTE & SOCIO EMISOR */}
@@ -1737,12 +1986,12 @@ export default function SalesQuoteModule({
               </button>
             </div>
 
-            {/* Selector de Razón Social / Socio Emisor */}
+            {/* Selector de Razón Social / Socio Emisor (4 Socios Registrados) */}
             <div className="p-3 bg-white rounded-xl border border-slate-200">
               <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 flex items-center gap-1">
-                <Award className="w-3.5 h-3.5 text-[#0196C1]" /> Razón Social Emisora (3 Socios Registrados):
+                <Award className="w-3.5 h-3.5 text-[#0196C1]" /> Razón Social Emisora (Socios Fiscales Registrados):
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                 {INITIAL_ISSUER_PARTNERS.map(partner => (
                   <button
                     key={partner.id}
@@ -1765,6 +2014,7 @@ export default function SalesQuoteModule({
               </div>
             </div>
 
+            {/* Origen de Cliente */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
@@ -1777,12 +2027,10 @@ export default function SalesQuoteModule({
               </button>
               <button
                 type="button"
-                onClick={() => setQuoteOrigin('nuevo')}
-                className={`p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
-                  quoteOrigin === 'nuevo' ? 'bg-[#0196C1] text-white border-[#0196C1] shadow-xs' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
+                onClick={() => setActiveView('new_client')}
+                className="p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5 bg-white hover:bg-sky-50 text-slate-700 hover:text-[#0196C1] border-slate-200 hover:border-[#0196C1]"
               >
-                <UserPlus className="w-3.5 h-3.5" /> + Cliente Nuevo
+                <UserPlus className="w-3.5 h-3.5 text-[#0196C1]" /> + Cliente Nuevo (Abrir Registro)
               </button>
               <button
                 type="button"
@@ -1795,63 +2043,186 @@ export default function SalesQuoteModule({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-              {quoteOrigin !== 'publico_general' ? (
+            {/* Datos de Cliente, Planta/Sucursal, Dirección Completa, Contacto y Asesor */}
+            <div className="space-y-3 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {quoteOrigin !== 'publico_general' ? (
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                      Cliente Registrado
+                    </label>
+                    <select
+                      value={selectedClientId}
+                      onChange={e => handleClientChange(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                    >
+                      {clients.map(c => (
+                        <option key={c.id} value={c.id}>{c.name} ({c.rfc})</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                      Nombre / Razón Social Comprador
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Público General / Nombre del cliente"
+                      value={publicClientName}
+                      onChange={e => setPublicClientName(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold"
+                    />
+                  </div>
+                )}
+
+                {/* Planta / Sucursal con Carga Automática */}
                 <div>
-                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Cliente</label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase">
+                      Planta / Sucursal
+                    </label>
+                    {selectedClient?.plants && selectedClient.plants.length > 0 && (
+                      <span className="text-[9px] text-[#0196C1] font-bold">
+                        {selectedClient.plants.length} Sucursales
+                      </span>
+                    )}
+                  </div>
+                  {selectedClient?.plants && selectedClient.plants.length > 0 ? (
+                    <select
+                      value={selectedPlantName}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === '__custom__') {
+                          setSelectedPlantName('');
+                        } else {
+                          setSelectedPlantName(val);
+                          const matchedPlant = selectedClient.plants?.find(p => p.name === val);
+                          if (matchedPlant) {
+                            setSelectedPlantId(matchedPlant.id);
+                            setSelectedPlantAddress(matchedPlant.address ? `${matchedPlant.address}, ${matchedPlant.city || ''}` : matchedPlant.city || '');
+                          }
+                        }
+                      }}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                    >
+                      {selectedClient.plants.map(p => (
+                        <option key={p.id} value={p.name}>
+                          {p.name} {p.city ? `(${p.city})` : ''}
+                        </option>
+                      ))}
+                      <option value="__custom__">✏️ Otra Sucursal / Manual...</option>
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="Planta Principal"
+                      value={selectedPlantName}
+                      onChange={e => setSelectedPlantName(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                    />
+                  )}
+                </div>
+
+                {/* Contacto Registrado con Carga Automática */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase">
+                      Contacto del Cliente
+                    </label>
+                    {selectedClient?.contacts && selectedClient.contacts.length > 0 && (
+                      <span className="text-[9px] text-emerald-600 font-bold">
+                        {selectedClient.contacts.length} Contactos
+                      </span>
+                    )}
+                  </div>
+                  {selectedClient?.contacts && selectedClient.contacts.length > 0 ? (
+                    <select
+                      value={selectedContactName}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === '__custom__') {
+                          setSelectedContactName('');
+                        } else {
+                          setSelectedContactName(val);
+                          const matchedContact = selectedClient.contacts?.find(c => c.name === val);
+                          if (matchedContact) {
+                            setSelectedContactRole(matchedContact.role || '');
+                            setSelectedContactEmail(matchedContact.email || '');
+                            if (matchedContact.phone) setClientWhatsapp(matchedContact.phone);
+                            if (matchedContact.email) setClientEmail(matchedContact.email);
+                          }
+                        }
+                      }}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                    >
+                      {selectedClient.contacts.map((c, i) => (
+                        <option key={i} value={c.name}>
+                          {c.name} {c.role ? `(${c.role})` : ''}
+                        </option>
+                      ))}
+                      <option value="__custom__">✏️ Contacto Personalizado / Manual...</option>
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="Nombre del contacto"
+                      value={selectedContactName}
+                      onChange={e => setSelectedContactName(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                    />
+                  )}
+                </div>
+
+                {/* Asesor Responsable Dinámico */}
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                    Asesor Responsable
+                  </label>
                   <select
-                    value={selectedClientId}
-                    onChange={e => setSelectedClientId(e.target.value)}
-                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                    value={agentName}
+                    onChange={e => setAgentName(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-[#0196C1]"
                   >
-                    {clients.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.rfc})</option>
+                    {eligibleSalesStaff.map(s => (
+                      <option key={s.id} value={s.name}>
+                        {s.name} ({s.customJobTitle || s.role})
+                      </option>
                     ))}
+                    <option value="Ing. Leonardo Daniel Torres">Ing. Leonardo Daniel Torres (Ventas Especializadas)</option>
+                    <option value="MVL Control Industrial">MVL Control Industrial (Mesa de Control)</option>
                   </select>
                 </div>
-              ) : (
-                <div>
-                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Nombre / Razón Social Comprador</label>
+              </div>
+
+              {/* Fila Secundaria: Dirección Completa de Planta, Teléfono/WhatsApp y Cargo de Contacto */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                    <Building2 className="w-3 h-3 text-[#0196C1]" /> Dirección Completa de Planta / Sucursal
+                  </label>
                   <input
                     type="text"
-                    required
-                    placeholder="Público General / Nombre del cliente"
-                    value={publicClientName}
-                    onChange={e => setPublicClientName(e.target.value)}
-                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold"
+                    placeholder="Ej. Carretera Silao-León Km 15.5, Parque Industrial Las Colinas, Silao, Gto."
+                    value={selectedPlantAddress}
+                    onChange={e => setSelectedPlantAddress(e.target.value)}
+                    className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-medium text-slate-800"
                   />
                 </div>
-              )}
 
-              <div>
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Planta / Sucursal</label>
-                <input
-                  type="text"
-                  value={selectedPlantName}
-                  onChange={e => setSelectedPlantName(e.target.value)}
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">WhatsApp / Contacto</label>
-                <input
-                  type="text"
-                  placeholder="477-123-4567"
-                  value={clientWhatsapp}
-                  onChange={e => setClientWhatsapp(e.target.value)}
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Asesor Responsable</label>
-                <input
-                  type="text"
-                  value={agentName}
-                  onChange={e => setAgentName(e.target.value)}
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-[#0196C1]"
-                />
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                    <Phone className="w-3 h-3 text-[#0196C1]" /> Teléfono / WhatsApp Contacto
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="477-123-4567"
+                    value={clientWhatsapp}
+                    onChange={e => setClientWhatsapp(e.target.value)}
+                    className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-medium text-slate-800"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1934,13 +2305,26 @@ export default function SalesQuoteModule({
             {/* Presets para Servicio Correctivo (Diagnóstico y Reparación de Falla) */}
             {serviceTypeCategory === 'correctivo' && (
               <div className="p-3.5 bg-amber-50/90 rounded-xl border border-amber-300 space-y-2.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <span className="text-[11px] font-black text-amber-950 uppercase flex items-center gap-1.5">
                     <Wrench className="w-4 h-4 text-amber-600" /> Diagnóstico y Reparación de Falla (Servicio Correctivo):
                   </span>
-                  <span className="text-[10px] text-amber-800 font-bold bg-amber-200/70 px-2 py-0.5 rounded self-start sm:self-auto">
-                    Atención Urgente / Diagnóstico en Sitio
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-amber-800 font-bold bg-amber-200/70 px-2 py-0.5 rounded">
+                      Atención Urgente / En Sitio
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCorrectiveTypeForEdit('diagnostico');
+                        setEditingCorrectiveItems(getCorrectivePresetItems('diagnostico', eqBrand, eqModel, linkedCustomerKitItems));
+                        setShowEditCorrectiveModal(true);
+                      }}
+                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" /> ✏️ Editar / Personalizar Paquete
+                    </button>
+                  </div>
                 </div>
                 <p className="text-xs text-amber-900 leading-snug">
                   Haz clic en un diagnóstico o tipo de falla técnica para cargar automáticamente la mano de obra especializada y refacciones usuales:
@@ -1949,7 +2333,7 @@ export default function SalesQuoteModule({
                   <button
                     type="button"
                     onClick={() => {
-                      setStandardItems(getCorrectivePresetItems('diagnostico', eqBrand, eqModel));
+                      setStandardItems(getCorrectivePresetItems('diagnostico', eqBrand, eqModel, linkedCustomerKitItems));
                       setConcept(`Servicio Correctivo: Diagnóstico Técnico Especializado en Sitio - ${eqBrand} ${eqModel}`);
                     }}
                     className="p-2.5 bg-white hover:bg-amber-100 border border-amber-300 rounded-xl text-left cursor-pointer transition-all shadow-2xs flex flex-col justify-between"
@@ -1960,7 +2344,7 @@ export default function SalesQuoteModule({
                   <button
                     type="button"
                     onClick={() => {
-                      setStandardItems(getCorrectivePresetItems('sobrecalentamiento', eqBrand, eqModel));
+                      setStandardItems(getCorrectivePresetItems('sobrecalentamiento', eqBrand, eqModel, linkedCustomerKitItems));
                       setConcept(`Servicio Correctivo: Alta Temperatura y Falla Térmica - ${eqBrand} ${eqModel}`);
                     }}
                     className="p-2.5 bg-white hover:bg-amber-100 border border-amber-300 rounded-xl text-left cursor-pointer transition-all shadow-2xs flex flex-col justify-between"
@@ -1971,7 +2355,7 @@ export default function SalesQuoteModule({
                   <button
                     type="button"
                     onClick={() => {
-                      setStandardItems(getCorrectivePresetItems('presion', eqBrand, eqModel));
+                      setStandardItems(getCorrectivePresetItems('presion', eqBrand, eqModel, linkedCustomerKitItems));
                       setConcept(`Servicio Correctivo: Falla de Presión y Válvula Admisión - ${eqBrand} ${eqModel}`);
                     }}
                     className="p-2.5 bg-white hover:bg-amber-100 border border-amber-300 rounded-xl text-left cursor-pointer transition-all shadow-2xs flex flex-col justify-between"
@@ -1982,7 +2366,7 @@ export default function SalesQuoteModule({
                   <button
                     type="button"
                     onClick={() => {
-                      setStandardItems(getCorrectivePresetItems('fuga_aceite', eqBrand, eqModel));
+                      setStandardItems(getCorrectivePresetItems('fuga_aceite', eqBrand, eqModel, linkedCustomerKitItems));
                       setConcept(`Servicio Correctivo: Fuga de Aceite y Paso a Red - ${eqBrand} ${eqModel}`);
                     }}
                     className="p-2.5 bg-white hover:bg-amber-100 border border-amber-300 rounded-xl text-left cursor-pointer transition-all shadow-2xs flex flex-col justify-between"
@@ -1993,7 +2377,7 @@ export default function SalesQuoteModule({
                   <button
                     type="button"
                     onClick={() => {
-                      setStandardItems(getCorrectivePresetItems('electrico', eqBrand, eqModel));
+                      setStandardItems(getCorrectivePresetItems('electrico', eqBrand, eqModel, linkedCustomerKitItems));
                       setConcept(`Servicio Correctivo: Falla en Circuito Eléctrico y Control - ${eqBrand} ${eqModel}`);
                     }}
                     className="p-2.5 bg-white hover:bg-amber-100 border border-amber-300 rounded-xl text-left cursor-pointer transition-all shadow-2xs flex flex-col justify-between"
@@ -2278,6 +2662,81 @@ export default function SalesQuoteModule({
                   {standardItems.length} Partidas agregadas
                 </span>
               </div>
+
+              {/* Refacciones del Catálogo Oficial de Kits del Cliente (CustomerKitsModule) */}
+              {linkedCustomerKitItems.length > 0 && (
+                <div className="bg-emerald-50/90 p-3.5 rounded-xl border border-emerald-300 space-y-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <span className="text-[10px] font-black text-emerald-950 uppercase flex items-center gap-1.5">
+                      <PackageCheck className="w-4 h-4 text-emerald-600" />
+                      Refacciones & Kits Vinculados del Cliente ({selectedClient?.name || 'Cliente'} - {eqBrand} {eqModel} {eqSerial ? `SN: ${eqSerial}` : ''}) [{linkedCustomerKitItems.length} Encontradas]:
+                    </span>
+                    <span className="text-[9px] text-emerald-800 font-bold bg-emerald-200/80 px-2 py-0.5 rounded self-start sm:self-auto">
+                      Kits OEM Registrados para este Equipo
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                    {linkedCustomerKitItems.map(kitItem => (
+                      <div
+                        key={kitItem.id}
+                        className="p-2.5 bg-white rounded-xl border border-emerald-200 shadow-2xs flex flex-col justify-between hover:border-emerald-400 transition-all text-xs"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded font-mono">
+                              {kitItem.partNumber}
+                            </span>
+                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                              {kitItem.periodHours ? `${kitItem.periodHours} Hrs` : 'Kit OEM'}
+                            </span>
+                          </div>
+                          <p className="font-bold text-slate-800 text-[11px] line-clamp-2 leading-tight">
+                            {kitItem.description}
+                          </p>
+                          <span className="text-[9px] text-slate-400 font-semibold block mt-0.5">
+                            Ref: {kitItem.referenceCode || 'OEM'} | {kitItem.equipmentModel}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-1 pt-2 mt-2 border-t border-slate-100">
+                          <div>
+                            <span className="font-black text-slate-900 text-xs">
+                              ${(kitItem.currency === 'USD' ? kitItem.price * 20 : kitItem.price).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </span>
+                            {kitItem.currency === 'USD' && (
+                              <span className="text-[9px] text-slate-400 block">${kitItem.price} USD</span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const priceMxn = kitItem.currency === 'USD' ? Math.round(kitItem.price * 20) : kitItem.price;
+                              const newItem: QuoteItem = {
+                                partida: standardItems.length + 1,
+                                description: kitItem.description,
+                                brand: eqBrand || kitItem.clientName || 'OEM',
+                                quantity: 1,
+                                unit: kitItem.unit || 'pza',
+                                partNumber: kitItem.partNumber,
+                                catalogPrice: priceMxn,
+                                total: priceMxn,
+                                deliveryTime: (kitItem.stock || 0) > 0 ? 'Inmediata (Stock)' : '3 a 5 días (Sobre Pedido)',
+                                inStock: (kitItem.stock || 0) > 0,
+                                stockQty: kitItem.stock || 5
+                              };
+                              setStandardItems(prev => [...prev, newItem]);
+                            }}
+                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg cursor-pointer flex items-center gap-1 transition-all shadow-2xs"
+                          >
+                            <Plus className="w-3 h-3" /> Agregar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Auto-Linked Refacciones Vinculadas Automáticamente al Equipo */}
               {autoLinkedInventory.length > 0 && (
@@ -3661,6 +4120,14 @@ export default function SalesQuoteModule({
 
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
+                  onClick={() => handleShareQuoteWhatsApp(selectedQuoteForPreview)}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  title="Compartir cotización vía WhatsApp o Web Share"
+                >
+                  <Share2 className="w-3.5 h-3.5" /> Compartir por WhatsApp
+                </button>
+                <button
                   onClick={() => handleDownloadPdf(selectedQuoteForPreview)}
                   className="px-3 py-1.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer"
                 >
@@ -3705,24 +4172,46 @@ export default function SalesQuoteModule({
               </div>
 
               {/* CLIENT & SERVICE INFO BOX */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div>
-                  <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Cliente / Razón Social</span>
-                  <span className="text-xs font-bold text-slate-800">{selectedQuoteForPreview.clientName}</span>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Cliente / Razón Social</span>
+                    <span className="text-xs font-bold text-slate-800">{selectedQuoteForPreview.clientName}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Empresa / Sucursal</span>
+                    <span className="text-xs font-bold text-slate-800">{selectedQuoteForPreview.plantName || 'Planta Principal'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Horómetro / Servicio</span>
+                    <span className="text-xs font-bold text-[#0196C1]">
+                      {selectedQuoteForPreview.serviceHours ? `${selectedQuoteForPreview.serviceHours} Horas Operación` : (selectedQuoteForPreview.serviceTypeCategory?.toUpperCase() || 'Estándar')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Tiempo de Entrega</span>
+                    <span className="text-xs font-bold text-emerald-700">{selectedQuoteForPreview.deliveryLeadTime || 'Inmediata'}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Empresa / Sucursal</span>
-                  <span className="text-xs font-bold text-slate-800">{selectedQuoteForPreview.plantName || 'Planta Principal'}</span>
-                </div>
-                <div>
-                  <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Horómetro / Servicio</span>
-                  <span className="text-xs font-bold text-[#0196C1]">
-                    {selectedQuoteForPreview.serviceHours ? `${selectedQuoteForPreview.serviceHours} Horas Operación` : (selectedQuoteForPreview.serviceTypeCategory?.toUpperCase() || 'Estándar')}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Tiempo de Entrega</span>
-                  <span className="text-xs font-bold text-emerald-700">{selectedQuoteForPreview.deliveryLeadTime || 'Inmediata'}</span>
+
+                {/* Extensión de datos de contacto y domicilio de planta */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/80 text-[11px]">
+                  <div>
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Dirección de Planta / Entrega</span>
+                    <span className="font-medium text-slate-700">{selectedQuoteForPreview.plantAddress || 'León, Guanajuato'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Contacto en Planta</span>
+                    <span className="font-medium text-slate-700">
+                      {selectedQuoteForPreview.contactName ? `${selectedQuoteForPreview.contactName} (${selectedQuoteForPreview.contactRole || 'Contacto'})` : (selectedQuoteForPreview.whatsapp || 'N/D')}
+                      {selectedQuoteForPreview.whatsapp && <span className="text-slate-500 block text-[10px]">Tel: {selectedQuoteForPreview.whatsapp}</span>}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Asesor Responsable</span>
+                    <span className="font-bold text-slate-800">{selectedQuoteForPreview.agentName || 'Ing. Leonardo Daniel Torres'}</span>
+                    {selectedQuoteForPreview.crmGiro && <span className="text-slate-500 block text-[10px]">Giro: {selectedQuoteForPreview.crmGiro}</span>}
+                  </div>
                 </div>
               </div>
 
@@ -3862,6 +4351,294 @@ export default function SalesQuoteModule({
                   {selectedQuoteForPreview.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'} | RFC: {selectedQuoteForPreview.issuerPartnerRfc || 'RABV891002TF6'}
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE EDICIÓN / PERSONALIZACIÓN DE PAQUETE CORRECTIVO */}
+      {showEditCorrectiveModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden text-left">
+            {/* Modal Header */}
+            <div className="bg-amber-600 text-white p-4 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2">
+                <Wrench className="w-5 h-5 text-amber-200" />
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-wider">
+                    Personalizar Paquete de Servicio Correctivo
+                  </h3>
+                  <p className="text-[11px] text-amber-100 font-medium">
+                    {eqBrand} {eqModel} (Serie: {eqSerial}) • {selectedClient?.name || 'Cliente'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditCorrectiveModal(false)}
+                className="p-1.5 text-amber-200 hover:text-white rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Presets Quick Selector */}
+            <div className="p-3 bg-amber-50/80 border-b border-amber-200 flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-black text-amber-900 uppercase">Plantillas Rápidas:</span>
+              {[
+                { id: 'diagnostico', label: '🔍 Diagnóstico en Sitio' },
+                { id: 'sobrecalentamiento', label: '🔥 Alta Temperatura' },
+                { id: 'presion', label: '📉 Falla de Presión' },
+                { id: 'fuga_aceite', label: '💧 Fuga Aceite / Separador' },
+                { id: 'electrico', label: '⚡ Falla Eléctrica' }
+              ].map(preset => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => {
+                    const t = preset.id as 'diagnostico' | 'sobrecalentamiento' | 'presion' | 'fuga_aceite' | 'electrico';
+                    setCorrectiveTypeForEdit(t);
+                    setEditingCorrectiveItems(getCorrectivePresetItems(t, eqBrand, eqModel, linkedCustomerKitItems));
+                  }}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    correctiveTypeForEdit === preset.id
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-white text-amber-900 border border-amber-300 hover:bg-amber-100'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Items Table Container */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-slate-600">
+                  Edita la descripción, cantidades o precios de cada partida, o agrega nuevos conceptos antes de volcarlos a la cotización.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newPartida: QuoteItem = {
+                      partida: editingCorrectiveItems.length + 1,
+                      description: '',
+                      brand: eqBrand || 'MVL',
+                      quantity: 1,
+                      unit: 'pza',
+                      partNumber: '',
+                      catalogPrice: 0,
+                      total: 0,
+                      deliveryTime: 'Inmediata',
+                      inStock: true
+                    };
+                    setEditingCorrectiveItems([...editingCorrectiveItems, newPartida]);
+                  }}
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 text-amber-400" /> + Agregar Partida
+                </button>
+              </div>
+
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-100 text-slate-700 font-extrabold uppercase text-[10px] border-b border-slate-200">
+                      <tr>
+                        <th className="p-2.5 text-center w-10">#</th>
+                        <th className="p-2.5 min-w-[220px]">Descripción / Concepto</th>
+                        <th className="p-2.5 min-w-[100px]">Marca</th>
+                        <th className="p-2.5 min-w-[100px]">No. de Parte</th>
+                        <th className="p-2.5 text-center w-16">Cant.</th>
+                        <th className="p-2.5 text-center w-20">Unidad</th>
+                        <th className="p-2.5 text-right w-24">P. Unit (MXN)</th>
+                        <th className="p-2.5 text-right w-24">Total (MXN)</th>
+                        <th className="p-2.5 text-center w-12">Quitar</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {editingCorrectiveItems.map((item, index) => (
+                        <tr key={index} className="hover:bg-amber-50/30">
+                          <td className="p-2.5 text-center font-bold text-slate-400">{index + 1}</td>
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item.description}
+                              onChange={e => {
+                                const copy = [...editingCorrectiveItems];
+                                copy[index] = { ...copy[index], description: e.target.value };
+                                setEditingCorrectiveItems(copy);
+                              }}
+                              placeholder="Descripción del servicio o refacción..."
+                              className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs focus:ring-1 focus:ring-amber-500 focus:bg-white"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item.brand || ''}
+                              onChange={e => {
+                                const copy = [...editingCorrectiveItems];
+                                copy[index] = { ...copy[index], brand: e.target.value };
+                                setEditingCorrectiveItems(copy);
+                              }}
+                              className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs focus:ring-1 focus:ring-amber-500 focus:bg-white"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item.partNumber || ''}
+                              onChange={e => {
+                                const copy = [...editingCorrectiveItems];
+                                copy[index] = { ...copy[index], partNumber: e.target.value };
+                                setEditingCorrectiveItems(copy);
+                              }}
+                              placeholder="OEM o S/N"
+                              className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs font-mono focus:ring-1 focus:ring-amber-500 focus:bg-white"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={e => {
+                                const qty = Math.max(1, parseInt(e.target.value) || 1);
+                                const copy = [...editingCorrectiveItems];
+                                copy[index] = {
+                                  ...copy[index],
+                                  quantity: qty,
+                                  total: qty * copy[index].catalogPrice
+                                };
+                                setEditingCorrectiveItems(copy);
+                              }}
+                              className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-center font-bold focus:ring-1 focus:ring-amber-500 focus:bg-white"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item.unit || 'pza'}
+                              onChange={e => {
+                                const copy = [...editingCorrectiveItems];
+                                copy[index] = { ...copy[index], unit: e.target.value };
+                                setEditingCorrectiveItems(copy);
+                              }}
+                              className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-center focus:ring-1 focus:ring-amber-500 focus:bg-white"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={item.catalogPrice}
+                              onChange={e => {
+                                const price = Math.max(0, parseFloat(e.target.value) || 0);
+                                const copy = [...editingCorrectiveItems];
+                                copy[index] = {
+                                  ...copy[index],
+                                  catalogPrice: price,
+                                  total: copy[index].quantity * price
+                                };
+                                setEditingCorrectiveItems(copy);
+                              }}
+                              className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-right font-bold focus:ring-1 focus:ring-amber-500 focus:bg-white"
+                            />
+                          </td>
+                          <td className="p-2.5 text-right font-black text-slate-800">
+                            ${(item.quantity * item.catalogPrice).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingCorrectiveItems(editingCorrectiveItems.filter((_, idx) => idx !== index));
+                              }}
+                              className="p-1 text-slate-400 hover:text-red-600 rounded cursor-pointer"
+                              title="Eliminar partida"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {editingCorrectiveItems.length === 0 && (
+                        <tr>
+                          <td colSpan={9} className="p-6 text-center text-slate-400 italic">
+                            No hay partidas en el paquete. Haz clic en una plantilla o en "+ Agregar Partida".
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Totals Summary */}
+              {editingCorrectiveItems.length > 0 && (
+                <div className="flex justify-end pt-2">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 w-64 space-y-1 text-xs">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Partidas:</span>
+                      <span className="font-bold">{editingCorrectiveItems.length}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-700">
+                      <span>Subtotal Paquete:</span>
+                      <span className="font-black text-slate-900">
+                        ${editingCorrectiveItems.reduce((acc, i) => acc + (i.quantity * i.catalogPrice), 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-500 text-[11px]">
+                      <span>IVA Estimado (16%):</span>
+                      <span>
+                        ${(editingCorrectiveItems.reduce((acc, i) => acc + (i.quantity * i.catalogPrice), 0) * 0.16).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-amber-900 font-black text-sm pt-1 border-t border-amber-200">
+                      <span>Total Estimado:</span>
+                      <span>
+                        ${(editingCorrectiveItems.reduce((acc, i) => acc + (i.quantity * i.catalogPrice), 0) * 1.16).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowEditCorrectiveModal(false)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-lg cursor-pointer transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const sanitized = editingCorrectiveItems.map((item, idx) => ({
+                    ...item,
+                    partida: idx + 1,
+                    total: item.quantity * item.catalogPrice
+                  }));
+                  setStandardItems(sanitized);
+                  const presetLabels: Record<string, string> = {
+                    diagnostico: 'Diagnóstico en Sitio',
+                    sobrecalentamiento: 'Alta Temperatura',
+                    presion: 'Falla de Presión',
+                    fuga_aceite: 'Fuga de Aceite',
+                    electrico: 'Falla Eléctrica'
+                  };
+                  const label = presetLabels[correctiveTypeForEdit] || 'Servicio Correctivo';
+                  setConcept(`Servicio Correctivo: ${label} - ${eqBrand} ${eqModel}`);
+                  setShowEditCorrectiveModal(false);
+                }}
+                className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+              >
+                <Check className="w-4 h-4" /> Aplicar Paquete a la Cotización
+              </button>
             </div>
           </div>
         </div>

@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { WorkOrder, Client, Equipment } from '../types';
-import { FileDown, Printer, CheckSquare, Square, FileText, Check } from 'lucide-react';
+import { FileDown, Printer, CheckSquare, Square, FileText, Check, Share2 } from 'lucide-react';
 
 interface PDFReportViewProps {
   workOrder: WorkOrder;
@@ -19,6 +19,38 @@ export default function PDFReportView({ workOrder, client, equipment, onClose }:
     window.print();
   };
 
+  const handleShareReportWhatsApp = async () => {
+    const textMsg = `*MVL CONTROL Y MANTENIMIENTO - REPORTE TÉCNICO OFICIAL*\n\n` +
+      `Orden de Servicio: *${workOrder.code}*\n` +
+      `Cliente: *${client.companyName}*\n` +
+      `Equipo: *${equipment.name} (${equipment.brand} ${equipment.model})*\n` +
+      `Serie: *${equipment.serialNumber}*\n` +
+      `Horómetro: *${workOrder.engineHours} Hrs*\n` +
+      `Técnico: *${workOrder.assignedTechnicianName}*\n` +
+      `Estatus: *${workOrder.status.toUpperCase()}*\n\n` +
+      `El reporte y hoja de servicio digital están listos para su consulta y descarga.`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Reporte Técnico ${workOrder.code} - ${client.companyName}`,
+          text: textMsg,
+          url: window.location.href,
+        });
+        return;
+      } catch {
+        // Fallback to WhatsApp direct link
+      }
+    }
+
+    const phone = (client.phone || '').replace(/\D/g, '');
+    const cleanPhone = phone.length === 10 ? `52${phone}` : phone;
+    const url = cleanPhone
+      ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(textMsg)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(textMsg)}`;
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 p-4 overflow-y-auto backdrop-blur-xs">
       <div className="bg-white rounded-2xl max-w-4xl w-full flex flex-col max-h-[90vh] shadow-2xl border border-slate-100 print:shadow-none print:border-none print:max-h-full">
@@ -29,6 +61,15 @@ export default function PDFReportView({ workOrder, client, equipment, onClose }:
             <span className="font-bold text-slate-800 text-sm">Reporte Técnico Digital — {workOrder.code}</span>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleShareReportWhatsApp}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-all cursor-pointer"
+              title="Compartir reporte por WhatsApp o Web Share"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              Compartir WhatsApp
+            </button>
             <button
               onClick={handlePrint}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-all cursor-pointer"
@@ -52,7 +93,21 @@ export default function PDFReportView({ workOrder, client, equipment, onClose }:
             {/* Report Header Logo & Details */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 border-b border-slate-100 gap-4">
               <div className="space-y-2">
-                <img src="https://appdesignproyectos.com/mvl.png" alt="MVL Logo" className="h-10 object-contain" />
+                <div className="flex items-center gap-2">
+                  <img 
+                    src="https://appdesignproyectos.com/mvl.png" 
+                    alt="MVL Logo" 
+                    className="h-10 object-contain" 
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fb = document.getElementById('report-mvl-logo-fb');
+                      if (fb) fb.style.display = 'inline-flex';
+                    }}
+                  />
+                  <div id="report-mvl-logo-fb" style={{ display: 'none' }} className="h-10 px-3 bg-[#0196C1] text-white font-black text-sm rounded-lg items-center justify-center">
+                    MVL
+                  </div>
+                </div>
                 <p className="text-xs text-slate-500 font-medium">MVL CONTROL Y MANTENIMIENTO INDUSTRIAL</p>
               </div>
               <div className="text-left md:text-right space-y-1">

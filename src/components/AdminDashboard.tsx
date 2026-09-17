@@ -63,7 +63,12 @@ export default function AdminDashboard({
 
   // New staff form states
   const [newStaffName, setNewStaffName] = useState('');
-  const [newStaffRole, setNewStaffRole] = useState<'admin' | 'coordinator' | 'technician'>('technician');
+  const [newStaffRole, setNewStaffRole] = useState<'admin' | 'coordinator' | 'technician' | 'sales' | 'rh' | 'warehouse'>('technician');
+  const [newStaffCustomJobTitle, setNewStaffCustomJobTitle] = useState('');
+  const [isCustomRole, setIsCustomRole] = useState(false);
+  const [customRolesList, setCustomRolesList] = useState<string[]>(() => 
+    loadFromStorage<string[]>('mvl_custom_roles_list', ['Vendedor / Asesor Comercial', 'Coordinador de Ventas', 'Recursos Humanos', 'Almacén / Logística'])
+  );
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
 
@@ -765,10 +770,30 @@ export default function AdminDashboard({
   const handleAddStaff = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStaffName || !newStaffEmail) return;
+
+    let finalRole = newStaffRole;
+    let finalTitle = newStaffCustomJobTitle.trim();
+
+    if (!isCustomRole && !finalTitle) {
+      if (newStaffRole === 'sales') finalTitle = 'Vendedor / Asesor Comercial';
+      else if (newStaffRole === 'coordinator') finalTitle = 'Coordinador / Supervisor';
+      else if (newStaffRole === 'admin') finalTitle = 'Administrador (Socio)';
+      else if (newStaffRole === 'rh') finalTitle = 'Recursos Humanos';
+      else if (newStaffRole === 'warehouse') finalTitle = 'Almacén / Logística';
+      else finalTitle = 'Técnico de Campo';
+    }
+
+    if (isCustomRole && finalTitle && !customRolesList.includes(finalTitle)) {
+      const updatedList = [...customRolesList, finalTitle];
+      setCustomRolesList(updatedList);
+      saveToStorage('mvl_custom_roles_list', updatedList);
+    }
+
     const item: Staff = {
       id: `s${Date.now()}`,
       name: newStaffName,
-      role: newStaffRole,
+      role: finalRole,
+      customJobTitle: finalTitle,
       email: newStaffEmail,
       phone: newStaffPhone || 'N/A',
       active: true
@@ -777,6 +802,8 @@ export default function AdminDashboard({
     setNewStaffName('');
     setNewStaffEmail('');
     setNewStaffPhone('');
+    setNewStaffCustomJobTitle('');
+    setIsCustomRole(false);
   };
 
   // Toggle staff status
@@ -1597,16 +1624,79 @@ export default function AdminDashboard({
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Rol / Puesto</label>
-                <select
-                  value={newStaffRole}
-                  onChange={(e) => setNewStaffRole(e.target.value as any)}
-                  className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0196C1]"
-                >
-                  <option value="technician">Técnico de Campo</option>
-                  <option value="coordinator">Coordinador / Supervisor</option>
-                  <option value="admin">Administrador (Socio)</option>
-                </select>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase">Rol / Puesto</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomRole(!isCustomRole);
+                      if (!isCustomRole) setNewStaffRole('sales');
+                    }}
+                    className="text-[10px] text-[#0196C1] hover:underline font-bold cursor-pointer"
+                  >
+                    {isCustomRole ? '← Seleccionar de la lista' : '+ Agregar nuevo rol / puesto'}
+                  </button>
+                </div>
+
+                {!isCustomRole ? (
+                  <select
+                    value={newStaffRole}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'custom_new') {
+                        setIsCustomRole(true);
+                      } else {
+                        setNewStaffRole(val as any);
+                      }
+                    }}
+                    className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0196C1]"
+                  >
+                    <optgroup label="Puestos Operativos y Técnicos">
+                      <option value="technician">Técnico de Campo</option>
+                      <option value="coordinator">Coordinador / Supervisor</option>
+                      <option value="warehouse">Almacén / Logística</option>
+                    </optgroup>
+                    <optgroup label="Área Comercial & Dirección">
+                      <option value="sales">Vendedor / Asesor Comercial</option>
+                      <option value="coordinator">Coordinador de Ventas</option>
+                      <option value="admin">Administrador (Socio)</option>
+                      <option value="rh">Recursos Humanos</option>
+                    </optgroup>
+                    {customRolesList.length > 0 && (
+                      <optgroup label="Roles Personalizados Registrados">
+                        {customRolesList.map((cr, idx) => (
+                          <option key={idx} value="sales">{cr}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <option value="custom_new">+ Definir Otro Rol / Puesto...</option>
+                  </select>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      required
+                      placeholder="Escribe el nombre del rol o puesto (ej. Vendedor de Mostrador)"
+                      value={newStaffCustomJobTitle}
+                      onChange={(e) => setNewStaffCustomJobTitle(e.target.value)}
+                      className="w-full text-xs px-3 py-2 bg-sky-50/50 border border-[#0196C1] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0196C1] font-medium"
+                    />
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-500 font-bold">Perfil base de permisos:</span>
+                      <select
+                        value={newStaffRole}
+                        onChange={(e) => setNewStaffRole(e.target.value as any)}
+                        className="text-[11px] p-1 bg-white border border-slate-200 rounded-md font-medium"
+                      >
+                        <option value="sales">Ventas / Comercial</option>
+                        <option value="technician">Técnico Operativo</option>
+                        <option value="coordinator">Coordinador</option>
+                        <option value="admin">Administrador</option>
+                        <option value="warehouse">Almacén</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1654,8 +1744,8 @@ export default function AdminDashboard({
                     <div>
                       <p className="text-xs font-bold text-slate-800">{member.name}</p>
                       <p className="text-[10px] text-slate-400 font-semibold uppercase flex items-center gap-1">
-                        <span className={`w-1.5 h-1.5 rounded-full ${member.role === 'admin' ? 'bg-rose-500' : member.role === 'coordinator' ? 'bg-[#0196C1]' : 'bg-emerald-500'}`} />
-                        {member.role === 'admin' ? 'Administrador' : member.role === 'coordinator' ? 'Coordinador' : 'Técnico de Campo'}
+                        <span className={`w-1.5 h-1.5 rounded-full ${member.role === 'admin' ? 'bg-rose-500' : member.role === 'sales' ? 'bg-sky-500' : member.role === 'coordinator' ? 'bg-[#0196C1]' : 'bg-emerald-500'}`} />
+                        {member.customJobTitle || (member.role === 'admin' ? 'Administrador (Socio)' : member.role === 'coordinator' ? 'Coordinador' : member.role === 'sales' ? 'Vendedor / Comercial' : member.role === 'rh' ? 'Recursos Humanos' : member.role === 'warehouse' ? 'Almacén' : 'Técnico de Campo')}
                       </p>
                       <p className="text-[10px] text-slate-500 mt-0.5">{member.email} • {member.phone}</p>
                     </div>

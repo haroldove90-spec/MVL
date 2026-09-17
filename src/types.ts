@@ -134,8 +134,13 @@ export interface Quote {
   poApprovalStatus?: 'approved' | 'rejected' | 'pending';
   agentName?: string;
   plantName?: string;
+  plantAddress?: string;
+  contactName?: string;
+  contactRole?: string;
+  contactEmail?: string;
   crmGiro?: string;
   whatsapp?: string;
+  clientWhatsapp?: string;
   clientEmail?: string;
   itemsTable?: QuoteItem[];
   supplyInstallationDetails?: {
@@ -222,6 +227,8 @@ export interface Client {
   isIndependent?: boolean; // Particular Independiente
   taxDocUrl?: string; // Constancia Fiscal PDF
   industryGiro?: string;
+  city?: string;
+  address?: string;
 }
 
 export interface Equipment {

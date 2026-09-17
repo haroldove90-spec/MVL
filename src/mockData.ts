@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Client, Equipment, HistoryItem, InventoryItem, Staff, WorkOrder, PurchaseOrder, ExpenseControl, Supplier, SupplierInvoice, PersonalDoc, CriticalPendingTask, Quote, CompanyTaxDoc, FailureIndicator, LaborRate, OemCatalogItem, IssuerPartner, MonthlyClosing, CatalogItem } from './types';
+import { Client, Equipment, HistoryItem, InventoryItem, Staff, WorkOrder, PurchaseOrder, ExpenseControl, Supplier, SupplierInvoice, PersonalDoc, CriticalPendingTask, Quote, CompanyTaxDoc, FailureIndicator, LaborRate, OemCatalogItem, IssuerPartner, MonthlyClosing, CatalogItem, CustomerKitItem } from './types';
 
 export const INITIAL_ISSUER_PARTNERS: IssuerPartner[] = [
   {
@@ -41,6 +41,18 @@ export const INITIAL_ISSUER_PARTNERS: IssuerPartner[] = [
     email: 'administracion@mvlmaquinaria.com',
     roleDescription: 'Razón Social Corporativa / Dirección General',
     digitalSignatureUrl: 'https://api.dicebear.com/7.x/initials/svg?seed=MVL'
+  },
+  {
+    id: 'partner_4',
+    name: 'Marco Antonio Ramírez Barrios',
+    businessName: 'MARCO ANTONIO RAMÍREZ BARRIOS',
+    rfc: 'RABM920315XX1',
+    taxRegime: '612 - Personas Físicas con Actividades Empresariales y Profesionales',
+    address: 'Blvd. Aeropuerto 1024, Col. San José el Alto, C.P. 37299, León, Gto.',
+    phone: '477-304-6758',
+    email: 'mramirez@gmail.com',
+    roleDescription: 'Socio Director Comercial & Ventas',
+    digitalSignatureUrl: 'https://api.dicebear.com/7.x/initials/svg?seed=MR'
   }
 ];
 
@@ -427,10 +439,44 @@ export const INITIAL_CLIENTS: Client[] = [
     contacts: [
       { name: 'Ing. Andrea / Depto. Mantenimiento', role: 'Supervisión de Planta', phone: '477-710-1200', email: 'mantenimiento@andrea.com' }
     ]
+  },
+  {
+    id: 'c_metso',
+    name: 'METSO AUTOTEC',
+    companyName: 'METSO AUTOTEC S.A. DE C.V.',
+    rfc: 'MMM9602224P0',
+    email: 'antonio.diaz@metso.com',
+    phone: '462-113-0166',
+    whatsapp: '462-113-0166',
+    plants: [
+      { id: 'p_metso_1', name: 'RUBBER', address: 'Autopista Salamanca S/N Ciudad Industrial 36541', city: 'Irapuato, Guanajuato' },
+      { id: 'p_metso_2', name: 'Screening Media', address: 'Parque Industrial Central Park / OCP, Lote Guanajuato 36827', city: 'Irapuato, Guanajuato' }
+    ],
+    contacts: [
+      { name: 'Ing. Antonio Díaz', role: 'Contacto Comercial / Mantenimiento', phone: '462-113-0166', email: 'antonio.diaz@metso.com' }
+    ]
   }
 ];
 
 export const INITIAL_EQUIPMENT: Equipment[] = [
+  {
+    id: 'eq_metso_ga37',
+    clientId: 'c_metso',
+    plantId: 'p_metso_1',
+    name: 'Compresor Atlas Copco GA37+FF',
+    brand: 'ATLAS COPCO',
+    model: 'GA37FF',
+    serialNumber: 'API787552',
+    oilType: 'Roto Inject Fluid / S-460',
+    capacity: '50 HP 37 KW',
+    voltage: '440 3F',
+    filtersRequired: 'F.Aire 1622 1855 01, F.Aceite 1625 7526 00, F.Separador 2901 2055 00',
+    status: 'active',
+    lastMaintenance: '2026-05-10',
+    nextMaintenance: '2026-11-10',
+    engineHours: 4120,
+    type: 'compresor'
+  },
   {
     id: 'eq_andrea_as30t',
     clientId: 'c_andrea',
@@ -780,6 +826,126 @@ export const INITIAL_STAFF: Staff[] = [
     medicalCertFileName: 'Certificado_Medico_Sofia_Julio2026.pdf',
     quotesGenerated: 0,
     salesClosed: 0
+  },
+  {
+    id: 's6',
+    name: 'Ricardo García Durán',
+    role: 'sales',
+    customJobTitle: 'Asesor Comercial / Vendedor',
+    email: 'ricardo.garcia@mvl.com',
+    phone: '477-123-4567',
+    personalPhone: '477-123-4567',
+    age: 35,
+    active: true,
+    quotesGenerated: 32,
+    salesClosed: 25
+  },
+  {
+    id: 's7',
+    name: 'Ing. Leonardo Daniel Torres',
+    role: 'admin',
+    customJobTitle: 'Socio Director & Proyectos',
+    email: 'leonardo.torres@mvlmaquinaria.com',
+    phone: '477-845-9920',
+    personalPhone: '477-404-7421',
+    age: 41,
+    active: true,
+    quotesGenerated: 45,
+    salesClosed: 38
+  },
+  {
+    id: 's8',
+    name: 'Víctor Pedro Ramírez Barrios',
+    role: 'admin',
+    customJobTitle: 'Socio Director General & Operativo',
+    email: 'victor.ramirez@mvlmaquinaria.com',
+    phone: '477-390-8812',
+    personalPhone: '477-390-8812',
+    age: 43,
+    active: true,
+    quotesGenerated: 28,
+    salesClosed: 22
+  },
+  {
+    id: 's9',
+    name: 'Marco Antonio Ramírez Barrios',
+    role: 'sales',
+    customJobTitle: 'Socio Director Comercial & Ventas',
+    email: 'mramirez@gmail.com',
+    phone: '477-304-6758',
+    personalPhone: '477-304-6758',
+    age: 37,
+    active: true,
+    quotesGenerated: 30,
+    salesClosed: 26
+  }
+];
+
+export const INITIAL_CUSTOMER_KITS: CustomerKitItem[] = [
+  {
+    id: 'ck_metso_1',
+    partNumber: '2901 2055 00',
+    description: 'separador',
+    price: 601.99,
+    clientName: 'Metso',
+    equipmentModel: 'GA37+FF',
+    serialNumber: 'API 540750',
+    currency: 'USD',
+    stock: 8,
+    unit: 'pzas',
+    isActive: true
+  },
+  {
+    id: 'ck_metso_2',
+    partNumber: '1622 1855 01',
+    description: 'filtro de aire',
+    price: 158.68,
+    clientName: 'Metso',
+    equipmentModel: 'GA37+FF',
+    serialNumber: 'API 540750',
+    currency: 'USD',
+    stock: 8,
+    unit: 'pzas',
+    isActive: true
+  },
+  {
+    id: 'ck_metso_3',
+    partNumber: '2901 1622 00',
+    description: 'valvula admisión',
+    price: 258.95,
+    clientName: 'Metso',
+    equipmentModel: 'GA37+FF',
+    serialNumber: 'API 540750',
+    currency: 'USD',
+    stock: 8,
+    unit: 'pzas',
+    isActive: true
+  },
+  {
+    id: 'ck_metso_4',
+    partNumber: '2901 1453 00',
+    description: 'valvula presion minima',
+    price: 93.62,
+    clientName: 'Metso',
+    equipmentModel: 'GA37+FF',
+    serialNumber: 'API 540750',
+    currency: 'USD',
+    stock: 8,
+    unit: 'pzas',
+    isActive: true
+  },
+  {
+    id: 'ck_metso_5',
+    partNumber: '2901 2018 00',
+    description: 'valvula check aceite no retorno',
+    price: 787.06,
+    clientName: 'Metso',
+    equipmentModel: 'GA37+FF',
+    serialNumber: 'API 540750',
+    currency: 'USD',
+    stock: 8,
+    unit: 'pzas',
+    isActive: true
   }
 ];
 
