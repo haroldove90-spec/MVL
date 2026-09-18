@@ -16,7 +16,8 @@ import {
   CheckCircle, XCircle, Tag, Layers, TrendingUp, TrendingDown,
   ShieldCheck, AlertTriangle, Building, Activity, FileText, Search, Edit2, Edit, X, Eye, RefreshCw,
   BookOpen, HelpCircle, Lightbulb, PlayCircle, CheckCircle2, ChevronRight, Info, Building2,
-  Power, PowerOff, Copy, Send, Key, Database, LogOut, Check, Sparkles
+  Power, PowerOff, Copy, Send, Key, Database, LogOut, Check, Sparkles,
+  Compass, UserCheck, Wrench, FileCheck, ArrowRight, LayoutGrid
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import SalesCatalogModule from './SalesCatalogModule';
@@ -37,6 +38,7 @@ interface AdminDashboardProps {
   setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial') => void;
   currentUser?: UserAccount | null;
   onCleanDemoData?: () => void;
+  onSwitchRole?: (role: UserRole) => void;
 }
 
 export default function AdminDashboard({ 
@@ -55,7 +57,8 @@ export default function AdminDashboard({
   activeTab: propActiveTab,
   setActiveTab: propSetActiveTab,
   currentUser,
-  onCleanDemoData
+  onCleanDemoData,
+  onSwitchRole
 }: AdminDashboardProps) {
   // Navigation tabs with parent-control fallback
   const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial'>('financial');
@@ -1036,6 +1039,107 @@ export default function AdminDashboard({
           </button>
         </div>
       </div>
+
+      {/* EXCLUSIVE ADMIN ROLE NAVIGATION PANEL */}
+      {onSwitchRole && (
+        <div className="bg-gradient-to-r from-slate-900 via-[#1e1e1f] to-[#282829] text-white p-4 sm:p-5 rounded-2xl border border-slate-700/70 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3.5 pb-3 border-b border-slate-700/60">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-[#0196C1]/20 border border-[#0196C1]/40 flex items-center justify-center text-[#0196C1] shrink-0">
+                <Compass className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                  <span>Navegación Global Multi-Rol</span>
+                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40 font-bold normal-case">
+                    Exclusivo Administrador
+                  </span>
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Como administrador tienes permiso total para ingresar y operar como cualquier rol del sistema:
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono text-slate-400 hidden sm:block">
+              Rol actual: <strong className="text-[#0196C1]">Administrador / Socios</strong>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+            {/* 1. Coordinador / Ventas */}
+            <button
+              type="button"
+              onClick={() => onSwitchRole('coordinator')}
+              className="flex items-start gap-2.5 p-3 rounded-xl bg-white/5 hover:bg-sky-500/15 border border-white/10 hover:border-sky-400/40 transition-all text-left cursor-pointer group hover:scale-[1.01]"
+            >
+              <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0 group-hover:bg-sky-500 group-hover:text-white transition-colors">
+                <UserCheck className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white group-hover:text-sky-300 truncate">Ventas / Coordinación</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-sky-300 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+                <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Cotizaciones, OTs y Kits</p>
+              </div>
+            </button>
+
+            {/* 2. Contabilidad & SAT */}
+            <button
+              type="button"
+              onClick={() => onSwitchRole('accounting')}
+              className="flex items-start gap-2.5 p-3 rounded-xl bg-white/5 hover:bg-emerald-500/15 border border-white/10 hover:border-emerald-400/40 transition-all text-left cursor-pointer group hover:scale-[1.01]"
+            >
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                <FileCheck className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white group-hover:text-emerald-300 truncate">Contabilidad & SAT</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-300 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+                <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Facturación, CSF y Crédito</p>
+              </div>
+            </button>
+
+            {/* 3. Técnico / Campo */}
+            <button
+              type="button"
+              onClick={() => onSwitchRole('technician')}
+              className="flex items-start gap-2.5 p-3 rounded-xl bg-white/5 hover:bg-amber-500/15 border border-white/10 hover:border-amber-400/40 transition-all text-left cursor-pointer group hover:scale-[1.01]"
+            >
+              <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                <Wrench className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white group-hover:text-amber-300 truncate">Técnico / Campo</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-300 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+                <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Agenda, Checklist y Reporte</p>
+              </div>
+            </button>
+
+            {/* 4. Portal Cliente Industrial */}
+            <button
+              type="button"
+              onClick={() => onSwitchRole('client')}
+              className="flex items-start gap-2.5 p-3 rounded-xl bg-white/5 hover:bg-violet-500/15 border border-white/10 hover:border-violet-400/40 transition-all text-left cursor-pointer group hover:scale-[1.01]"
+            >
+              <div className="w-8 h-8 rounded-lg bg-violet-500/20 text-violet-400 flex items-center justify-center shrink-0 group-hover:bg-violet-500 group-hover:text-white transition-colors">
+                <Building2 className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white group-hover:text-violet-300 truncate">Cliente Industrial</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-violet-300 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+                <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Mis Equipos, IoT y Fallas</p>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* --- Tab: Tutorial / Guía del Administrador --- */}
       {activeTab === 'tutorial' && (
