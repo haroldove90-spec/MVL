@@ -309,7 +309,7 @@ export async function saveUserAccount(account: UserAccount): Promise<{ success: 
  * Generate formatted WhatsApp credential sharing link
  */
 export function generateWhatsAppCredentialLink(account: UserAccount, systemUrl?: string): string {
-  const url = systemUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://mvlcontrol.com');
+  const url = systemUrl || 'https://mvl-nine.vercel.app/';
   const roleName = 
     account.role === 'admin' ? '👑 Administrador (Socio)' :
     account.role === 'coordinator' ? '💼 Coordinador / Ventas' :
@@ -320,15 +320,17 @@ export function generateWhatsAppCredentialLink(account: UserAccount, systemUrl?:
 
   const message = 
 `*MVL CONTROL INDUSTRIAL - CREDENCIALES DE ACCESO*
-Hola *${account.name}*, se han activado tus credenciales de acceso para la plataforma de gestión MVL:
+Hola *${account.name}*, se han activado tus credenciales para la plataforma de gestión MVL:
 
-🌐 *Enlace de Acceso:* ${url}
+🌐 *Enlace directo al sistema:*
+${url}
+
 👤 *Usuario:* ${account.username}
 📧 *Correo:* ${account.email}
 🔑 *Contraseña:* ${account.password || 'Chevropar#1970'}
 💼 *Rol Asignado:* ${roleName} ${account.customJobTitle ? `(${account.customJobTitle})` : ''}
 
-_Guarda este mensaje en un lugar seguro. Puedes ingresar con tu usuario o con tu correo electrónico._`;
+_Haz clic en el enlace ${url} para ingresar con tu usuario o correo electrónico._`;
 
   const encoded = encodeURIComponent(message);
   return cleanPhone 

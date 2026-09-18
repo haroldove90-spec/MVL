@@ -42,17 +42,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
   };
 
-  const handleQuickFill = (userType: 'haroldo' | 'admin_master') => {
-    setErrorMessage(null);
-    if (userType === 'haroldo') {
-      setIdentifier('haroldo90');
-      setPassword('Chevropar#1970');
-    } else {
-      setIdentifier('admin_master');
-      setPassword('Chevropar#1970');
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#F8FAFB] text-slate-800 flex flex-col justify-center items-center p-4 sm:p-6 selection:bg-[#0196C1]/20">
       {/* Brand & Header without any encapsulation */}
@@ -167,41 +156,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           </button>
         </form>
 
-        {/* Quick Access Credentials helper for Administrator and Harold */}
-        <div className="pt-4 border-t border-slate-100 space-y-2.5">
-          <p className="text-[10px] text-slate-400 uppercase font-extrabold tracking-wider text-center">
-            Accesos Rápidos de Prueba en Producción:
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => handleQuickFill('haroldo')}
-              className="px-3 py-2.5 bg-slate-50 hover:bg-[#0196C1]/10 border border-slate-200 hover:border-[#0196C1]/40 rounded-xl text-left transition-all cursor-pointer group"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-800 group-hover:text-[#0196C1]">haroldo90</span>
-                <span className="text-[8px] px-1.5 py-0.5 bg-[#0196C1]/10 text-[#0196C1] rounded font-bold">Admin</span>
-              </div>
-              <p className="text-[9px] text-slate-500 truncate mt-0.5 font-medium">Harold Anguiano</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickFill('admin_master')}
-              className="px-3 py-2.5 bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-xl text-left transition-all cursor-pointer group"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-800 group-hover:text-rose-700">admin_master</span>
-                <span className="text-[8px] px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded font-bold">Maestro</span>
-              </div>
-              <p className="text-[9px] text-slate-500 truncate mt-0.5 font-medium">Administrador Maestro</p>
-            </button>
-          </div>
-        </div>
-
         {/* Footer Support */}
-        <div className="text-center pt-2">
-          <p className="text-[10px] text-slate-500">
+        <div className="text-center pt-1 border-t border-slate-100">
+          <p className="text-[11px] text-slate-500 font-medium">
             ¿Requieres dar de alta un empleado o recuperar acceso?
           </p>
           <a
@@ -210,7 +167,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             rel="noopener noreferrer"
             className="text-[11px] text-[#0196C1] hover:underline font-bold inline-block mt-0.5"
           >
-            Contactar por WhatsApp: 56-2422-2449
+            Contactar al Administrador vía WhatsApp: 56-2422-2449
           </a>
         </div>
       </motion.div>

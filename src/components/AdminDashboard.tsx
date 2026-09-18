@@ -1985,7 +1985,7 @@ export default function AdminDashboard({
                   createdAt: member.createdAt
                 };
 
-                const waLink = generateWhatsAppCredentialLink(memberUserAccount);
+                const waLink = generateWhatsAppCredentialLink(memberUserAccount, 'https://mvl-nine.vercel.app/');
 
                 return (
                   <div key={member.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-3.5 gap-3 hover:bg-slate-50/60 rounded-xl px-2 transition-colors">
@@ -4495,10 +4495,11 @@ export default function AdminDashboard({
           active: justCreatedStaff.active,
           createdAt: justCreatedStaff.createdAt
         };
-        const waLink = generateWhatsAppCredentialLink(staffAccount);
+        const SYSTEM_URL = 'https://mvl-nine.vercel.app/';
+        const waLink = generateWhatsAppCredentialLink(staffAccount, SYSTEM_URL);
 
         const copyCredentialsText = () => {
-          const text = `*ACCESO MVL CONTROL INDUSTRIAL*\nHola ${staffAccount.name}, tus credenciales son:\nUsuario: ${staffAccount.username}\nCorreo: ${staffAccount.email}\nContraseña: ${staffAccount.password}\nRol: ${justCreatedStaff.customJobTitle || staffAccount.role}\nIngresa en: ${window.location.origin}`;
+          const text = `*ACCESO MVL CONTROL INDUSTRIAL*\nHola ${staffAccount.name}, se han generado tus credenciales para la plataforma MVL:\n\n🌐 Enlace del sistema: ${SYSTEM_URL}\n👤 Usuario: ${staffAccount.username}\n📧 Correo: ${staffAccount.email}\n🔑 Contraseña: ${staffAccount.password}\n💼 Rol: ${justCreatedStaff.customJobTitle || staffAccount.role}\n\nIngresa directamente en: ${SYSTEM_URL}`;
           navigator.clipboard.writeText(text);
           setCopiedCreds(true);
           setTimeout(() => setCopiedCreds(false), 3000);
@@ -4554,6 +4555,17 @@ export default function AdminDashboard({
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-500 font-medium">WhatsApp / Teléfono:</span>
                     <span className="text-slate-800 font-mono font-bold">{staffAccount.whatsapp || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-200/60">
+                    <span className="text-slate-500 font-medium">Enlace del Sistema:</span>
+                    <a 
+                      href={SYSTEM_URL} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-[#0196C1] font-bold hover:underline"
+                    >
+                      {SYSTEM_URL}
+                    </a>
                   </div>
                 </div>
 
