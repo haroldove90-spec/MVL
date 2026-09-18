@@ -751,14 +751,45 @@ export const INITIAL_MONTHLY_CLOSINGS: MonthlyClosing[] = [
   }
 ];
 
+export const REAL_ADMIN_STAFF: Staff[] = [
+  { 
+    id: 'usr_master', 
+    name: 'Administrador Maestro MVL', 
+    username: 'admin_master',
+    password: 'Chevropar#1970',
+    role: 'admin', 
+    customJobTitle: 'Administrador Maestro', 
+    email: 'admin@mvlmaquinaria.com', 
+    phone: '5624222449', 
+    whatsapp: '5624222449',
+    active: true 
+  },
+  { 
+    id: 'usr_haroldo', 
+    name: 'Harold Anguiano Morales', 
+    username: 'haroldo90',
+    password: 'Chevropar#1970',
+    role: 'admin', 
+    customJobTitle: 'Administrador General', 
+    email: 'haroldo90@hotmail.com', 
+    phone: '5624222449', 
+    whatsapp: '5624222449',
+    active: true 
+  }
+];
+
 export const INITIAL_STAFF: Staff[] = [
+  ...REAL_ADMIN_STAFF,
   { 
     id: 's1', 
     name: 'Ing. Carlos Mendoza', 
+    username: 'carlos_ventas',
+    password: 'Chevropar#1970',
     role: 'coordinator', 
     customJobTitle: 'Coordinador General de Ventas', 
     email: 'carlos.mendoza@mvl.com', 
     phone: '81-8181-9922', 
+    whatsapp: '8181819922',
     personalPhone: '81-9988-7766',
     age: 38,
     active: true,
@@ -2076,6 +2107,55 @@ export const unmarkRecordsAsDeleted = (ids: string[]): void => {
   }
 };
 
+export const isCleanProductionMode = (): boolean => {
+  try {
+    return localStorage.getItem('mvl_clean_production_mode') === 'true';
+  } catch (e) {
+    return false;
+  }
+};
+
+export const setCleanProductionMode = (enabled: boolean): void => {
+  try {
+    if (enabled) {
+      localStorage.setItem('mvl_clean_production_mode', 'true');
+    } else {
+      localStorage.removeItem('mvl_clean_production_mode');
+    }
+  } catch (e) {
+    console.error('Error toggling production mode:', e);
+  }
+};
+
+export const purgeDemoDataAndCleanSystem = (reload: boolean = true): void => {
+  try {
+    // 1. Mark clean production mode permanently
+    localStorage.setItem('mvl_clean_production_mode', 'true');
+    // 2. Clear out demo data arrays
+    localStorage.setItem('mvl_clients', JSON.stringify([]));
+    localStorage.setItem('mvl_equipment', JSON.stringify([]));
+    localStorage.setItem('mvl_work_orders', JSON.stringify([]));
+    localStorage.setItem('mvl_purchase_orders', JSON.stringify([]));
+    localStorage.setItem('mvl_inventory', JSON.stringify([]));
+    localStorage.setItem('mvl_expense_control', JSON.stringify([]));
+    localStorage.setItem('mvl_quotes', JSON.stringify([]));
+    localStorage.setItem('mvl_staff', JSON.stringify(REAL_ADMIN_STAFF));
+
+    // Remove other sample keys
+    const toRemove = [
+      'mvl_deleted_record_ids', 'mvl_historical_expenses', 
+      'mvl_customer_kits', 'mvl_admin_tab', 'mvl_coord_filter'
+    ];
+    toRemove.forEach(k => localStorage.removeItem(k));
+
+    if (reload && typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  } catch (e) {
+    console.error('Error purging demo data:', e);
+  }
+};
+
 export const clearSystemCache = (reload: boolean = true): void => {
   // Clears all application cache and data from localStorage
   const keysToRemove: string[] = [];
@@ -2098,6 +2178,18 @@ export const clearSystemCache = (reload: boolean = true): void => {
 export const loadFromStorage = <T>(key: string, defaultValue: T): T => {
   const data = localStorage.getItem(key);
   const deletedIds = getDeletedRecordIds();
+
+  // If in Clean Production Mode, do not load initial mock arrays for business entities
+  if (isCleanProductionMode()) {
+    if (!data) {
+      if (key === 'mvl_staff') {
+        return REAL_ADMIN_STAFF as unknown as T;
+      }
+      if (['mvl_clients', 'mvl_equipment', 'mvl_work_orders', 'mvl_purchase_orders', 'mvl_inventory', 'mvl_expense_control', 'mvl_quotes'].includes(key)) {
+        return [] as unknown as T;
+      }
+    }
+  }
 
   const isItemActive = (item: any): boolean => {
     if (!item) return false;

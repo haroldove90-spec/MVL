@@ -13,10 +13,11 @@ import {
 } from 'lucide-react';
 
 // Data models & Storage helpers
-import { Client, Equipment, InventoryItem, Staff, WorkOrder, UserRole, PurchaseOrder } from './types';
+import { Client, Equipment, InventoryItem, Staff, WorkOrder, UserRole, PurchaseOrder, UserAccount } from './types';
 import { 
   INITIAL_CLIENTS, INITIAL_EQUIPMENT, INITIAL_INVENTORY, 
-  INITIAL_STAFF, INITIAL_WORK_ORDERS, INITIAL_PURCHASE_ORDERS, loadFromStorage, saveToStorage 
+  INITIAL_STAFF, INITIAL_WORK_ORDERS, INITIAL_PURCHASE_ORDERS, 
+  loadFromStorage, saveToStorage, purgeDemoDataAndCleanSystem, isCleanProductionMode 
 } from './mockData';
 
 // Dashboard Components
@@ -27,6 +28,7 @@ import ClientDashboard from './components/ClientDashboard';
 import AccountingDashboard from './components/AccountingDashboard';
 import PDFReportView from './components/PDFReportView';
 import PWAInstallBtn from './components/PWAInstallBtn';
+import LoginScreen from './components/LoginScreen';
 
 export default function App() {
   // --- Persistent core states ---
@@ -57,10 +59,30 @@ export default function App() {
   useEffect(() => { saveToStorage('mvl_work_orders', workOrders); }, [workOrders]);
   useEffect(() => { saveToStorage('mvl_purchase_orders', purchaseOrders); }, [purchaseOrders]);
 
-  // --- Session State ---
-  const [activeRole, setActiveRole] = useState<UserRole | null>(() =>
-    loadFromStorage<UserRole | null>('mvl_active_role', null)
+  // --- Authenticated User Session ---
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() =>
+    loadFromStorage<UserAccount | null>('mvl_current_user', null)
   );
+
+  const [activeRole, setActiveRole] = useState<UserRole | null>(() => {
+    const savedUser = loadFromStorage<UserAccount | null>('mvl_current_user', null);
+    if (savedUser?.role) return savedUser.role;
+    return loadFromStorage<UserRole | null>('mvl_active_role', null);
+  });
+
+  const handleLoginSuccess = (user: UserAccount) => {
+    setCurrentUser(user);
+    setActiveRole(user.role);
+    saveToStorage('mvl_current_user', user);
+    saveToStorage('mvl_active_role', user.role);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setActiveRole(null);
+    localStorage.removeItem('mvl_current_user');
+    localStorage.removeItem('mvl_active_role');
+  };
 
   // --- Sub-module Tab/Filter States ---
   const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial'>(() => {
@@ -131,98 +153,9 @@ export default function App() {
         />
       )}
 
-      {!activeRole ? (
-        // ==================== HOME ROLE SELECTOR SCREEN ====================
-        <div className="min-h-screen flex flex-col justify-center items-center p-4 md:p-8 max-w-4xl mx-auto text-center space-y-8">
-          <div className="flex justify-center">
-            <img 
-              src="https://appdesignproyectos.com/mvl.png" 
-              alt="MVL Logo" 
-              className="h-28 md:h-36 object-contain"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <h2 className="text-xl md:text-2xl font-extrabold text-[#282829] tracking-tight">
-              MVL Control y Mantenimiento Industrial
-            </h2>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Seleccione su rol de proceso para acceder al sistema con navegación lateral e inferior.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5 w-full mx-auto px-1">
-            {/* 1. Socios */}
-            <button
-              onClick={() => handleSelectRole('admin')}
-              className="bg-white rounded-[20px] py-4 px-3 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
-            >
-              <div className="w-12 h-12 bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
-                <UserCog className="w-6 h-6" />
-              </div>
-              <p className="font-bold text-xs uppercase tracking-tight text-[#282829] m-0">1. Socios</p>
-              <span className="text-[10px] text-slate-500 mt-1 leading-tight">Dirección & Finanzas</span>
-            </button>
-
-            {/* 2. Ventas */}
-            <button
-              onClick={() => handleSelectRole('coordinator')}
-              className="bg-white rounded-[20px] py-4 px-3 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
-            >
-              <div className="w-12 h-12 bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
-                <CalendarCheck2 className="w-6 h-6" />
-              </div>
-              <p className="font-bold text-xs uppercase tracking-tight text-[#282829] m-0">2. Ventas</p>
-              <span className="text-[10px] text-slate-500 mt-1 leading-tight">Cotizaciones & OT</span>
-            </button>
-
-            {/* 3. Contabilidad */}
-            <button
-              onClick={() => handleSelectRole('accounting')}
-              className="bg-white rounded-[20px] py-4 px-3 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
-            >
-              <div className="w-12 h-12 bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
-                <FileCheck className="w-6 h-6" />
-              </div>
-              <p className="font-bold text-xs uppercase tracking-tight text-[#282829] m-0">3. Contabilidad</p>
-              <span className="text-[10px] text-slate-500 mt-1 leading-tight">Facturación & SAT</span>
-            </button>
-
-            {/* 4. Técnico */}
-            <button
-              onClick={() => handleSelectRole('technician')}
-              className="bg-white rounded-[20px] py-4 px-3 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group"
-            >
-              <div className="w-12 h-12 bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
-                <Hammer className="w-6 h-6" />
-              </div>
-              <p className="font-bold text-xs uppercase tracking-tight text-[#282829] m-0">4. Técnico</p>
-              <span className="text-[10px] text-slate-500 mt-1 leading-tight">Agenda & Reportes</span>
-            </button>
-
-            {/* 5. Cliente */}
-            <button
-              onClick={() => handleSelectRole('client')}
-              className="bg-white rounded-[20px] py-4 px-3 flex flex-col items-center justify-center text-center shadow-[0_10px_25px_rgba(0,0,0,0.04)] border border-black/5 cursor-pointer transition-all duration-300 hover:shadow-[0_15px_35px_rgba(1,150,193,0.15)] hover:-translate-y-1 hover:border-[#0196C1] active:scale-98 group col-span-2 sm:col-span-1"
-            >
-              <div className="w-12 h-12 bg-[#0196C1]/10 rounded-full flex items-center justify-center mb-3 text-[#0196C1] group-hover:bg-[#0196C1] group-hover:text-white transition-all duration-300">
-                <Building2 className="w-6 h-6" />
-              </div>
-              <p className="font-bold text-xs uppercase tracking-tight text-[#282829] m-0">5. Cliente</p>
-              <span className="text-[10px] text-slate-500 mt-1 leading-tight">Equipos & Historial</span>
-            </button>
-          </div>
-
-          <div className="pt-6 flex flex-col items-center gap-4 border-t border-slate-200/60 max-w-sm mx-auto">
-            <PWAInstallBtn />
-            <button
-              onClick={handleResetDemoData}
-              className="text-[10px] text-slate-400 hover:text-slate-600 font-semibold underline cursor-pointer"
-            >
-              Restaurar Datos de Demostración
-            </button>
-          </div>
-        </div>
+      {!currentUser ? (
+        // ==================== REAL AUTHENTICATION / LOGIN SCREEN ====================
+        <LoginScreen onLoginSuccess={handleLoginSuccess} />
       ) : (
         // ==================== FULLSCREEN APP WITH LEFT SIDEBAR + BOTTOM BAR ====================
         <div className="min-h-screen flex flex-col lg:flex-row bg-[#F8FAFB]">
@@ -241,13 +174,19 @@ export default function App() {
                 <span className="text-[9px] text-[#0196C1] font-bold">Panel Activo</span>
               </div>
             </div>
-            <button
-              onClick={() => handleSelectRole(null)}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-[11px] font-bold rounded-lg shadow-sm cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Cambiar Rol</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-[#0196C1] font-mono font-bold bg-[#0196C1]/10 px-2 py-1 rounded">
+                @{currentUser?.username || 'admin'}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-[11px] font-bold rounded-lg shadow-sm cursor-pointer"
+                title="Cerrar Sesión"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Salir</span>
+              </button>
+            </div>
           </header>
 
           {/* DESKTOP FULLSCREEN LEFT SIDEBAR */}
@@ -563,12 +502,23 @@ export default function App() {
 
             {/* Bottom Actions in Sidebar */}
             <div className="p-4 border-t border-slate-700/80 space-y-3 bg-[#1e1e1f]">
+              {/* User Identity Card */}
+              <div className="p-2.5 bg-white/5 border border-white/10 rounded-xl flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#0196C1]/20 border border-[#0196C1]/40 flex items-center justify-center font-black text-[#0196C1] text-xs uppercase shrink-0">
+                  {currentUser?.name ? currentUser.name.substring(0, 2) : 'US'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold text-white truncate">{currentUser?.name || 'Usuario'}</p>
+                  <p className="text-[9px] text-[#0196C1] font-mono truncate">@{currentUser?.username || 'usuario'}</p>
+                </div>
+              </div>
+
               <button
-                onClick={() => handleSelectRole(null)}
-                className="w-full py-2.5 px-3 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98"
+                onClick={handleLogout}
+                className="w-full py-2 px-3 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98"
               >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Cambiar de Rol</span>
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Cerrar Sesión</span>
               </button>
               <div className="text-[10px] text-slate-500 text-center font-medium">
                 MVL Control Industrial © {new Date().getFullYear()}
@@ -603,6 +553,14 @@ export default function App() {
                     setPurchaseOrders={setPurchaseOrders}
                     activeTab={adminTab}
                     setActiveTab={setAdminTab}
+                    currentUser={currentUser}
+                    onCleanDemoData={() => {
+                      setClients([]);
+                      setEquipment([]);
+                      setInventory([]);
+                      setWorkOrders([]);
+                      setPurchaseOrders([]);
+                    }}
                   />
                 )}
 

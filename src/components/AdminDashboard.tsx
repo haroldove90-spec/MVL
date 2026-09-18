@@ -4,15 +4,19 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Staff, InventoryItem, Client, Equipment, WorkOrder, PurchaseOrder, ExpenseControl } from '../types';
+import { Staff, InventoryItem, Client, Equipment, WorkOrder, PurchaseOrder, ExpenseControl, UserAccount, UserRole } from '../types';
 import { supabase } from '../lib/supabase';
-import { INITIAL_EXPENSE_CONTROL, loadFromStorage, saveToStorage, markRecordAsDeleted, clearSystemCache } from '../mockData';
+import { 
+  INITIAL_EXPENSE_CONTROL, loadFromStorage, saveToStorage, markRecordAsDeleted, 
+  clearSystemCache, purgeDemoDataAndCleanSystem, isCleanProductionMode 
+} from '../mockData';
+import { saveUserAccount, generateWhatsAppCredentialLink, SUPABASE_SETUP_SQL } from '../lib/authService';
 import { 
   Users, DollarSign, Package, Award, Plus, Trash2, 
   CheckCircle, XCircle, Tag, Layers, TrendingUp, TrendingDown,
   ShieldCheck, AlertTriangle, Building, Activity, FileText, Search, Edit2, Edit, X, Eye, RefreshCw,
   BookOpen, HelpCircle, Lightbulb, PlayCircle, CheckCircle2, ChevronRight, Info, Building2,
-  Power, PowerOff
+  Power, PowerOff, Copy, Send, Key, Database, LogOut, Check, Sparkles
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import SalesCatalogModule from './SalesCatalogModule';
@@ -31,6 +35,8 @@ interface AdminDashboardProps {
   setPurchaseOrders?: React.Dispatch<React.SetStateAction<PurchaseOrder[]>>;
   activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial';
   setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial') => void;
+  currentUser?: UserAccount | null;
+  onCleanDemoData?: () => void;
 }
 
 export default function AdminDashboard({ 
@@ -47,7 +53,9 @@ export default function AdminDashboard({
   purchaseOrders = [],
   setPurchaseOrders,
   activeTab: propActiveTab,
-  setActiveTab: propSetActiveTab
+  setActiveTab: propSetActiveTab,
+  currentUser,
+  onCleanDemoData
 }: AdminDashboardProps) {
   // Navigation tabs with parent-control fallback
   const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial'>('financial');
@@ -61,9 +69,12 @@ export default function AdminDashboard({
   const [invoicedOrders, setInvoicedOrders] = useState<string[]>(['ot4']);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
 
-  // New staff form states
+  // New staff form states with Production & Supabase Credential support
   const [newStaffName, setNewStaffName] = useState('');
-  const [newStaffRole, setNewStaffRole] = useState<'admin' | 'coordinator' | 'technician' | 'sales' | 'rh' | 'warehouse'>('technician');
+  const [newStaffUsername, setNewStaffUsername] = useState('');
+  const [newStaffPassword, setNewStaffPassword] = useState('Chevropar#1970');
+  const [showNewStaffPass, setShowNewStaffPass] = useState(false);
+  const [newStaffRole, setNewStaffRole] = useState<'admin' | 'coordinator' | 'accounting' | 'technician' | 'client' | 'sales' | 'rh' | 'warehouse'>('technician');
   const [newStaffCustomJobTitle, setNewStaffCustomJobTitle] = useState('');
   const [isCustomRole, setIsCustomRole] = useState(false);
   const [customRolesList, setCustomRolesList] = useState<string[]>(() => 
@@ -71,6 +82,15 @@ export default function AdminDashboard({
   );
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
+  const [newStaffWhatsapp, setNewStaffWhatsapp] = useState('');
+
+  // Modals for credentials, WhatsApp share and Supabase SQL
+  const [justCreatedStaff, setJustCreatedStaff] = useState<Staff | null>(null);
+  const [credentialEditStaff, setCredentialEditStaff] = useState<Staff | null>(null);
+  const [showSqlModal, setShowSqlModal] = useState(false);
+  const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [copiedCreds, setCopiedCreds] = useState(false);
 
   // New part form states
   const [newPartName, setNewPartName] = useState('');
@@ -766,8 +786,8 @@ export default function AdminDashboard({
     setNewContactEmail('');
   };
 
-  // Add staff handler
-  const handleAddStaff = (e: React.FormEvent) => {
+  // Add staff handler with credentials generation and Supabase sync
+  const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStaffName || !newStaffEmail) return;
 
@@ -778,6 +798,8 @@ export default function AdminDashboard({
       if (newStaffRole === 'sales') finalTitle = 'Vendedor / Asesor Comercial';
       else if (newStaffRole === 'coordinator') finalTitle = 'Coordinador / Supervisor';
       else if (newStaffRole === 'admin') finalTitle = 'Administrador (Socio)';
+      else if (newStaffRole === 'accounting') finalTitle = 'Contabilidad & SAT';
+      else if (newStaffRole === 'client') finalTitle = 'Cliente Industrial';
       else if (newStaffRole === 'rh') finalTitle = 'Recursos Humanos';
       else if (newStaffRole === 'warehouse') finalTitle = 'Almacén / Logística';
       else finalTitle = 'Técnico de Campo';
@@ -789,35 +811,95 @@ export default function AdminDashboard({
       saveToStorage('mvl_custom_roles_list', updatedList);
     }
 
+    // Auto-derive clean username if not provided
+    const autoUsername = (newStaffUsername.trim() || 
+      newStaffName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').slice(0, 20)
+    ).replace(/^_+|_+$/g, '');
+
+    const autoPassword = newStaffPassword.trim() || 'Chevropar#1970';
+    const finalPhone = newStaffPhone.trim() || newStaffWhatsapp.trim() || '5624222449';
+    const finalWhatsapp = newStaffWhatsapp.trim() || newStaffPhone.trim() || '5624222449';
+
     const item: Staff = {
       id: `s${Date.now()}`,
-      name: newStaffName,
+      name: newStaffName.trim(),
+      username: autoUsername,
+      password: autoPassword,
       role: finalRole,
       customJobTitle: finalTitle,
-      email: newStaffEmail,
-      phone: newStaffPhone || 'N/A',
-      active: true
+      email: newStaffEmail.trim(),
+      phone: finalPhone,
+      whatsapp: finalWhatsapp,
+      active: true,
+      createdAt: new Date().toISOString()
     };
+
     setStaff(prev => [...prev, item]);
+
+    // Map role for system UserAccount authentication
+    const userRoleMapping: UserRole = 
+      finalRole === 'admin' ? 'admin' :
+      finalRole === 'coordinator' || finalRole === 'sales' ? 'coordinator' :
+      finalRole === 'accounting' ? 'accounting' :
+      finalRole === 'client' ? 'client' : 'technician';
+
+    const accountObj: UserAccount = {
+      id: item.id,
+      name: item.name,
+      username: autoUsername,
+      email: item.email,
+      password: autoPassword,
+      role: userRoleMapping,
+      customJobTitle: item.customJobTitle,
+      phone: item.phone,
+      whatsapp: item.whatsapp,
+      active: true,
+      createdAt: item.createdAt
+    };
+
+    // Save to Supabase 'user_accounts' and local storage
+    await saveUserAccount(accountObj);
+
+    // Open WhatsApp Share Dialog immediately
+    setJustCreatedStaff(item);
+
+    // Reset inputs
     setNewStaffName('');
+    setNewStaffUsername('');
+    setNewStaffPassword('Chevropar#1970');
     setNewStaffEmail('');
     setNewStaffPhone('');
+    setNewStaffWhatsapp('');
     setNewStaffCustomJobTitle('');
     setIsCustomRole(false);
   };
 
   // Toggle staff status
-  const toggleStaffStatus = (id: string) => {
-    setStaff(prev => prev.map(s => s.id === id ? { ...s, active: !s.active } : s));
+  const toggleStaffStatus = async (id: string) => {
+    const updated = staff.map(s => s.id === id ? { ...s, active: !s.active } : s);
+    setStaff(updated);
+    const target = updated.find(s => s.id === id);
+    if (target && target.username) {
+      try {
+        await supabase.from('user_accounts').update({ active: target.active }).eq('username', target.username);
+      } catch (e) {
+        console.warn('Could not sync active status to Supabase:', e);
+      }
+    }
   };
 
   // Delete staff
   const deleteStaff = async (id: string) => {
-    if (confirm('¿Está seguro de eliminar a este colaborador? Ya no se volverá a mostrar en el sistema ni en la base de datos.')) {
+    const target = staff.find(s => s.id === id);
+    if (confirm(`¿Está seguro de eliminar a "${target?.name || 'este colaborador'}"? Ya no se volverá a mostrar en el sistema ni en la base de datos.`)) {
       markRecordAsDeleted(id);
       setStaff(prev => prev.filter(s => s.id !== id));
       try {
         await supabase.from('staff').delete().eq('id', id);
+        if (target?.username) {
+          await supabase.from('user_accounts').delete().eq('username', target.username);
+        }
       } catch (err) {
         console.warn('Supabase staff delete error:', err);
       }
@@ -899,6 +981,62 @@ export default function AdminDashboard({
 
   return (
     <div className="space-y-6">
+      {/* MASTER PRODUCTION & USER HEADER */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0196C1] to-[#017fa4] text-white flex items-center justify-center font-black text-base shadow-sm shrink-0">
+            {currentUser?.name ? currentUser.name.substring(0, 2).toUpperCase() : 'HA'}
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base sm:text-lg font-black text-slate-900">
+                {currentUser?.name || 'Harold Anguiano Morales'}
+              </h2>
+              <span className="text-xs font-mono font-bold text-[#0196C1] bg-[#0196C1]/10 px-2 py-0.5 rounded-md">
+                @{currentUser?.username || 'haroldo90'}
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                👑 {currentUser?.customJobTitle || 'Administrador Maestro'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+              <span>✉️ {currentUser?.email || 'haroldo90@hotmail.com'}</span>
+              <span>•</span>
+              <span>📱 {currentUser?.whatsapp || currentUser?.phone || '5624222449'}</span>
+              <span>•</span>
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-600">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                {isCleanProductionMode() ? 'Sistema Limpio para Producción' : 'Modo Operativo'}
+              </span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-stretch md:self-auto flex-wrap">
+          {/* Botón Purgar Datos de Muestra */}
+          <button
+            type="button"
+            onClick={() => setShowPurgeConfirm(true)}
+            className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-98"
+            title="Borrar datos de demostración y activar modo producción limpio permanente"
+          >
+            <Trash2 className="w-4 h-4 text-rose-600" />
+            <span>Limpiar Datos de Muestra</span>
+          </button>
+
+          {/* Botón Ver SQL para Supabase */}
+          <button
+            type="button"
+            onClick={() => setShowSqlModal(true)}
+            className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-98"
+            title="Ver y copiar script SQL para Supabase"
+          >
+            <Database className="w-4 h-4 text-emerald-400" />
+            <span>SQL Supabase</span>
+          </button>
+        </div>
+      </div>
+
       {/* --- Tab: Tutorial / Guía del Administrador --- */}
       {activeTab === 'tutorial' && (
         <div className="space-y-6 text-left">
@@ -1605,27 +1743,89 @@ export default function AdminDashboard({
       {activeTab === 'staff' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Add Staff form */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs h-fit">
-            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-1.5">
-              <Users className="w-4 h-4 text-[#0196C1]" />
-              Alta de Personal
-            </h3>
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs h-fit space-y-4">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-[#0196C1]" />
+                Alta de Personal y Credenciales
+              </h3>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Registra a tus empleados, asigna su rol en el sistema y comparte sus accesos por WhatsApp.
+              </p>
+            </div>
+
             <form onSubmit={handleAddStaff} className="space-y-3">
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Nombre Completo</label>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nombre Completo *</label>
                 <input
                   type="text"
                   required
                   placeholder="ej. Ing. Mario Salinas"
                   value={newStaffName}
-                  onChange={(e) => setNewStaffName(e.target.value)}
+                  onChange={(e) => {
+                    setNewStaffName(e.target.value);
+                    if (!newStaffUsername) {
+                      const slug = e.target.value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').slice(0, 16);
+                      setNewStaffUsername(slug);
+                    }
+                  }}
                   className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0196C1]"
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nombre de Usuario *</label>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-2 text-slate-400 text-xs">@</span>
+                    <input
+                      type="text"
+                      required
+                      placeholder="mario_salinas"
+                      value={newStaffUsername}
+                      onChange={(e) => setNewStaffUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                      className="w-full text-xs pl-6 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0196C1] font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase">Contraseña *</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const randomPass = 'Mvl#' + Math.floor(1000 + Math.random() * 9000);
+                        setNewStaffPassword(randomPass);
+                      }}
+                      className="text-[9px] text-[#0196C1] hover:underline font-bold"
+                    >
+                      Generar
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showNewStaffPass ? 'text' : 'password'}
+                      required
+                      placeholder="Chevropar#1970"
+                      value={newStaffPassword}
+                      onChange={(e) => setNewStaffPassword(e.target.value)}
+                      className="w-full text-xs px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0196C1] font-mono pr-7"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewStaffPass(!showNewStaffPass)}
+                      className="absolute right-2 top-2.5 text-slate-400 hover:text-slate-600"
+                    >
+                      {showNewStaffPass ? <PowerOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase">Rol / Puesto</label>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase">Rol del Sistema *</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -1634,7 +1834,7 @@ export default function AdminDashboard({
                     }}
                     className="text-[10px] text-[#0196C1] hover:underline font-bold cursor-pointer"
                   >
-                    {isCustomRole ? '← Seleccionar de la lista' : '+ Agregar nuevo rol / puesto'}
+                    {isCustomRole ? '← Seleccionar rol base' : '+ Rol con puesto libre'}
                   </button>
                 </div>
 
@@ -1651,48 +1851,51 @@ export default function AdminDashboard({
                     }}
                     className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0196C1]"
                   >
-                    <optgroup label="Puestos Operativos y Técnicos">
-                      <option value="technician">Técnico de Campo</option>
-                      <option value="coordinator">Coordinador / Supervisor</option>
-                      <option value="warehouse">Almacén / Logística</option>
+                    <optgroup label="Nivel Operativo & Técnico">
+                      <option value="technician">🛠️ Técnico de Campo (Órdenes, Reportes, Refacciones)</option>
+                      <option value="coordinator">💼 Coordinador / Ventas (Cotizaciones, Asignaciones)</option>
+                      <option value="warehouse">📦 Almacén / Refacciones</option>
                     </optgroup>
-                    <optgroup label="Área Comercial & Dirección">
-                      <option value="sales">Vendedor / Asesor Comercial</option>
-                      <option value="coordinator">Coordinador de Ventas</option>
-                      <option value="admin">Administrador (Socio)</option>
-                      <option value="rh">Recursos Humanos</option>
+                    <optgroup label="Nivel Administrativo & Financiero">
+                      <option value="admin">👑 Administrador Maestro / Socios (Control Total)</option>
+                      <option value="accounting">📊 Contabilidad & SAT (Facturación, IVA, Gastos)</option>
+                      <option value="rh">👥 Recursos Humanos</option>
+                      <option value="sales">📈 Asesor Comercial / Ventas</option>
+                    </optgroup>
+                    <optgroup label="Acceso Externo">
+                      <option value="client">🏢 Cliente Industrial (Portal de Equipos y Fallas)</option>
                     </optgroup>
                     {customRolesList.length > 0 && (
-                      <optgroup label="Roles Personalizados Registrados">
+                      <optgroup label="Puestos Registrados Anteriores">
                         {customRolesList.map((cr, idx) => (
                           <option key={idx} value="sales">{cr}</option>
                         ))}
                       </optgroup>
                     )}
-                    <option value="custom_new">+ Definir Otro Rol / Puesto...</option>
+                    <option value="custom_new">+ Definir Otro Rol con Puesto Libre...</option>
                   </select>
                 ) : (
                   <div className="space-y-2">
                     <input
                       type="text"
                       required
-                      placeholder="Escribe el nombre del rol o puesto (ej. Vendedor de Mostrador)"
+                      placeholder="Escribe el puesto (ej. Gerente de Mantenimiento Metso)"
                       value={newStaffCustomJobTitle}
                       onChange={(e) => setNewStaffCustomJobTitle(e.target.value)}
                       className="w-full text-xs px-3 py-2 bg-sky-50/50 border border-[#0196C1] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0196C1] font-medium"
                     />
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-slate-500 font-bold">Perfil base de permisos:</span>
+                      <span className="text-[10px] text-slate-500 font-bold">Permiso de acceso:</span>
                       <select
                         value={newStaffRole}
                         onChange={(e) => setNewStaffRole(e.target.value as any)}
                         className="text-[11px] p-1 bg-white border border-slate-200 rounded-md font-medium"
                       >
-                        <option value="sales">Ventas / Comercial</option>
-                        <option value="technician">Técnico Operativo</option>
-                        <option value="coordinator">Coordinador</option>
-                        <option value="admin">Administrador</option>
-                        <option value="warehouse">Almacén</option>
+                        <option value="admin">👑 Administrador</option>
+                        <option value="coordinator">💼 Coordinador / Ventas</option>
+                        <option value="accounting">📊 Contabilidad</option>
+                        <option value="technician">🛠️ Técnico</option>
+                        <option value="client">🏢 Cliente</option>
                       </select>
                     </div>
                   </div>
@@ -1700,11 +1903,11 @@ export default function AdminDashboard({
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Correo Electrónico</label>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Correo Electrónico *</label>
                 <input
                   type="email"
                   required
-                  placeholder="mario@mvl.com"
+                  placeholder="mario@mvlmaquinaria.com"
                   value={newStaffEmail}
                   onChange={(e) => setNewStaffEmail(e.target.value)}
                   className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0196C1]"
@@ -1712,81 +1915,149 @@ export default function AdminDashboard({
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Teléfono Móvil</label>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Teléfono Móvil / WhatsApp *</label>
                 <input
                   type="text"
-                  placeholder="81-1234-5678"
-                  value={newStaffPhone}
-                  onChange={(e) => setNewStaffPhone(e.target.value)}
+                  required
+                  placeholder="ej. 5624222449 o 8112345678"
+                  value={newStaffWhatsapp || newStaffPhone}
+                  onChange={(e) => {
+                    setNewStaffWhatsapp(e.target.value);
+                    setNewStaffPhone(e.target.value);
+                  }}
                   className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0196C1]"
                 />
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  A este número se podrán enviar las credenciales directamente por WhatsApp.
+                </p>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                className="w-full py-2.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98"
               >
-                Registrar Colaborador
+                <Sparkles className="w-4 h-4" />
+                <span>Registrar y Generar Credenciales</span>
               </button>
             </form>
           </div>
 
           {/* Staff directory */}
-          <div className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
-            <h3 className="text-sm font-bold text-slate-800 mb-4">Directorio de Colaboradores</h3>
-            <div className="divide-y divide-slate-100">
-              {staff.map((member) => (
-                <div key={member.id} className="flex items-center justify-between py-3 gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-slate-100 rounded-full flex items-center justify-center font-bold text-slate-600 text-xs uppercase">
-                      {member.name.substring(0, 2)}
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-800">{member.name}</p>
-                      <p className="text-[10px] text-slate-400 font-semibold uppercase flex items-center gap-1">
-                        <span className={`w-1.5 h-1.5 rounded-full ${member.role === 'admin' ? 'bg-rose-500' : member.role === 'sales' ? 'bg-sky-500' : member.role === 'coordinator' ? 'bg-[#0196C1]' : 'bg-emerald-500'}`} />
-                        {member.customJobTitle || (member.role === 'admin' ? 'Administrador (Socio)' : member.role === 'coordinator' ? 'Coordinador' : member.role === 'sales' ? 'Vendedor / Comercial' : member.role === 'rh' ? 'Recursos Humanos' : member.role === 'warehouse' ? 'Almacén' : 'Técnico de Campo')}
-                      </p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">{member.email} • {member.phone}</p>
-                    </div>
-                  </div>
+          <div className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Directorio de Colaboradores y Credenciales</h3>
+                <p className="text-[10px] text-slate-400">Personal activo con acceso operativo y credenciales de ingreso</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold rounded-full">
+                  {staff.filter(s => s.active).length} Activos
+                </span>
+                <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-600 font-bold rounded-full">
+                  {staff.length} Total
+                </span>
+              </div>
+            </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => setViewingRecord({ type: 'Colaborador', data: member })}
-                      className="p-1.5 text-slate-400 hover:text-[#0196C1] transition-colors cursor-pointer"
-                      title="Ver Detalles"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setEditingStaff(member)}
-                      className="p-1.5 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer"
-                      title="Editar Colaborador"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => toggleStaffStatus(member.id)}
-                      className={`px-2 py-1 text-[10px] font-bold rounded-full transition-all cursor-pointer ${
-                        member.active 
-                          ? 'bg-emerald-50 text-emerald-700 hover:bg-rose-50 hover:text-rose-700' 
-                          : 'bg-slate-100 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700'
-                      }`}
-                      title={member.active ? 'Desactivar / Dar de baja' : 'Activar'}
-                    >
-                      {member.active ? 'Activo' : 'Baja'}
-                    </button>
-                    <button
-                      onClick={() => deleteStaff(member.id)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                      title="Eliminar Colaborador"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+            <div className="divide-y divide-slate-100">
+              {staff.map((member) => {
+                const memberUsername = member.username || member.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                const memberRoleTitle = 
+                  member.role === 'admin' ? '👑 Administrador' :
+                  member.role === 'coordinator' ? '💼 Coordinador' :
+                  member.role === 'accounting' ? '📊 Contabilidad' :
+                  member.role === 'sales' ? '📈 Ventas' :
+                  member.role === 'rh' ? '👥 Recursos Humanos' :
+                  member.role === 'warehouse' ? '📦 Almacén' :
+                  member.role === 'client' ? '🏢 Cliente' : '🛠️ Técnico';
+
+                const memberUserAccount: UserAccount = {
+                  id: member.id,
+                  name: member.name,
+                  username: memberUsername,
+                  email: member.email,
+                  password: member.password || 'Chevropar#1970',
+                  role: member.role === 'admin' ? 'admin' : member.role === 'coordinator' || member.role === 'sales' ? 'coordinator' : member.role === 'accounting' ? 'accounting' : member.role === 'client' ? 'client' : 'technician',
+                  customJobTitle: member.customJobTitle,
+                  phone: member.phone,
+                  whatsapp: member.whatsapp || member.phone,
+                  active: member.active,
+                  createdAt: member.createdAt
+                };
+
+                const waLink = generateWhatsAppCredentialLink(memberUserAccount);
+
+                return (
+                  <div key={member.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-3.5 gap-3 hover:bg-slate-50/60 rounded-xl px-2 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center font-bold text-slate-700 text-xs uppercase border border-slate-200 shrink-0">
+                        {member.name.substring(0, 2)}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-xs font-bold text-slate-900 truncate">{member.name}</p>
+                          <span className="text-[10px] text-[#0196C1] font-mono font-bold bg-[#0196C1]/10 px-1.5 py-0.5 rounded">
+                            @{memberUsername}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 font-medium flex items-center gap-1.5 mt-0.5">
+                          <span className={`w-2 h-2 rounded-full ${member.role === 'admin' ? 'bg-rose-500' : member.role === 'coordinator' ? 'bg-[#0196C1]' : member.role === 'accounting' ? 'bg-indigo-500' : 'bg-emerald-500'}`} />
+                          <strong className="text-slate-700">{memberRoleTitle}</strong>
+                          {member.customJobTitle && <span>• {member.customJobTitle}</span>}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                          {member.email} • WhatsApp: {member.whatsapp || member.phone || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 self-end sm:self-center">
+                      {/* WhatsApp Share Button */}
+                      <a
+                        href={waLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 rounded-lg text-[11px] font-bold transition-all shadow-xs cursor-pointer"
+                        title="Enviar o compartir credenciales por WhatsApp"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span className="hidden md:inline">WhatsApp</span>
+                      </a>
+
+                      {/* Edit Role & Credentials Button */}
+                      <button
+                        onClick={() => setCredentialEditStaff(member)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-[#0196C1] border border-sky-200/80 rounded-lg text-[11px] font-bold transition-all shadow-xs cursor-pointer"
+                        title="Editar rol y credenciales de acceso"
+                      >
+                        <Key className="w-3.5 h-3.5" />
+                        <span className="hidden md:inline">Rol/Clave</span>
+                      </button>
+
+                      {/* Active toggle */}
+                      <button
+                        onClick={() => toggleStaffStatus(member.id)}
+                        className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                          member.active 
+                            ? 'bg-emerald-100/70 text-emerald-800 hover:bg-rose-50 hover:text-rose-700' 
+                            : 'bg-slate-100 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700'
+                        }`}
+                        title={member.active ? 'Dar de baja temporal' : 'Reactivar'}
+                      >
+                        {member.active ? 'Activo' : 'Baja'}
+                      </button>
+
+                      <button
+                        onClick={() => deleteStaff(member.id)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer rounded-lg hover:bg-rose-50"
+                        title="Eliminar Colaborador"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -4209,6 +4480,422 @@ export default function AdminDashboard({
           </div>
         </div>
       )}
+      {/* MODAL 1: NUEVAS CREDENCIALES CREADAS & COMPARTIR POR WHATSAPP */}
+      {justCreatedStaff && (() => {
+        const staffAccount: UserAccount = {
+          id: justCreatedStaff.id,
+          name: justCreatedStaff.name,
+          username: justCreatedStaff.username || justCreatedStaff.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+          email: justCreatedStaff.email,
+          password: justCreatedStaff.password || 'Chevropar#1970',
+          role: justCreatedStaff.role === 'admin' ? 'admin' : justCreatedStaff.role === 'coordinator' || justCreatedStaff.role === 'sales' ? 'coordinator' : justCreatedStaff.role === 'accounting' ? 'accounting' : justCreatedStaff.role === 'client' ? 'client' : 'technician',
+          customJobTitle: justCreatedStaff.customJobTitle,
+          phone: justCreatedStaff.phone,
+          whatsapp: justCreatedStaff.whatsapp || justCreatedStaff.phone,
+          active: justCreatedStaff.active,
+          createdAt: justCreatedStaff.createdAt
+        };
+        const waLink = generateWhatsAppCredentialLink(staffAccount);
+
+        const copyCredentialsText = () => {
+          const text = `*ACCESO MVL CONTROL INDUSTRIAL*\nHola ${staffAccount.name}, tus credenciales son:\nUsuario: ${staffAccount.username}\nCorreo: ${staffAccount.email}\nContraseña: ${staffAccount.password}\nRol: ${justCreatedStaff.customJobTitle || staffAccount.role}\nIngresa en: ${window.location.origin}`;
+          navigator.clipboard.writeText(text);
+          setCopiedCreds(true);
+          setTimeout(() => setCopiedCreds(false), 3000);
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+              <div className="bg-gradient-to-r from-emerald-600 to-teal-700 p-6 text-white text-center relative">
+                <button
+                  onClick={() => setJustCreatedStaff(null)}
+                  className="absolute right-4 top-4 p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-full"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner">
+                  <Key className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-lg font-black tracking-tight">¡Colaborador Registrado con Éxito!</h3>
+                <p className="text-xs text-emerald-100 mt-1">
+                  Las credenciales han sido generadas y guardadas. Ya puede ingresar con su correo o usuario.
+                </p>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-medium">Nombre:</span>
+                    <strong className="text-slate-900">{staffAccount.name}</strong>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-medium">Usuario:</span>
+                    <code className="bg-[#0196C1]/10 text-[#0196C1] px-2 py-0.5 rounded font-bold font-mono">
+                      @{staffAccount.username}
+                    </code>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-medium">Correo:</span>
+                    <span className="text-slate-800 font-semibold">{staffAccount.email}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-medium">Contraseña:</span>
+                    <code className="bg-amber-50 text-amber-900 px-2 py-0.5 rounded font-mono font-bold border border-amber-200">
+                      {staffAccount.password}
+                    </code>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-medium">Rol en Sistema:</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                      {justCreatedStaff.customJobTitle || staffAccount.role}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-medium">WhatsApp / Teléfono:</span>
+                    <span className="text-slate-800 font-mono font-bold">{staffAccount.whatsapp || 'N/A'}</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+                  <a
+                    href={waLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-98"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>Compartir por WhatsApp</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={copyCredentialsText}
+                    className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    {copiedCreds ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedCreds ? '¡Copiado!' : 'Copiar Texto'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 px-6 py-3 border-t border-slate-100 text-right">
+                <button
+                  onClick={() => setJustCreatedStaff(null)}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  Entendido / Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* MODAL 2: MODIFICAR ROL Y CREDENCIALES DEL COLABORADOR */}
+      {credentialEditStaff && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100">
+            <div className="bg-gradient-to-r from-slate-900 to-[#282829] p-5 text-white flex justify-between items-center">
+              <div className="flex items-center gap-2.5">
+                <Key className="w-5 h-5 text-[#0196C1]" />
+                <div>
+                  <h3 className="text-sm font-bold">Modificar Rol y Credenciales</h3>
+                  <p className="text-[10px] text-slate-400">Sincronizado con base de datos Supabase</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCredentialEditStaff(null)}
+                className="p-1 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!credentialEditStaff) return;
+
+                // Update in staff list
+                setStaff(prev => prev.map(s => s.id === credentialEditStaff.id ? credentialEditStaff : s));
+
+                // Save to Supabase and LocalStorage
+                const userRoleMapping: UserRole = 
+                  credentialEditStaff.role === 'admin' ? 'admin' :
+                  credentialEditStaff.role === 'coordinator' || credentialEditStaff.role === 'sales' ? 'coordinator' :
+                  credentialEditStaff.role === 'accounting' ? 'accounting' :
+                  credentialEditStaff.role === 'client' ? 'client' : 'technician';
+
+                const acc: UserAccount = {
+                  id: credentialEditStaff.id,
+                  name: credentialEditStaff.name,
+                  username: credentialEditStaff.username || credentialEditStaff.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                  email: credentialEditStaff.email,
+                  password: credentialEditStaff.password || 'Chevropar#1970',
+                  role: userRoleMapping,
+                  customJobTitle: credentialEditStaff.customJobTitle,
+                  phone: credentialEditStaff.phone,
+                  whatsapp: credentialEditStaff.whatsapp || credentialEditStaff.phone,
+                  active: credentialEditStaff.active,
+                  createdAt: credentialEditStaff.createdAt
+                };
+                await saveUserAccount(acc);
+
+                alert(`Credenciales y rol de "${credentialEditStaff.name}" actualizados correctamente y sincronizados con Supabase.`);
+                setCredentialEditStaff(null);
+              }}
+              className="p-5 space-y-3"
+            >
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nombre Completo</label>
+                <input
+                  type="text"
+                  required
+                  value={credentialEditStaff.name}
+                  onChange={(e) => setCredentialEditStaff({ ...credentialEditStaff, name: e.target.value })}
+                  className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Usuario (@)</label>
+                  <input
+                    type="text"
+                    required
+                    value={credentialEditStaff.username || ''}
+                    onChange={(e) => setCredentialEditStaff({ ...credentialEditStaff, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
+                    className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Contraseña</label>
+                  <input
+                    type="text"
+                    required
+                    value={credentialEditStaff.password || ''}
+                    onChange={(e) => setCredentialEditStaff({ ...credentialEditStaff, password: e.target.value })}
+                    className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Rol / Permisos en el Sistema</label>
+                <select
+                  value={credentialEditStaff.role}
+                  onChange={(e) => setCredentialEditStaff({ ...credentialEditStaff, role: e.target.value as any })}
+                  className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none font-semibold text-slate-800"
+                >
+                  <option value="admin">👑 Administrador (Acceso Total & Finanzas)</option>
+                  <option value="coordinator">💼 Coordinador / Ventas (Cotizaciones & OT)</option>
+                  <option value="accounting">📊 Contabilidad (Facturación SAT & Gastos)</option>
+                  <option value="technician">🛠️ Técnico de Campo (Agenda & Reportes)</option>
+                  <option value="client">🏢 Cliente Industrial (Portal de Equipos)</option>
+                  <option value="sales">📈 Asesor Comercial</option>
+                  <option value="warehouse">📦 Almacén y Refacciones</option>
+                  <option value="rh">👥 Recursos Humanos</option>
+                </select>
+                <p className="text-[10px] text-[#0196C1] mt-1">
+                  💡 Este rol también se puede actualizar directamente desde la tabla <code>user_accounts</code> en Supabase.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Puesto o Cargo Personalizado</label>
+                <input
+                  type="text"
+                  placeholder="ej. Especialista en Compresores de Tornillo"
+                  value={credentialEditStaff.customJobTitle || ''}
+                  onChange={(e) => setCredentialEditStaff({ ...credentialEditStaff, customJobTitle: e.target.value })}
+                  className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Correo Electrónico</label>
+                  <input
+                    type="email"
+                    required
+                    value={credentialEditStaff.email}
+                    onChange={(e) => setCredentialEditStaff({ ...credentialEditStaff, email: e.target.value })}
+                    className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">WhatsApp / Teléfono</label>
+                  <input
+                    type="text"
+                    value={credentialEditStaff.whatsapp || credentialEditStaff.phone || ''}
+                    onChange={(e) => setCredentialEditStaff({ ...credentialEditStaff, whatsapp: e.target.value, phone: e.target.value })}
+                    className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setCredentialEditStaff(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-xl shadow-md cursor-pointer"
+                >
+                  Guardar y Sincronizar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: SQL SUPABASE SETUP */}
+      {showSqlModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-3xl w-full shadow-2xl overflow-hidden border border-slate-100 max-h-[90vh] flex flex-col">
+            <div className="bg-[#282829] p-5 text-white flex justify-between items-center shrink-0 border-b border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white">Script SQL Completo para Supabase</h3>
+                  <p className="text-[11px] text-slate-400">
+                    Copia y ejecuta este script en el SQL Editor de tu proyecto Supabase para activar las tablas y credenciales.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSqlModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-4 text-xs">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-900 space-y-1">
+                <p className="font-bold flex items-center gap-1.5">
+                  <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  Incluye las credenciales de producción solicitadas:
+                </p>
+                <ul className="list-disc list-inside text-[11px] space-y-0.5 text-emerald-800 font-medium pl-2">
+                  <li><strong>Harold Anguiano Morales:</strong> usuario <code>haroldo90</code>, correo <code>haroldo90@hotmail.com</code>, rol <code>admin</code>, WhatsApp <code>5624222449</code>, clave <code>Chevropar#1970</code></li>
+                  <li><strong>Administrador Maestro:</strong> usuario <code>admin_master</code>, clave <code>Chevropar#1970</code>, rol <code>admin</code></li>
+                  <li>Soporte para inicio de sesión por <strong>correo electrónico</strong> o por <strong>nombre de usuario</strong>.</li>
+                  <li>Cambio de roles de empleados directo en la tabla <code>user_accounts</code>.</li>
+                </ul>
+              </div>
+
+              <div className="relative">
+                <div className="flex justify-between items-center bg-slate-900 text-slate-300 px-4 py-2 rounded-t-xl text-[11px] font-mono">
+                  <span>supabase_schema_mvl.sql</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(SUPABASE_SETUP_SQL);
+                      setCopiedSql(true);
+                      setTimeout(() => setCopiedSql(false), 3000);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md font-bold transition-all cursor-pointer"
+                  >
+                    {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedSql ? '¡SQL Copiado!' : 'Copiar Todo el Script SQL'}</span>
+                  </button>
+                </div>
+                <pre className="p-4 bg-slate-950 text-emerald-400 font-mono text-[10px] leading-relaxed rounded-b-xl overflow-x-auto max-h-72 border border-slate-800 select-all">
+                  {SUPABASE_SETUP_SQL}
+                </pre>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-600 text-[11px] space-y-1">
+                <p className="font-bold text-slate-800">Pasos para ejecutar en Supabase:</p>
+                <ol className="list-decimal list-inside space-y-0.5 pl-1">
+                  <li>Inicia sesión en tu panel de <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-[#0196C1] font-bold underline">Supabase</a> y entra a tu proyecto.</li>
+                  <li>En el menú de la izquierda, haz clic en el icono de <strong>SQL Editor</strong>.</li>
+                  <li>Haz clic en <strong>New query</strong>, pega este script completo y presiona <strong>Run</strong>.</li>
+                  <li>¡Listo! El sistema quedará listo para capturas 100% reales.</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+              <button
+                onClick={() => setShowSqlModal(false)}
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: CONFIRMAR LIMPIEZA DE DATOS DE MUESTRA Y CACHÉ */}
+      {showPurgeConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100">
+            <div className="bg-rose-600 p-5 text-white flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold">Limpiar Datos de Muestra y Caché</h3>
+                <p className="text-[10px] text-rose-100">Puesta a punto del sistema para producción</p>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-3 text-xs text-slate-600">
+              <p>
+                Esta acción activará el <strong>Modo Producción Limpio Permanente</strong>:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-slate-700 font-medium pl-1">
+                <li>Eliminará clientes, equipos, órdenes de trabajo, cotizaciones e inventario de demostración.</li>
+                <li><strong>Conservará intactas</strong> tus credenciales reales (Harold Anguiano Morales y Administrador Maestro).</li>
+                <li><strong>No volverá a inyectar</strong> los datos de muestra al recargar el navegador.</li>
+                <li>El sistema quedará completamente limpio y listo para que des de alta a tus clientes y máquinas reales.</li>
+              </ul>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900">
+                ⚠️ Puedes registrar colaboradores, clientes y equipos nuevos en cualquier momento desde los módulos correspondientes.
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPurgeConfirm(false)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  purgeDemoDataAndCleanSystem();
+                  if (onCleanDemoData) {
+                    onCleanDemoData();
+                  } else {
+                    window.location.reload();
+                  }
+                  setShowPurgeConfirm(false);
+                }}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Confirmar y Limpiar Sistema</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

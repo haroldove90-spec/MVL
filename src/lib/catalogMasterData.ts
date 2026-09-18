@@ -1088,6 +1088,21 @@ CREATE INDEX IF NOT EXISTS idx_catalog_items_active ON public.catalog_items(is_a
 ALTER TABLE public.catalog_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.catalog_items ENABLE ROW LEVEL SECURITY;
 
+-- Eliminar políticas previas para evitar error 42710 (policy already exists)
+DROP POLICY IF EXISTS "Lectura catalogo_items" ON public.catalog_items;
+DROP POLICY IF EXISTS "Escritura catalogo_items" ON public.catalog_items;
+DROP POLICY IF EXISTS "Permitir lectura del catálogo a usuarios autenticados" ON public.catalog_items;
+DROP POLICY IF EXISTS "Permitir inserción de catálogo" ON public.catalog_items;
+DROP POLICY IF EXISTS "Permitir actualización de catálogo" ON public.catalog_items;
+DROP POLICY IF EXISTS "Permitir borrado de catálogo" ON public.catalog_items;
+DROP POLICY IF EXISTS "Permitir todo en catalog_items" ON public.catalog_items;
+
+DROP POLICY IF EXISTS "Lectura catalogo_categories" ON public.catalog_categories;
+DROP POLICY IF EXISTS "Escritura catalogo_categories" ON public.catalog_categories;
+DROP POLICY IF EXISTS "Permitir lectura de categorías a usuarios autenticados" ON public.catalog_categories;
+DROP POLICY IF EXISTS "Permitir gestión de categorías" ON public.catalog_categories;
+DROP POLICY IF EXISTS "Permitir todo en catalog_categories" ON public.catalog_categories;
+
 -- Lectura pública / autenticada
 CREATE POLICY "Permitir lectura del catálogo a usuarios autenticados" 
 ON public.catalog_items FOR SELECT USING (true);

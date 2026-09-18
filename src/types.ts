@@ -342,13 +342,30 @@ export interface LaborRate {
   distanceKmPrice: number;
 }
 
+export interface UserAccount {
+  id: string;
+  name: string;
+  username: string;
+  email: string;
+  password?: string;
+  role: UserRole;
+  customJobTitle?: string;
+  phone?: string;
+  whatsapp?: string;
+  active: boolean;
+  createdAt?: string;
+}
+
 export interface Staff {
   id: string;
   name: string;
-  role: 'admin' | 'coordinator' | 'technician' | 'sales' | 'rh' | 'warehouse';
+  username?: string;
+  password?: string;
+  role: 'admin' | 'coordinator' | 'accounting' | 'technician' | 'client' | 'sales' | 'rh' | 'warehouse';
   customJobTitle?: string; // Vendedor, RH, Almacenista, etc. (libre)
   email: string;
   phone: string;
+  whatsapp?: string;
   personalPhone?: string;
   age?: number;
   active: boolean;
@@ -357,6 +374,7 @@ export interface Staff {
   medicalCertFileName?: string;
   quotesGenerated?: number;
   salesClosed?: number;
+  createdAt?: string;
 }
 
 export interface FailureIndicator {
