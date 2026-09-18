@@ -4143,7 +4143,7 @@ export default function SalesQuoteModule({
             </div>
 
             {/* Document Content Box */}
-            <div className="p-8 space-y-6 text-slate-800 text-xs font-sans">
+            <div id="printable-quote-area" className="p-8 space-y-6 text-slate-800 text-xs font-sans bg-white print:p-0">
               {/* PDF HEADER CON LOGOTIPO INSTITUCIONAL */}
               <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="space-y-1">
