@@ -20,6 +20,12 @@ import {
   INITIAL_STAFF, INITIAL_WORK_ORDERS, INITIAL_PURCHASE_ORDERS, 
   loadFromStorage, saveToStorage, purgeDemoDataAndCleanSystem, isCleanProductionMode 
 } from './mockData';
+import { 
+  fetchClientsFromSupabase, 
+  fetchEquipmentFromSupabase, 
+  fetchStaffFromSupabase,
+  subscribeToAllChanges
+} from './lib/dataSyncService';
 
 // Dashboard Components
 import AdminDashboard from './components/AdminDashboard';
@@ -111,6 +117,54 @@ export default function App() {
   useEffect(() => { saveToStorage('mvl_accounting_tab', accountingTab); }, [accountingTab]);
   useEffect(() => { saveToStorage('mvl_tech_tab', techTab); }, [techTab]);
   useEffect(() => { saveToStorage('mvl_client_tab', clientTab); }, [clientTab]);
+
+  // Initial cloud sync with Supabase for centralized cross-device consistency
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCloudData() {
+      try {
+        const [cloudClients, cloudEquipment, cloudStaff] = await Promise.all([
+          fetchClientsFromSupabase(),
+          fetchEquipmentFromSupabase(),
+          fetchStaffFromSupabase()
+        ]);
+
+        if (isMounted) {
+          if (cloudClients && cloudClients.length > 0) {
+            setClients(cloudClients);
+          }
+          if (cloudEquipment && cloudEquipment.length > 0) {
+            setEquipment(cloudEquipment);
+          }
+          if (cloudStaff && cloudStaff.length > 0) {
+            setStaff(cloudStaff);
+          }
+        }
+      } catch (e) {
+        console.warn('Initial cloud sync notice:', e);
+      }
+    }
+
+    loadCloudData();
+
+    // Subscribe to live changes across workstations
+    const unsubscribe = subscribeToAllChanges((entity, payload) => {
+      if (!isMounted) return;
+      if (entity === 'clients') {
+        fetchClientsFromSupabase().then(res => res && setClients(res));
+      } else if (entity === 'equipment') {
+        fetchEquipmentFromSupabase().then(res => res && setEquipment(res));
+      } else if (entity === 'staff') {
+        fetchStaffFromSupabase().then(res => res && setStaff(res));
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   const handleSelectRole = (role: UserRole | null) => {
     setActiveRole(role);

@@ -10,6 +10,7 @@ import {
   INITIAL_EXPENSE_CONTROL, loadFromStorage, saveToStorage, markRecordAsDeleted, 
   clearSystemCache, purgeDemoDataAndCleanSystem, isCleanProductionMode 
 } from '../mockData';
+import { persistClientToSupabase, persistStaffToSupabase } from '../lib/dataSyncService';
 import { saveUserAccount, generateWhatsAppCredentialLink, SUPABASE_SETUP_SQL } from '../lib/authService';
 import { 
   Users, DollarSign, Package, Award, Plus, Trash2, 
@@ -91,6 +92,8 @@ export default function AdminDashboard({
   const [justCreatedStaff, setJustCreatedStaff] = useState<Staff | null>(null);
   const [credentialEditStaff, setCredentialEditStaff] = useState<Staff | null>(null);
   const [showSqlModal, setShowSqlModal] = useState(false);
+  const [showManageRolesModal, setShowManageRolesModal] = useState(false);
+  const [newCustomRoleInput, setNewCustomRoleInput] = useState('');
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
   const [copiedCreds, setCopiedCreds] = useState(false);
@@ -728,6 +731,7 @@ export default function AdminDashboard({
       contacts: []
     };
     setClients(prev => [...prev, newCl]);
+    persistClientToSupabase(newCl);
     setSelectedCrmClientId(newCl.id);
     setCrmName('');
     setCrmCompanyName('');
@@ -740,9 +744,10 @@ export default function AdminDashboard({
   const handleAddPlant = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCrmClientId || !newPlantName || !newPlantAddress) return;
+    let targetClient: Client | null = null;
     setClients(prev => prev.map(c => {
       if (c.id === selectedCrmClientId) {
-        return {
+        targetClient = {
           ...c,
           plants: [
             ...c.plants,
@@ -754,9 +759,11 @@ export default function AdminDashboard({
             }
           ]
         };
+        return targetClient;
       }
       return c;
     }));
+    if (targetClient) persistClientToSupabase(targetClient);
     setNewPlantName('');
     setNewPlantAddress('');
     setNewPlantCity('');
@@ -766,9 +773,10 @@ export default function AdminDashboard({
   const handleAddContact = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCrmClientId || !newContactName || !newContactRole) return;
+    let targetClient: Client | null = null;
     setClients(prev => prev.map(c => {
       if (c.id === selectedCrmClientId) {
-        return {
+        targetClient = {
           ...c,
           contacts: [
             ...c.contacts,
@@ -780,9 +788,11 @@ export default function AdminDashboard({
             }
           ]
         };
+        return targetClient;
       }
       return c;
     }));
+    if (targetClient) persistClientToSupabase(targetClient);
     setNewContactName('');
     setNewContactRole('');
     setNewContactPhone('');
@@ -839,6 +849,7 @@ export default function AdminDashboard({
     };
 
     setStaff(prev => [...prev, item]);
+    persistStaffToSupabase(item);
 
     // Map role for system UserAccount authentication
     const userRoleMapping: UserRole = 
@@ -1930,26 +1941,51 @@ export default function AdminDashboard({
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="block text-[11px] font-bold text-slate-500 uppercase">Rol del Sistema *</label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCustomRole(!isCustomRole);
-                      if (!isCustomRole) setNewStaffRole('sales');
-                    }}
-                    className="text-[10px] text-[#0196C1] hover:underline font-bold cursor-pointer"
-                  >
-                    {isCustomRole ? '← Seleccionar rol base' : '+ Rol con puesto libre'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowManageRolesModal(true)}
+                      className="text-[10px] text-emerald-700 hover:text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded cursor-pointer"
+                    >
+                      💼 Gestionar Puestos ({customRolesList.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomRole(!isCustomRole);
+                        if (!isCustomRole) setNewStaffRole('sales');
+                      }}
+                      className="text-[10px] text-[#0196C1] hover:underline font-bold cursor-pointer"
+                    >
+                      {isCustomRole ? '← Seleccionar rol base' : '+ Rol con puesto libre'}
+                    </button>
+                  </div>
                 </div>
 
                 {!isCustomRole ? (
                   <select
-                    value={newStaffRole}
+                    value={newStaffCustomJobTitle ? `custom_title:${newStaffCustomJobTitle}` : newStaffRole}
                     onChange={(e) => {
                       const val = e.target.value;
                       if (val === 'custom_new') {
                         setIsCustomRole(true);
+                      } else if (val.startsWith('custom_title:')) {
+                        const customTitle = val.replace('custom_title:', '');
+                        setNewStaffCustomJobTitle(customTitle);
+                        const lower = customTitle.toLowerCase();
+                        if (lower.includes('admin') || lower.includes('socio') || lower.includes('director')) {
+                          setNewStaffRole('admin');
+                        } else if (lower.includes('ventas') || lower.includes('asesor') || lower.includes('comercial')) {
+                          setNewStaffRole('sales');
+                        } else if (lower.includes('coord') || lower.includes('supervisor')) {
+                          setNewStaffRole('coordinator');
+                        } else if (lower.includes('conta') || lower.includes('sat')) {
+                          setNewStaffRole('accounting');
+                        } else {
+                          setNewStaffRole('technician');
+                        }
                       } else {
+                        setNewStaffCustomJobTitle('');
                         setNewStaffRole(val as any);
                       }
                     }}
@@ -1970,9 +2006,9 @@ export default function AdminDashboard({
                       <option value="client">🏢 Cliente Industrial (Portal de Equipos y Fallas)</option>
                     </optgroup>
                     {customRolesList.length > 0 && (
-                      <optgroup label="Puestos Registrados Anteriores">
+                      <optgroup label="Puestos Personalizados Creados">
                         {customRolesList.map((cr, idx) => (
-                          <option key={idx} value="sales">{cr}</option>
+                          <option key={idx} value={`custom_title:${cr}`}>💼 {cr}</option>
                         ))}
                       </optgroup>
                     )}
@@ -5006,6 +5042,109 @@ export default function AdminDashboard({
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Confirmar y Limpiar Sistema</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: GESTIÓN DE ROLES Y PUESTOS PERSONALIZADOS */}
+      {showManageRolesModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
+            <div className="bg-slate-900 p-5 text-white flex justify-between items-center shrink-0 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white">Catálogo de Puestos y Roles</h3>
+                  <p className="text-[11px] text-slate-400">
+                    Crea nuevos puestos o elimina los que no utilices
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowManageRolesModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const trimmed = newCustomRoleInput.trim();
+                  if (!trimmed) return;
+                  if (!customRolesList.includes(trimmed)) {
+                    const updated = [...customRolesList, trimmed];
+                    setCustomRolesList(updated);
+                    saveToStorage('mvl_custom_roles_list', updated);
+                  }
+                  setNewCustomRoleInput('');
+                }}
+                className="flex gap-2"
+              >
+                <input
+                  type="text"
+                  placeholder="Ej. Coordinador de Garantías, Gerente Bajío..."
+                  value={newCustomRoleInput}
+                  onChange={(e) => setNewCustomRoleInput(e.target.value)}
+                  className="flex-1 px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#0196C1] font-medium"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-1 shrink-0 cursor-pointer shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Agregar Puesto
+                </button>
+              </form>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase mb-2">
+                  Puestos Registrados en el Sistema ({customRolesList.length})
+                </label>
+                {customRolesList.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">No hay puestos personalizados registrados.</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                    {customRolesList.map((r, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs hover:bg-slate-100 transition-colors"
+                      >
+                        <span className="font-bold text-slate-800 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                          {r}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = customRolesList.filter(x => x !== r);
+                            setCustomRolesList(updated);
+                            saveToStorage('mvl_custom_roles_list', updated);
+                          }}
+                          className="p-1 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"
+                          title="Eliminar este puesto"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowManageRolesModal(false)}
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Listo
               </button>
             </div>
           </div>

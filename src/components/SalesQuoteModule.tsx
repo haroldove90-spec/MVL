@@ -6,6 +6,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Client, Equipment, InventoryItem, Quote, QuoteItem, Staff, WorkOrder, IssuerPartner, CustomerKitItem } from '../types';
 import { INITIAL_QUOTES, INITIAL_ISSUER_PARTNERS, INITIAL_CUSTOMER_KITS, loadFromStorage, saveToStorage } from '../mockData';
+import { persistClientToSupabase, persistEquipmentToSupabase, persistQuoteToSupabase } from '../lib/dataSyncService';
+import { getCurrentUser } from '../lib/authService';
 import jsPDF from 'jspdf';
 import { 
   FileText, Plus, UserPlus, Send, CheckCircle2, Clock, XCircle, 
@@ -335,7 +337,10 @@ export default function SalesQuoteModule({
   const [clientEmail, setClientEmail] = useState('');
   const [clientWhatsapp, setClientWhatsapp] = useState('');
   const [concept, setConcept] = useState('');
-  const [agentName, setAgentName] = useState('Ing. Leonardo Daniel Torres');
+  const [agentName, setAgentName] = useState(() => {
+    const logged = getCurrentUser();
+    return logged?.name || 'Ing. Leonardo Daniel Torres';
+  });
   const [discountPercent, setDiscountPercent] = useState(0);
 
   // Service Type Definition & Horometers (2k, 4k, 6k, 8k, 16k, 24k)
@@ -361,6 +366,7 @@ export default function SalesQuoteModule({
   // New Equipment Modal State
   const [showNewEquipmentModal, setShowNewEquipmentModal] = useState(false);
   const [newEqType, setNewEqType] = useState<'Compresor' | 'Secador' | 'Aire Acondicionado' | 'Otros'>('Compresor');
+  const [newEqCustomType, setNewEqCustomType] = useState('');
   const [newEqBrand, setNewEqBrand] = useState('');
   const [newEqModel, setNewEqModel] = useState('');
   const [newEqSerial, setNewEqSerial] = useState('');
@@ -371,6 +377,20 @@ export default function SalesQuoteModule({
   const [newEqFilters, setNewEqFilters] = useState('Filtro de Aire, Aceite y Separador');
   const [newEqPhotoUrl, setNewEqPhotoUrl] = useState<string | null>(null);
   const [newEqManualPdfUrl, setNewEqManualPdfUrl] = useState<string | null>(null);
+
+  // Modal Alta Rápida CRM sin perder cotización
+  const [showNewClientCrmModal, setShowNewClientCrmModal] = useState(false);
+  const [crmNewClientName, setCrmNewClientName] = useState('');
+  const [crmNewClientCompany, setCrmNewClientCompany] = useState('');
+  const [crmNewClientRfc, setCrmNewClientRfc] = useState('');
+  const [crmNewClientGiro, setCrmNewClientGiro] = useState('Manufactura / Industrial');
+  const [crmNewClientAddress, setCrmNewClientAddress] = useState('');
+  const [crmNewClientCity, setCrmNewClientCity] = useState('León, Gto.');
+  const [crmNewClientPhone, setCrmNewClientPhone] = useState('');
+  const [crmNewClientEmail, setCrmNewClientEmail] = useState('');
+  const [crmNewPlantName, setCrmNewPlantName] = useState('Planta Principal');
+  const [crmNewContactName, setCrmNewContactName] = useState('');
+  const [crmNewContactRole, setCrmNewContactRole] = useState('Gerente de Mantenimiento');
 
   // Rejection Modal State
   const [showRejectModalQuote, setShowRejectModalQuote] = useState<Quote | null>(null);
@@ -495,19 +515,34 @@ export default function SalesQuoteModule({
 
   const selectedClient = clients.find(c => c.id === selectedClientId) || clients[0];
 
-  // Eligible sales staff (filtered by sales, commercial, coordinator, or admin/socio)
+  // Eligible sales staff (filtered strictly by sales, commercial, coordinator, or admin/socio)
   const eligibleSalesStaff = useMemo(() => {
-    const list = staff.filter(s =>
-      s.active && (
-        s.role === 'sales' ||
-        s.role === 'admin' ||
-        s.role === 'coordinator' ||
-        s.customJobTitle?.toLowerCase().includes('vendedor') ||
-        s.customJobTitle?.toLowerCase().includes('ventas') ||
-        s.customJobTitle?.toLowerCase().includes('comercial') ||
-        s.customJobTitle?.toLowerCase().includes('socio')
-      )
-    );
+    const list = staff.filter(s => {
+      if (!s.active) return false;
+      const title = (s.customJobTitle || '').toLowerCase();
+      const isSales = s.role === 'sales' || title.includes('vendedor') || title.includes('asesor') || title.includes('comercial') || title.includes('ventas');
+      const isAdmin = s.role === 'admin' || title.includes('socio') || title.includes('administrador') || title.includes('director');
+      const isCoordinator = s.role === 'coordinator' || title.includes('coordinador') || title.includes('supervisor');
+      return isSales || isAdmin || isCoordinator;
+    });
+
+    // Ensure logged in user is included and placed at top for smart selection
+    const logged = getCurrentUser();
+    if (logged?.name && !list.some(s => s.name.toLowerCase() === logged.name.toLowerCase())) {
+      list.unshift({
+        id: logged.id || 'usr_logged',
+        name: logged.name,
+        username: logged.username,
+        role: (logged.role as any) || 'sales',
+        customJobTitle: logged.customJobTitle || 'Asesor Comercial (Usuario Actual)',
+        email: logged.email,
+        phone: logged.phone || '',
+        whatsapp: logged.whatsapp || '',
+        active: true,
+        createdAt: new Date().toISOString()
+      });
+    }
+
     return list.length > 0 ? list : staff;
   }, [staff]);
 
@@ -561,6 +596,25 @@ export default function SalesQuoteModule({
       }
     }
   }, [selectedClientId]);
+
+  // Deep-link for WhatsApp shared quote PDF preview (?quote=COT-2026-...)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const quoteParam = params.get('quote');
+      if (quoteParam && quotes.length > 0) {
+        const found = quotes.find(q =>
+          q.folNum?.toLowerCase() === quoteParam.toLowerCase() ||
+          q.id?.toLowerCase() === quoteParam.toLowerCase()
+        );
+        if (found) {
+          setSelectedQuoteForPreview(found);
+        }
+      }
+    } catch {
+      // Ignore URL parsing errors
+    }
+  }, [quotes]);
 
   // Equipment registered specifically for the selected client
   const clientEquipments = useMemo(() => {
@@ -641,11 +695,13 @@ export default function SalesQuoteModule({
     e.preventDefault();
     if (!newEqBrand.trim() || !newEqModel.trim()) return;
 
+    const finalTypeDisplay = newEqType === 'Otros' && newEqCustomType.trim() ? newEqCustomType.trim() : newEqType;
+
     const newEquipmentItem: Equipment = {
       id: 'eq_' + Date.now(),
       clientId: selectedClientId,
       plantId: selectedClient?.plants?.[0]?.id || 'p_1',
-      name: `${newEqBrand} ${newEqModel}`,
+      name: `${newEqBrand} ${newEqModel} (${finalTypeDisplay})`,
       brand: newEqBrand.trim(),
       model: newEqModel.trim(),
       serialNumber: newEqSerial.trim() || `SN-${Date.now().toString().slice(-4)}`,
@@ -669,6 +725,9 @@ export default function SalesQuoteModule({
       });
     }
 
+    // Persist new equipment to Supabase cloud
+    persistEquipmentToSupabase(newEquipmentItem).catch(err => console.warn('Error syncing equipment:', err));
+
     // Auto-select for current quote
     setSelectedEquipmentId(newEquipmentItem.id);
     setEqBrand(newEquipmentItem.brand);
@@ -684,9 +743,108 @@ export default function SalesQuoteModule({
     setNewEqModel('');
     setNewEqSerial('');
     setNewEqCapacity('');
+    setNewEqCustomType('');
     setNewEqPhotoUrl(null);
     setNewEqManualPdfUrl(null);
     setShowNewEquipmentModal(false);
+  };
+
+  // Cargar automáticamente todas las refacciones y kits sugeridos para la máquina
+  const handleLoadAllRecommendedParts = () => {
+    if (linkedCustomerKitItems.length === 0) return;
+    const newItems: QuoteItem[] = linkedCustomerKitItems.map((kitItem, i) => {
+      const priceMxn = kitItem.currency === 'USD' ? Math.round(kitItem.price * 20) : kitItem.price;
+      return {
+        partida: standardItems.length + i + 1,
+        description: kitItem.description,
+        brand: eqBrand || kitItem.clientName || 'OEM',
+        quantity: 1,
+        unit: kitItem.unit || 'pza',
+        partNumber: kitItem.partNumber,
+        catalogPrice: priceMxn,
+        total: priceMxn,
+        deliveryTime: (kitItem.stock || 0) > 0 ? 'Inmediata (Stock)' : '3 a 5 días (Sobre Pedido)',
+        inStock: (kitItem.stock || 0) > 0,
+        stockQty: kitItem.stock || 5
+      };
+    });
+    setStandardItems(prev => [...prev, ...newItems]);
+  };
+
+  // Guardar nuevo cliente desde modal CRM dentro de la cotización sin perder el borrador
+  const handleSaveQuickClientCrm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!crmNewClientName.trim()) return;
+
+    const newPlantId = 'p_' + Date.now();
+    const newClientId = 'cl_' + Date.now();
+    const newPlantAddressFull = crmNewClientAddress.trim() 
+      ? `${crmNewClientAddress.trim()}, ${crmNewClientCity.trim()}`
+      : crmNewClientCity.trim() || 'León, Guanajuato';
+
+    const newC: Client = {
+      id: newClientId,
+      name: crmNewClientName.trim(),
+      companyName: crmNewClientCompany.trim() || crmNewClientName.trim(),
+      company: crmNewClientCompany.trim() || crmNewClientName.trim(),
+      rfc: (crmNewClientRfc.trim() || 'XAXX010101000').toUpperCase(),
+      email: crmNewClientEmail.trim() || 'contacto@empresa.com',
+      phone: crmNewClientPhone.trim() || '477-000-0000',
+      address: newPlantAddressFull,
+      city: crmNewClientCity.trim() || 'León, Gto.',
+      industryGiro: crmNewClientGiro.trim() || 'Industrial / Manufactura',
+      giro: crmNewClientGiro.trim() || 'Industrial / Manufactura',
+      plants: [
+        {
+          id: newPlantId,
+          name: crmNewPlantName.trim() || 'Planta Principal',
+          address: newPlantAddressFull,
+          city: crmNewClientCity.trim() || 'León, Gto.',
+          active: true
+        }
+      ],
+      contacts: [
+        {
+          name: crmNewContactName.trim() || crmNewClientName.trim(),
+          role: crmNewContactRole.trim() || 'Gerente de Mantenimiento',
+          phone: crmNewClientPhone.trim(),
+          email: crmNewClientEmail.trim(),
+          isMainContact: true
+        }
+      ]
+    };
+
+    setClients(prev => {
+      const updated = [newC, ...prev];
+      saveToStorage('mvl_clients', updated);
+      return updated;
+    });
+
+    // Sincronizar inmediatamente con Supabase en la nube
+    persistClientToSupabase(newC).catch(err => console.warn('Sync client error:', err));
+
+    // Seleccionar de inmediato en la cotización activa
+    setSelectedClientId(newC.id);
+    setQuoteOrigin('registrado');
+    setSelectedPlantId(newPlantId);
+    setSelectedPlantName(crmNewPlantName.trim() || 'Planta Principal');
+    setSelectedPlantAddress(newPlantAddressFull);
+    setSelectedContactName(crmNewContactName.trim() || crmNewClientName.trim());
+    setSelectedContactRole(crmNewContactRole.trim() || 'Gerente de Mantenimiento');
+    setSelectedContactEmail(crmNewClientEmail.trim());
+    setClientWhatsapp(crmNewClientPhone.trim());
+    setClientEmail(crmNewClientEmail.trim());
+    setCrmGiro(crmNewClientGiro.trim());
+
+    // Limpiar y cerrar modal
+    setCrmNewClientName('');
+    setCrmNewClientCompany('');
+    setCrmNewClientRfc('');
+    setCrmNewClientAddress('');
+    setCrmNewClientPhone('');
+    setCrmNewClientEmail('');
+    setCrmNewContactName('');
+    setShowNewClientCrmModal(false);
   };
 
   // Inline Row Updating Helpers (editable direct/indirect costs)
@@ -1324,6 +1482,8 @@ export default function SalesQuoteModule({
             commercialConditions,
             deliveryLeadTime: calculatedDeliveryTime,
             agentName,
+            clientAddress: selectedPlantAddress || selectedClient?.address || '',
+            clientRfc: selectedClient?.rfc || '',
             plantName: selectedPlantName,
             plantAddress: selectedPlantAddress,
             contactName: selectedContactName,
@@ -1368,6 +1528,9 @@ export default function SalesQuoteModule({
       saveToStorage('mvl_quotes', updatedList);
 
       const targetQ = updatedList.find(q => q.id === editingQuoteId);
+      if (targetQ) {
+        persistQuoteToSupabase(targetQ).catch(err => console.warn('Error syncing updated quote to cloud:', err));
+      }
 
       if (isDraftOrPendingInventory) {
         setDraftSavedNotice(`Borrador de la cotización ${targetQ?.folNum || ''} guardado con éxito. Puedes seguir editando.`);
@@ -1419,6 +1582,8 @@ export default function SalesQuoteModule({
       commercialConditions,
       deliveryLeadTime: calculatedDeliveryTime,
       agentName,
+      clientAddress: selectedPlantAddress || selectedClient?.address || '',
+      clientRfc: selectedClient?.rfc || '',
       plantName: selectedPlantName,
       plantAddress: selectedPlantAddress,
       contactName: selectedContactName,
@@ -1486,11 +1651,13 @@ export default function SalesQuoteModule({
         saveToStorage('mvl_equipment', updatedEq);
         return updatedEq;
       });
+      persistEquipmentToSupabase(newEq).catch(err => console.warn('Error syncing equipment:', err));
     }
 
     const updated = [newQ, ...quotes];
     setQuotes(updated);
     saveToStorage('mvl_quotes', updated);
+    persistQuoteToSupabase(newQ).catch(err => console.warn('Error syncing new quote to cloud:', err));
 
     if (isDraftOrPendingInventory) {
       setEditingQuoteId(newQ.id);
@@ -1601,10 +1768,17 @@ export default function SalesQuoteModule({
     setNewClientName('');
   };
 
+  // Helper to generate public direct link to quote PDF
+  const getDirectQuotePublicUrl = (q: Quote) => {
+    const baseUrl = window.location.origin + window.location.pathname;
+    return `${baseUrl}?quote=${encodeURIComponent(q.folNum || q.id)}`;
+  };
+
   // WhatsApp Message Generator
   const generateWhatsAppUrl = (q: Quote) => {
     const phone = (q.whatsapp || '4774047421').replace(/\D/g, '');
     const cleanPhone = phone.length === 10 ? `52${phone}` : phone;
+    const directPdfLink = getDirectQuotePublicUrl(q);
     const msg = `*MVL CONTROL INDUSTRIAL - COTIZACIÓN OFICIAL*\n\n` +
       `Estimado cliente: *${q.clientName}*\n` +
       `Folio: *${q.folNum}*\n` +
@@ -1613,7 +1787,8 @@ export default function SalesQuoteModule({
       `Tiempo de Entrega: *${q.deliveryLeadTime || 'Inmediata'}*\n` +
       `Asesor: *${q.agentName || 'Ing. Leonardo Daniel Torres'}*\n` +
       `Razón Social: *${q.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'}*\n\n` +
-      `Consulte el expediente digital y formato oficial en nuestra plataforma web.`;
+      `📄 *Ver y Descargar Cotización Oficial en PDF:* \n${directPdfLink}\n\n` +
+      `_MVL Maquinaria & Control Industrial - Calidad y Servicio Garantizado_`;
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
   };
 
@@ -1633,6 +1808,7 @@ export default function SalesQuoteModule({
   const handleShareQuoteWhatsApp = async (q: Quote) => {
     const phone = (q.whatsapp || '').replace(/\D/g, '');
     const cleanPhone = phone.length === 10 ? `52${phone}` : phone;
+    const directPdfLink = getDirectQuotePublicUrl(q);
     const msg = `*MVL CONTROL INDUSTRIAL - COTIZACIÓN OFICIAL*\n\n` +
       `Estimado cliente: *${q.clientName}*\n` +
       `Folio: *${q.folNum}*\n` +
@@ -1641,14 +1817,15 @@ export default function SalesQuoteModule({
       `Tiempo de Entrega: *${q.deliveryLeadTime || 'Inmediata'}*\n` +
       `Asesor Responsable: *${q.agentName || 'Ing. Leonardo Daniel Torres'}*\n` +
       `Socio Emisor: *${q.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'}*\n\n` +
-      `Consulte el expediente digital y formato oficial en nuestra plataforma web.`;
+      `📄 *Ver y Descargar Cotización Oficial en PDF:* \n${directPdfLink}\n\n` +
+      `_MVL Maquinaria & Control Industrial - Calidad y Servicio Garantizado_`;
 
     if (navigator.share) {
       try {
         await navigator.share({
           title: `Cotización ${q.folNum} - ${q.clientName}`,
           text: msg,
-          url: window.location.href
+          url: directPdfLink
         });
         return;
       } catch {
@@ -1979,10 +2156,10 @@ export default function SalesQuoteModule({
               </label>
               <button
                 type="button"
-                onClick={() => setActiveView('new_client')}
+                onClick={() => setShowNewClientCrmModal(true)}
                 className="text-[10px] font-extrabold text-[#0196C1] hover:underline flex items-center gap-1 cursor-pointer"
               >
-                <Plus className="w-3 h-3" /> + Registrar Nuevo Cliente
+                <Plus className="w-3 h-3" /> + Registrar Nuevo Cliente (CRM)
               </button>
             </div>
 
@@ -2027,10 +2204,10 @@ export default function SalesQuoteModule({
               </button>
               <button
                 type="button"
-                onClick={() => setActiveView('new_client')}
+                onClick={() => setShowNewClientCrmModal(true)}
                 className="p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5 bg-white hover:bg-sky-50 text-slate-700 hover:text-[#0196C1] border-slate-200 hover:border-[#0196C1]"
               >
-                <UserPlus className="w-3.5 h-3.5 text-[#0196C1]" /> + Cliente Nuevo (Abrir Registro)
+                <UserPlus className="w-3.5 h-3.5 text-[#0196C1]" /> + Cliente Nuevo (Abrir Registro CRM)
               </button>
               <button
                 type="button"
@@ -2666,14 +2843,23 @@ export default function SalesQuoteModule({
               {/* Refacciones del Catálogo Oficial de Kits del Cliente (CustomerKitsModule) */}
               {linkedCustomerKitItems.length > 0 && (
                 <div className="bg-emerald-50/90 p-3.5 rounded-xl border border-emerald-300 space-y-2.5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <span className="text-[10px] font-black text-emerald-950 uppercase flex items-center gap-1.5">
                       <PackageCheck className="w-4 h-4 text-emerald-600" />
                       Refacciones & Kits Vinculados del Cliente ({selectedClient?.name || 'Cliente'} - {eqBrand} {eqModel} {eqSerial ? `SN: ${eqSerial}` : ''}) [{linkedCustomerKitItems.length} Encontradas]:
                     </span>
-                    <span className="text-[9px] text-emerald-800 font-bold bg-emerald-200/80 px-2 py-0.5 rounded self-start sm:self-auto">
-                      Kits OEM Registrados para este Equipo
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleLoadAllRecommendedParts}
+                        className="px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-black rounded-lg cursor-pointer flex items-center gap-1 shadow-xs transition-all"
+                      >
+                        <Plus className="w-3 h-3" /> + Cargar Todos los Kits ({linkedCustomerKitItems.length})
+                      </button>
+                      <span className="text-[9px] text-emerald-800 font-bold bg-emerald-200/80 px-2 py-0.5 rounded">
+                        Kits OEM Sugeridos
+                      </span>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -3921,8 +4107,20 @@ export default function SalesQuoteModule({
                   <option value="Compresor">Compresor de Tornillo / Pistón</option>
                   <option value="Secador">Secador Refrigerativo / Desecante</option>
                   <option value="Aire Acondicionado">Aire Acondicionado (Minisplit / Paquete / UPA)</option>
-                  <option value="Otros">Chiller / Bomba de Vacío / Planta / Otros</option>
+                  <option value="Otros">Otros (Personalizado / Chiller / Bomba de Vacío / Generador...)</option>
                 </select>
+                {newEqType === 'Otros' && (
+                  <div className="mt-2">
+                    <label className="block text-[9px] font-bold text-purple-700 uppercase mb-0.5">Especificar Tipo de Equipo Libre</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. Chiller Centrífugo, Bomba de Vacío, Torre de Enfriamiento..."
+                      value={newEqCustomType}
+                      onChange={e => setNewEqCustomType(e.target.value)}
+                      className="w-full text-xs p-2 bg-purple-50 border border-purple-200 rounded-lg outline-none font-bold text-purple-900 placeholder:text-purple-300"
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -4148,7 +4346,15 @@ export default function SalesQuoteModule({
               <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-linear-to-br from-[#0196C1] to-[#017fa4] rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-md border-2 border-white">
+                    <img
+                      src="/mvl.png"
+                      alt="Logo Oficial MVL"
+                      className="h-14 w-auto max-w-[130px] object-contain shrink-0"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                    <div className="w-12 h-12 bg-linear-to-br from-[#0196C1] to-[#017fa4] rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-md border-2 border-white shrink-0">
                       MVL
                     </div>
                     <div>
@@ -4176,40 +4382,43 @@ export default function SalesQuoteModule({
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
                     <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Cliente / Razón Social</span>
-                    <span className="text-xs font-bold text-slate-800">{selectedQuoteForPreview.clientName}</span>
+                    <span className="text-xs font-bold text-slate-800 block">{selectedQuoteForPreview.clientName}</span>
+                    <span className="text-[10px] font-mono text-slate-500 font-bold block">
+                      RFC: {selectedQuoteForPreview.clientRfc || selectedClient?.rfc || 'XAXX010101000'}
+                    </span>
                   </div>
                   <div>
                     <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Empresa / Sucursal</span>
-                    <span className="text-xs font-bold text-slate-800">{selectedQuoteForPreview.plantName || 'Planta Principal'}</span>
+                    <span className="text-xs font-bold text-slate-800 block">{selectedQuoteForPreview.plantName || 'Planta Principal'}</span>
                   </div>
                   <div>
                     <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Horómetro / Servicio</span>
-                    <span className="text-xs font-bold text-[#0196C1]">
+                    <span className="text-xs font-bold text-[#0196C1] block">
                       {selectedQuoteForPreview.serviceHours ? `${selectedQuoteForPreview.serviceHours} Horas Operación` : (selectedQuoteForPreview.serviceTypeCategory?.toUpperCase() || 'Estándar')}
                     </span>
                   </div>
                   <div>
                     <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Tiempo de Entrega</span>
-                    <span className="text-xs font-bold text-emerald-700">{selectedQuoteForPreview.deliveryLeadTime || 'Inmediata'}</span>
+                    <span className="text-xs font-bold text-emerald-700 block">{selectedQuoteForPreview.deliveryLeadTime || 'Inmediata'}</span>
                   </div>
                 </div>
 
                 {/* Extensión de datos de contacto y domicilio de planta */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/80 text-[11px]">
                   <div>
-                    <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Dirección de Planta / Entrega</span>
-                    <span className="font-medium text-slate-700">{selectedQuoteForPreview.plantAddress || 'León, Guanajuato'}</span>
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Dirección Fiscal / Entrega</span>
+                    <span className="font-medium text-slate-700 block">{selectedQuoteForPreview.clientAddress || selectedQuoteForPreview.plantAddress || selectedClient?.address || 'León, Guanajuato'}</span>
                   </div>
                   <div>
                     <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Contacto en Planta</span>
-                    <span className="font-medium text-slate-700">
+                    <span className="font-medium text-slate-700 block">
                       {selectedQuoteForPreview.contactName ? `${selectedQuoteForPreview.contactName} (${selectedQuoteForPreview.contactRole || 'Contacto'})` : (selectedQuoteForPreview.whatsapp || 'N/D')}
                       {selectedQuoteForPreview.whatsapp && <span className="text-slate-500 block text-[10px]">Tel: {selectedQuoteForPreview.whatsapp}</span>}
                     </span>
                   </div>
                   <div>
                     <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Asesor Responsable</span>
-                    <span className="font-bold text-slate-800">{selectedQuoteForPreview.agentName || 'Ing. Leonardo Daniel Torres'}</span>
+                    <span className="font-bold text-slate-800 block">{selectedQuoteForPreview.agentName || 'Ing. Leonardo Daniel Torres'}</span>
                     {selectedQuoteForPreview.crmGiro && <span className="text-slate-500 block text-[10px]">Giro: {selectedQuoteForPreview.crmGiro}</span>}
                   </div>
                 </div>
@@ -4640,6 +4849,186 @@ export default function SalesQuoteModule({
                 <Check className="w-4 h-4" /> Aplicar Paquete a la Cotización
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ALTA RÁPIDA DE CLIENTE (CRM & SUCURSAL) SIN PERDER BORRADOR */}
+      {showNewClientCrmModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-[#0196C1]" />
+                Registrar Nuevo Cliente en CRM & Sincronizar con Ventas
+              </h3>
+              <button 
+                type="button" 
+                onClick={() => setShowNewClientCrmModal(false)} 
+                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              Registra la empresa con sus datos fiscales, primera planta y contacto. Se guardará de inmediato en el CRM en la nube y se seleccionará automáticamente en esta cotización sin perder los datos que ya capturaste.
+            </p>
+
+            <form onSubmit={handleSaveQuickClientCrm} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                    Nombre Oficial / Razón Social *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Industrias Metalmecánicas del Bajío S.A. de C.V."
+                    value={crmNewClientName}
+                    onChange={e => setCrmNewClientName(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                    RFC Fiscal *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="IMB190204XY9"
+                    value={crmNewClientRfc}
+                    onChange={e => setCrmNewClientRfc(e.target.value.toUpperCase())}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono font-bold text-slate-800 uppercase"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                    Giro Industrial
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej. Automotriz, Plásticos, Alimentos..."
+                    value={crmNewClientGiro}
+                    onChange={e => setCrmNewClientGiro(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                    <Building2 className="w-3.5 h-3.5 text-[#0196C1]" />
+                    Dirección Fiscal / Ubicación de Planta *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Parque Industrial Santa Fe, Calle Innovación #410, Silao, Gto."
+                    value={crmNewClientAddress}
+                    onChange={e => setCrmNewClientAddress(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                    Nombre Planta / Sucursal
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej. Planta Principal / Silao"
+                    value={crmNewPlantName}
+                    onChange={e => setCrmNewPlantName(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                    Ciudad / Estado
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej. León / Silao, Gto."
+                    value={crmNewClientCity}
+                    onChange={e => setCrmNewClientCity(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                    Contacto en Planta
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej. Ing. Roberto Mendoza"
+                    value={crmNewContactName}
+                    onChange={e => setCrmNewContactName(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                    Cargo del Contacto
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej. Gerente de Mantenimiento"
+                    value={crmNewContactRole}
+                    onChange={e => setCrmNewContactRole(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                    Teléfono / WhatsApp *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="477-123-4567"
+                    value={crmNewClientPhone}
+                    onChange={e => setCrmNewClientPhone(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                    Correo Electrónico
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="mantenimiento@empresa.com"
+                    value={crmNewClientEmail}
+                    onChange={e => setCrmNewClientEmail(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowNewClientCrmModal(false)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+                >
+                  Guardar en CRM y Usar en Cotización
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

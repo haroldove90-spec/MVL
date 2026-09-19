@@ -135,6 +135,8 @@ export interface Quote {
   agentName?: string;
   plantName?: string;
   plantAddress?: string;
+  clientAddress?: string;
+  clientRfc?: string;
   contactName?: string;
   contactRole?: string;
   contactEmail?: string;
@@ -205,6 +207,7 @@ export interface Plant {
   name: string;
   address: string;
   city: string;
+  active?: boolean;
 }
 
 export interface Contact {
@@ -212,12 +215,14 @@ export interface Contact {
   role: string;
   phone: string;
   email: string;
+  isMainContact?: boolean;
 }
 
 export interface Client {
   id: string;
   name: string;
   companyName: string;
+  company?: string;
   rfc: string;
   email: string;
   phone: string;
@@ -227,6 +232,7 @@ export interface Client {
   isIndependent?: boolean; // Particular Independiente
   taxDocUrl?: string; // Constancia Fiscal PDF
   industryGiro?: string;
+  giro?: string;
   city?: string;
   address?: string;
 }
