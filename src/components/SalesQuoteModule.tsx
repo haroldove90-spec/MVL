@@ -6,9 +6,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Client, Equipment, InventoryItem, Quote, QuoteItem, Staff, WorkOrder, IssuerPartner, CustomerKitItem } from '../types';
 import { INITIAL_QUOTES, INITIAL_ISSUER_PARTNERS, INITIAL_CUSTOMER_KITS, loadFromStorage, saveToStorage } from '../mockData';
-import { persistClientToSupabase, persistEquipmentToSupabase, persistQuoteToSupabase } from '../lib/dataSyncService';
+import { persistClientToSupabase, persistEquipmentToSupabase, persistQuoteToSupabase, fetchQuotesFromSupabase } from '../lib/dataSyncService';
 import { getCurrentUser } from '../lib/authService';
 import jsPDF from 'jspdf';
+import { downloadQuoteAsPdf } from '../lib/quotePdfGenerator';
 import { TechnicalDocViewerModal, TechnicalDocViewerModalProps } from './TechnicalDocViewerModal';
 import { 
   FileText, Plus, UserPlus, Send, CheckCircle2, Clock, XCircle, 
@@ -17,7 +18,7 @@ import {
   Copy, Search, Filter, ArrowUpRight, Check, RefreshCw, Cpu, Zap, ShoppingCart,
   Camera, FileDown, Layers, Award, BookmarkPlus, FolderCheck, Hash, Edit3, Trash2,
   SlidersHorizontal, AlertCircle, HelpCircle, PackageCheck, CheckCheck, Edit, ShieldCheck, Activity,
-  Share2
+  Share2, Download
 } from 'lucide-react';
 
 interface SalesQuoteModuleProps {
@@ -281,6 +282,40 @@ export default function SalesQuoteModule({
   const [quotes, setQuotes] = useState<Quote[]>(() =>
     loadFromStorage<Quote[]>('mvl_quotes', INITIAL_QUOTES)
   );
+
+  // Sync quotes to localStorage on every change
+  useEffect(() => {
+    saveToStorage('mvl_quotes', quotes);
+  }, [quotes]);
+
+  // Sync quotes from Supabase on mount without overwriting local newly-created quotes
+  useEffect(() => {
+    fetchQuotesFromSupabase().then(cloudQuotes => {
+      if (cloudQuotes && cloudQuotes.length > 0) {
+        setQuotes(prev => {
+          const localMap = new Map(prev.map(q => [q.id, q]));
+          let hasNew = false;
+          for (const cq of cloudQuotes) {
+            if (!localMap.has(cq.id)) {
+              localMap.set(cq.id, cq);
+              hasNew = true;
+            }
+          }
+          if (hasNew) {
+            const merged = Array.from(localMap.values());
+            saveToStorage('mvl_quotes', merged);
+            return merged;
+          }
+          return prev;
+        });
+      }
+    }).catch(err => {
+      console.warn('Could not sync quotes from Supabase on mount:', err);
+    });
+  }, []);
+
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState<string | null>(null);
+  const [downloadSuccessNotice, setDownloadSuccessNotice] = useState<string | null>(null);
 
   const [quickTemplates, setQuickTemplates] = useState<QuickTemplate[]>(() =>
     loadFromStorage<QuickTemplate[]>('mvl_quick_templates', DEFAULT_TEMPLATES)
@@ -1576,7 +1611,10 @@ export default function SalesQuoteModule({
         setEditingQuoteId(null);
         setDraftSavedNotice(null);
         setActiveView('list');
-        if (targetQ) setSelectedQuoteForPreview(targetQ);
+        if (targetQ) {
+          handleDownloadPdf(targetQ);
+          setDownloadSuccessNotice(`✅ Cotización ${targetQ.folNum} actualizada en el expediente y descargada automáticamente en PDF.`);
+        }
       }
       return;
     }
@@ -1704,7 +1742,9 @@ export default function SalesQuoteModule({
       setEditingQuoteId(null);
       setDraftSavedNotice(null);
       setActiveView('list');
-      setSelectedQuoteForPreview(newQ);
+      // Automatically download official PDF with 1-click and notify user
+      handleDownloadPdf(newQ);
+      setDownloadSuccessNotice(`✅ Cotización ${newQ.folNum} registrada con éxito en el historial y descargada automáticamente en PDF.`);
     }
   };
 
@@ -1812,58 +1852,61 @@ export default function SalesQuoteModule({
     return `${baseUrl}?quote=${encodeURIComponent(q.folNum || q.id)}`;
   };
 
-  // WhatsApp Message Generator
+  // WhatsApp Message Generator (No external links, summary with attached PDF notification)
   const generateWhatsAppUrl = (q: Quote) => {
     const phone = (q.whatsapp || '4774047421').replace(/\D/g, '');
     const cleanPhone = phone.length === 10 ? `52${phone}` : phone;
-    const directPdfLink = getDirectQuotePublicUrl(q);
     const msg = `*MVL CONTROL INDUSTRIAL - COTIZACIÓN OFICIAL*\n\n` +
       `Estimado cliente: *${q.clientName}*\n` +
       `Folio: *${q.folNum}*\n` +
       `Concepto: *${q.concept}*\n` +
       `Total: *$${q.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN* (IVA Incluido)\n` +
       `Tiempo de Entrega: *${q.deliveryLeadTime || 'Inmediata'}*\n` +
-      `Asesor: *${q.agentName || 'Ing. Leonardo Daniel Torres'}*\n` +
-      `Razón Social: *${q.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'}*\n\n` +
-      `📄 *Ver y Descargar Cotización Oficial en PDF:* \n${directPdfLink}\n\n` +
+      `Asesor Responsable: *${q.agentName || 'Ing. Víctor Pedro Ramírez Barrios'}*\n` +
+      `Socio Emisor: *${q.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'}*\n\n` +
+      `📎 *Se adjunta documento oficial en PDF con desglose técnico y condiciones comerciales.*\n\n` +
       `_MVL Maquinaria & Control Industrial - Calidad y Servicio Garantizado_`;
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
   };
 
-  // Download PDF with custom filename [Numero_Cotizacion]_[Descripcion].pdf
-  const handleDownloadPdf = (q: Quote) => {
-    const sanitizedConcept = q.concept.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
-    const fileName = `${q.folNum}_${sanitizedConcept}.pdf`;
-    const prevTitle = document.title;
-    document.title = fileName;
-    window.print();
-    setTimeout(() => {
-      document.title = prevTitle;
-    }, 1000);
+  // Direct 1-click PDF download with crisp jsPDF/AutoTable generation (No print dialog, no blank screen)
+  const handleDownloadPdf = async (q: Quote) => {
+    try {
+      setIsDownloadingPdf(q.id);
+      await downloadQuoteAsPdf(q);
+      setDownloadSuccessNotice(`✅ Cotización ${q.folNum} descargada correctamente en PDF.`);
+      setTimeout(() => setDownloadSuccessNotice(null), 4000);
+    } catch (err) {
+      console.error('Error generating quote PDF:', err);
+      alert('Ocurrió un inconveniente al generar el archivo PDF. Intente nuevamente.');
+    } finally {
+      setIsDownloadingPdf(null);
+    }
   };
 
-  // Native PDF / Quote Sharing via Web Share API or WhatsApp Fallback
+  // Native PDF / Quote Sharing via Web Share API or WhatsApp Fallback (Downloads PDF automatically)
   const handleShareQuoteWhatsApp = async (q: Quote) => {
+    // 1. Download official PDF with 1-click
+    handleDownloadPdf(q);
+
     const phone = (q.whatsapp || '').replace(/\D/g, '');
     const cleanPhone = phone.length === 10 ? `52${phone}` : phone;
-    const directPdfLink = getDirectQuotePublicUrl(q);
     const msg = `*MVL CONTROL INDUSTRIAL - COTIZACIÓN OFICIAL*\n\n` +
       `Estimado cliente: *${q.clientName}*\n` +
       `Folio: *${q.folNum}*\n` +
       `Concepto: *${q.concept}*\n` +
       `Total: *$${q.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN* (IVA Incluido)\n` +
       `Tiempo de Entrega: *${q.deliveryLeadTime || 'Inmediata'}*\n` +
-      `Asesor Responsable: *${q.agentName || 'Ing. Leonardo Daniel Torres'}*\n` +
+      `Asesor Responsable: *${q.agentName || 'Ing. Víctor Pedro Ramírez Barrios'}*\n` +
       `Socio Emisor: *${q.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'}*\n\n` +
-      `📄 *Ver y Descargar Cotización Oficial en PDF:* \n${directPdfLink}\n\n` +
+      `📎 *Se adjunta documento oficial en PDF con desglose técnico y condiciones comerciales.*\n\n` +
       `_MVL Maquinaria & Control Industrial - Calidad y Servicio Garantizado_`;
 
     if (navigator.share) {
       try {
         await navigator.share({
           title: `Cotización ${q.folNum} - ${q.clientName}`,
-          text: msg,
-          url: directPdfLink
+          text: msg
         });
         return;
       } catch {
@@ -1877,10 +1920,9 @@ export default function SalesQuoteModule({
     window.open(url, '_blank');
   };
 
-  // Automated Gmail integration with pre-filled recipient from registered contact, subject, summary, direct PDF link & instant download
+  // Automated Gmail integration with pre-filled recipient, subject, summary & instant 1-click download
   const handleSendQuoteGmail = (q: Quote) => {
     const recipient = (q.contactEmail || q.clientEmail || '').trim();
-    const directPdfLink = getDirectQuotePublicUrl(q);
     const subject = `Cotización Oficial MVL ${q.folNum} - ${q.concept} - ${q.clientName}`;
     const body = 
 `Estimado(a) ${q.contactName || q.clientName}:
@@ -1895,10 +1937,7 @@ RESUMEN DE LA PROPUESTA:
 • Asesor Comercial: ${q.agentName || 'Ing. Víctor Pedro Ramírez Barrios'}
 • Razón Social Emisora: ${q.issuerPartnerBusinessName || 'MVL Maquinaria y Servicios Industriales S.A. de C.V.'}
 
-📄 DESCARGA / CONSULTA DIRECTA DEL EXPEDIENTE PDF OFICIAL:
-${directPdfLink}
-
-(El archivo PDF oficial firmado se ha generado y descargado para su adjunto en este correo).
+📎 Se adjunta el archivo oficial en PDF con el desglose pormenorizado de refacciones, mano de obra y términos de garantía comercial.
 
 Quedamos atentos a la emisión de su Orden de Compra o a cualquier requerimiento técnico adicional.
 
@@ -1908,7 +1947,7 @@ MVL Maquinaria y Servicios Industriales S.A. de C.V.
 Blvd. José Pérez Marañón #118 B, San José del Consuelo II, C.P. 37217, León, Guanajuato.
 Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
 
-    // 1. Immediately trigger PDF download so the user can easily attach the file
+    // 1. Immediately trigger 1-click PDF download so the user can easily attach the file
     handleDownloadPdf(q);
 
     // 2. Open Gmail Web Compose with pre-filled recipient, subject and message body
@@ -4119,14 +4158,59 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
       {/* VIEW: List of Quotes */}
       {activeView === 'list' && (
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+          {/* Download & Save Feedback Banner */}
+          {downloadSuccessNotice && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-2 text-emerald-800 text-xs font-bold animate-in fade-in slide-in-from-top-1">
+              <span className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                {downloadSuccessNotice}
+              </span>
+              <button
+                type="button"
+                onClick={() => setDownloadSuccessNotice(null)}
+                className="text-emerald-600 hover:text-emerald-900 cursor-pointer text-xs"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3">
             <div>
-              <h3 className="text-sm font-extrabold text-slate-800">Historial & Expediente de Cotizaciones</h3>
-              <p className="text-[11px] text-slate-400">Filtrables por vendedor, estatus y cliente con duplicación y aprobación con Orden de Compra (OC)</p>
+              <h3 className="text-sm font-extrabold text-slate-800">Historial & Expediente de Cotizaciones Guardadas</h3>
+              <p className="text-[11px] text-slate-400">Expediente comercial completo con descarga oficial en PDF en 1 solo clic, aprobación con OC y duplicación</p>
             </div>
-            <span className="text-xs font-bold text-[#0196C1] bg-sky-50 px-2.5 py-1 rounded-lg">
-              {filteredQuotes.length} de {quotes.length} Cotizaciones
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#0196C1] bg-sky-50 px-2.5 py-1 rounded-lg">
+                {filteredQuotes.length} de {quotes.length} Cotizaciones
+              </span>
+            </div>
+          </div>
+
+          {/* Quick Metrics Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl text-left">
+              <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Registradas</span>
+              <span className="text-base font-black text-slate-800">{quotes.length}</span>
+            </div>
+            <div className="p-3 bg-sky-50/70 border border-sky-100 rounded-xl text-left">
+              <span className="text-[10px] font-bold text-sky-600 uppercase block">Monto Total Cotizado</span>
+              <span className="text-base font-black text-[#0196C1]">
+                ${quotes.reduce((acc, q) => acc + (q.total || 0), 0).toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} MXN
+              </span>
+            </div>
+            <div className="p-3 bg-emerald-50/70 border border-emerald-100 rounded-xl text-left">
+              <span className="text-[10px] font-bold text-emerald-600 uppercase block">Aprobadas con OC</span>
+              <span className="text-base font-black text-emerald-700">
+                {quotes.filter(q => q.status === 'approved').length}
+              </span>
+            </div>
+            <div className="p-3 bg-amber-50/70 border border-amber-100 rounded-xl text-left">
+              <span className="text-[10px] font-bold text-amber-700 uppercase block">Emitidas / Vigentes</span>
+              <span className="text-base font-black text-amber-800">
+                {quotes.filter(q => q.status === 'sent' || q.status === 'draft' || q.status === 'pending_inventory').length}
+              </span>
+            </div>
           </div>
 
           {/* Search and Filters */}
@@ -4149,9 +4233,9 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                 className="w-full text-xs py-2 px-3 bg-white border border-slate-200 rounded-lg outline-none font-bold text-slate-700"
               >
                 <option value="all">-- Todos los Estatus --</option>
-                <option value="sent">Enviada</option>
+                <option value="sent">Emitida / Vigente</option>
                 <option value="approved">Aprobada con OC</option>
-                <option value="pending_inventory">⏳ Pendiente de Inventario</option>
+                <option value="pending_inventory">⏳ Borrador / Pendiente de Inventario</option>
                 <option value="discount_requested">Solicitud de Descuento</option>
                 <option value="rejected">Rechazada / Vencida</option>
               </select>
@@ -4173,130 +4257,162 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
 
           {/* Quotes Cards List */}
           <div className="space-y-3">
-            {filteredQuotes.map(q => (
-              <div key={q.id} className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-sky-300 transition-all">
-                <div className="space-y-1.5 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-black text-[#0196C1] uppercase bg-sky-100/80 px-2 py-0.5 rounded">
-                      {q.folNum}
-                    </span>
-                    <span className="text-xs font-bold text-slate-800">{q.clientName}</span>
-                    <span className="text-[10px] text-slate-400">({q.date})</span>
-
-                    {q.status === 'pending_inventory' && (
-                      <span className="text-[9px] font-black uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-amber-600" /> Borrador / Pendiente de Inventario
-                      </span>
-                    )}
-
-                    {q.status === 'approved' && (
-                      <span className="text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded flex items-center gap-1">
-                        <Check className="w-3 h-3 text-emerald-600" /> Aprobada {q.clientPoNumber ? `(OC: ${q.clientPoNumber})` : ''}
-                      </span>
-                    )}
-
-                    {q.status === 'rejected' && (
-                      <span className="text-[9px] font-black uppercase bg-red-100 text-red-800 px-2 py-0.5 rounded flex items-center gap-1">
-                        <X className="w-3 h-3 text-red-600" /> Rechazada {q.rejectionReason ? `• ${q.rejectionReason}` : ''}
-                      </span>
-                    )}
-
-                    {q.status === 'sent' && (
-                      <span className="text-[9px] font-black uppercase bg-sky-100 text-[#0196C1] px-2 py-0.5 rounded flex items-center gap-1">
-                        <Send className="w-3 h-3 text-[#0196C1]" /> Emitida / Vigente
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs font-medium text-slate-700">{q.concept}</p>
-                  <div className="flex items-center gap-3 text-[10px] text-slate-500">
-                    <span>Emisor: <strong>{q.issuerPartnerName || 'MVL Control'}</strong></span>
-                    <span>•</span>
-                    <span>Entrega: <strong>{q.deliveryLeadTime || 'Inmediata'}</strong></span>
-                    {q.materialDescription && (
-                      <>
-                        <span>•</span>
-                        <span className="truncate max-w-xs">Mat: <em>{q.materialDescription}</em></span>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col md:items-end gap-2 w-full md:w-auto shrink-0">
-                  <div className="text-left md:text-right">
-                    <span className="text-sm font-black text-slate-900">${q.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
-                    <span className="text-[9px] text-slate-400 block">IVA incluido</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {/* Botón Editar Cotización */}
-                    <button
-                      onClick={() => handleEditQuote(q)}
-                      title="Editar partidas, costos, cliente o condiciones"
-                      className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-[#0196C1] border border-sky-200 rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
-                    >
-                      <Edit className="w-3.5 h-3.5" /> Editar
-                    </button>
-
-                    {/* Botón Aprobar con OC */}
-                    {q.status !== 'approved' && (
-                      <button
-                        onClick={() => setPoApprovalModalQuote(q)}
-                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer shadow-2xs"
-                      >
-                        <Check className="w-3.5 h-3.5" /> Aprobar con OC
-                      </button>
-                    )}
-
-                    {/* Botón Rechazar Cotización */}
-                    {q.status !== 'rejected' && q.status !== 'approved' && (
-                      <button
-                        onClick={() => {
-                          setShowRejectModalQuote(q);
-                          setRejectionReasonInput('');
-                        }}
-                        title="Marcar cotización como rechazada"
-                        className="px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
-                      >
-                        <X className="w-3.5 h-3.5 text-red-600" /> Rechazar
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => handleDuplicateQuote(q)}
-                      title="Duplicar cotización para nuevo folio"
-                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
-                    >
-                      <Copy className="w-3.5 h-3.5 text-slate-600" /> Duplicar
-                    </button>
-
-                    <button
-                      onClick={() => setSelectedQuoteForPreview(q)}
-                      className="p-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
-                    >
-                      <Eye className="w-3.5 h-3.5 text-sky-400" /> Ver PDF
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleSendQuoteGmail(q)}
-                      className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                      title="Enviar automáticamente por Gmail al contacto del cliente y descargar PDF"
-                    >
-                      <Mail className="w-3 h-3" /> Gmail
-                    </button>
-
-                    <a
-                      href={generateWhatsAppUrl(q)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold flex items-center gap-1"
-                    >
-                      <MessageSquare className="w-3 h-3" /> WhatsApp
-                    </a>
-                  </div>
-                </div>
+            {filteredQuotes.length === 0 ? (
+              <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-slate-400">
+                <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p className="text-xs font-bold">No se encontraron cotizaciones con los filtros actuales.</p>
               </div>
-            ))}
+            ) : (
+              filteredQuotes.map(q => (
+                <div key={q.id} className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/80 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 hover:border-sky-300 transition-all">
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-black text-[#0196C1] uppercase bg-sky-100/80 px-2 py-0.5 rounded">
+                        {q.folNum}
+                      </span>
+                      <span className="text-xs font-bold text-slate-800">{q.clientName}</span>
+                      <span className="text-[10px] text-slate-400">({q.date})</span>
+
+                      {q.status === 'pending_inventory' && (
+                        <span className="text-[9px] font-black uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-amber-600" /> Borrador / Pendiente de Inventario
+                        </span>
+                      )}
+
+                      {q.status === 'approved' && (
+                        <span className="text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded flex items-center gap-1">
+                          <Check className="w-3 h-3 text-emerald-600" /> Aprobada {q.clientPoNumber ? `(OC: ${q.clientPoNumber})` : ''}
+                        </span>
+                      )}
+
+                      {q.status === 'rejected' && (
+                        <span className="text-[9px] font-black uppercase bg-red-100 text-red-800 px-2 py-0.5 rounded flex items-center gap-1">
+                          <X className="w-3 h-3 text-red-600" /> Rechazada {q.rejectionReason ? `• ${q.rejectionReason}` : ''}
+                        </span>
+                      )}
+
+                      {q.status === 'sent' && (
+                        <span className="text-[9px] font-black uppercase bg-sky-100 text-[#0196C1] px-2 py-0.5 rounded flex items-center gap-1">
+                          <Send className="w-3 h-3 text-[#0196C1]" /> Emitida / Vigente
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs font-medium text-slate-700">{q.concept}</p>
+                    <div className="flex items-center gap-3 text-[10px] text-slate-500 flex-wrap">
+                      <span>Emisor: <strong>{q.issuerPartnerName || 'MVL Control'}</strong></span>
+                      <span>•</span>
+                      <span>Entrega: <strong>{q.deliveryLeadTime || 'Inmediata'}</strong></span>
+                      {q.plantName && (
+                        <>
+                          <span>•</span>
+                          <span>Planta: <strong>{q.plantName}</strong></span>
+                        </>
+                      )}
+                      {q.materialDescription && (
+                        <>
+                          <span>•</span>
+                          <span className="truncate max-w-xs">Mat: <em>{q.materialDescription}</em></span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row lg:flex-col lg:items-end justify-between items-start sm:items-center gap-2 w-full lg:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60">
+                    <div className="text-left lg:text-right">
+                      <span className="text-sm font-black text-slate-900">${q.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
+                      <span className="text-[9px] text-slate-400 block">IVA incluido</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* BOTÓN PRINCIPAL: DESCARGA DIRECTA DE PDF EN 1 SOLO CLIC */}
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadPdf(q)}
+                        disabled={isDownloadingPdf === q.id}
+                        className="px-3 py-1.5 bg-[#0196C1] hover:bg-[#017fa4] text-white rounded-lg text-[11px] font-black flex items-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95 disabled:opacity-50"
+                        title="Descargar cotización oficial en PDF con un solo clic"
+                      >
+                        <Download className="w-3.5 h-3.5 text-white" />
+                        {isDownloadingPdf === q.id ? 'Descargando...' : 'Descargar PDF'}
+                      </button>
+
+                      {/* Botón Ver Detalle (para consulta rápida sin abrir modal obligatorio) */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedQuoteForPreview(q)}
+                        className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                        title="Ver desglose detallado en pantalla"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-slate-500" /> Detalle
+                      </button>
+
+                      {/* Botón Editar Cotización */}
+                      <button
+                        type="button"
+                        onClick={() => handleEditQuote(q)}
+                        title="Editar partidas, costos, cliente o condiciones"
+                        className="px-2 py-1.5 bg-sky-50 hover:bg-sky-100 text-[#0196C1] border border-sky-200 rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                      >
+                        <Edit className="w-3.5 h-3.5" /> Editar
+                      </button>
+
+                      {/* Botón Aprobar con OC */}
+                      {q.status !== 'approved' && (
+                        <button
+                          type="button"
+                          onClick={() => setPoApprovalModalQuote(q)}
+                          className="px-2 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer shadow-2xs"
+                        >
+                          <Check className="w-3.5 h-3.5" /> Aprobar OC
+                        </button>
+                      )}
+
+                      {/* Botón Rechazar Cotización */}
+                      {q.status !== 'rejected' && q.status !== 'approved' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowRejectModalQuote(q);
+                            setRejectionReasonInput('');
+                          }}
+                          title="Marcar cotización como rechazada"
+                          className="px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5 text-red-600" /> Rechazar
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicateQuote(q)}
+                        title="Duplicar cotización para nuevo folio"
+                        className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-slate-600" /> Duplicar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSendQuoteGmail(q)}
+                        className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                        title="Enviar automáticamente por Gmail al contacto del cliente y descargar PDF"
+                      >
+                        <Mail className="w-3 h-3" /> Gmail
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleShareQuoteWhatsApp(q)}
+                        className="p-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                        title="Descargar cotización en PDF y abrir WhatsApp"
+                      >
+                        <MessageSquare className="w-3 h-3" /> WhatsApp
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
@@ -4674,10 +4790,14 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                   <Mail className="w-3.5 h-3.5" /> Enviar por Gmail
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleDownloadPdf(selectedQuoteForPreview)}
-                  className="px-3 py-1.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer"
+                  disabled={isDownloadingPdf === selectedQuoteForPreview.id}
+                  className="px-3 py-1.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-black rounded-lg flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
+                  title="Descargar automáticamente la cotización oficial en PDF"
                 >
-                  <Printer className="w-3.5 h-3.5" /> Descargar PDF / Imprimir
+                  <Download className="w-3.5 h-3.5" />
+                  {isDownloadingPdf === selectedQuoteForPreview.id ? 'Descargando...' : 'Descargar PDF Oficial'}
                 </button>
                 <button
                   onClick={() => setSelectedQuoteForPreview(null)}

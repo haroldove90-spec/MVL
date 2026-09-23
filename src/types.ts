@@ -145,6 +145,7 @@ export interface Quote {
   clientWhatsapp?: string;
   clientEmail?: string;
   itemsTable?: QuoteItem[];
+  items?: QuoteItem[];
   supplyInstallationDetails?: {
     supplyType?: 'suministro_instalacion' | 'solo_suministro' | 'solo_instalacion';
     materialDescription?: string;
