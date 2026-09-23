@@ -101,19 +101,31 @@ body {
   #printable-report-area,
   #printable-report-area *,
   #printable-kits-area,
-  #printable-kits-area * {
-    visibility: visible;
+  #printable-kits-area *,
+  #printable-staff-card,
+  #printable-staff-card *,
+  #printable-staff-directory,
+  #printable-staff-directory *,
+  #printable-equipment-sheet,
+  #printable-equipment-sheet *,
+  .printable-content,
+  .printable-content * {
+    visibility: visible !important;
   }
 
   #printable-quote-area,
   #printable-report-area,
-  #printable-kits-area {
+  #printable-kits-area,
+  #printable-staff-card,
+  #printable-staff-directory,
+  #printable-equipment-sheet,
+  .printable-content {
     position: static !important;
     display: block !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 12px !important;
     background: #ffffff !important;
     color: #0f172a !important;
     box-shadow: none !important;

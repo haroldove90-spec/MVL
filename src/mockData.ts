@@ -7,52 +7,28 @@ import { Client, Equipment, HistoryItem, InventoryItem, Staff, WorkOrder, Purcha
 
 export const INITIAL_ISSUER_PARTNERS: IssuerPartner[] = [
   {
-    id: 'partner_1',
-    name: 'Víctor Pedro Ramírez Barrios',
-    businessName: 'VÍCTOR PEDRO RAMÍREZ BARRIOS',
-    rfc: 'RABV891002TF6',
-    taxRegime: '612 - Personas Físicas con Actividades Empresariales y Profesionales',
-    address: 'Blvd. Juan Alonso de Torres Pte. 1435, Col. Panorama, C.P. 37160, León, Gto.',
-    phone: '477-390-8812',
-    email: 'victor.ramirez@mvlmaquinaria.com',
-    roleDescription: 'Socio Fundador & Dirección Operativa',
-    digitalSignatureUrl: 'https://api.dicebear.com/7.x/initials/svg?seed=VR'
-  },
-  {
-    id: 'partner_2',
-    name: 'Ing. Leonardo Daniel Torres',
-    businessName: 'ING. LEONARDO DANIEL TORRES',
-    rfc: 'TODL850415AA2',
-    taxRegime: '612 - Personas Físicas con Actividades Empresariales',
-    address: 'Av. Paseo del Moral 214, Jardines del Moral, C.P. 37160, León, Gto.',
-    phone: '477-845-9920',
-    email: 'leonardo.torres@mvlmaquinaria.com',
-    roleDescription: 'Socio Director Técnico & Proyectos',
-    digitalSignatureUrl: 'https://api.dicebear.com/7.x/initials/svg?seed=LT'
-  },
-  {
-    id: 'partner_3',
+    id: 'partner_mvl',
     name: 'MVL Maquinaria y Servicios Industriales S.A. de C.V.',
     businessName: 'MVL MAQUINARIA Y SERVICIOS INDUSTRIALES S.A. DE C.V.',
     rfc: 'MMS190320TK4',
     taxRegime: '601 - General de Ley Personas Morales',
-    address: 'Parque Industrial Las Colinas, Calle Silao 402, C.P. 36275, Silao / León, Gto.',
+    address: 'José Pérez Marañón #118 B, San José del Consuelo II, C.P. 37217, León, Guanajuato',
     phone: '477-710-9900',
     email: 'administracion@mvlmaquinaria.com',
     roleDescription: 'Razón Social Corporativa / Dirección General',
     digitalSignatureUrl: 'https://api.dicebear.com/7.x/initials/svg?seed=MVL'
   },
   {
-    id: 'partner_4',
-    name: 'Marco Antonio Ramírez Barrios',
-    businessName: 'MARCO ANTONIO RAMÍREZ BARRIOS',
-    rfc: 'RABM920315XX1',
+    id: 'partner_victor',
+    name: 'Ing. Víctor Pedro Ramírez Barrios',
+    businessName: 'VÍCTOR PEDRO RAMÍREZ BARRIOS',
+    rfc: 'RABV891002TF6',
     taxRegime: '612 - Personas Físicas con Actividades Empresariales y Profesionales',
-    address: 'Blvd. Aeropuerto 1024, Col. San José el Alto, C.P. 37299, León, Gto.',
-    phone: '477-304-6758',
-    email: 'mramirez@gmail.com',
-    roleDescription: 'Socio Director Comercial & Ventas',
-    digitalSignatureUrl: 'https://api.dicebear.com/7.x/initials/svg?seed=MR'
+    address: 'José Pérez Marañón #118 B, San José del Consuelo II, C.P. 37217, León, Guanajuato',
+    phone: '477-390-8812',
+    email: 'victor.ramirez@mvlmaquinaria.com',
+    roleDescription: 'Socio Fundador & Dirección General Operativa',
+    digitalSignatureUrl: 'https://api.dicebear.com/7.x/initials/svg?seed=VR'
   }
 ];
 
@@ -475,7 +451,9 @@ export const INITIAL_EQUIPMENT: Equipment[] = [
     lastMaintenance: '2026-05-10',
     nextMaintenance: '2026-11-10',
     engineHours: 4120,
-    type: 'compresor'
+    type: 'compresor',
+    dataPlatePhotoUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=1200&q=80',
+    manualPdfUrl: 'https://www.atlascopco.com/content/dam/atlas-copco/compressors/manuals/GA37-UserManual.pdf'
   },
   {
     id: 'eq_andrea_as30t',
@@ -492,7 +470,9 @@ export const INITIAL_EQUIPMENT: Equipment[] = [
     lastMaintenance: '2026-06-25',
     nextMaintenance: '2026-12-25',
     engineHours: 9450,
-    type: 'compresor'
+    type: 'compresor',
+    dataPlatePhotoUrl: 'https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?auto=format&fit=crop&w=1200&q=80',
+    manualPdfUrl: 'https://www.kaeser.com/manuals/AS30T-OperatingManual.pdf'
   },
   {
     id: 'eq1',
@@ -509,6 +489,8 @@ export const INITIAL_EQUIPMENT: Equipment[] = [
     lastMaintenance: '2026-03-10',
     nextMaintenance: '2026-09-10',
     engineHours: 12450,
+    dataPlatePhotoUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=1200&q=80',
+    manualPdfUrl: 'https://www.kaeser.com/manuals/BSD50-Manual.pdf',
     telemetry: {
       psi: 112,
       temp: 84,
@@ -2194,6 +2176,8 @@ export const loadFromStorage = <T>(key: string, defaultValue: T): T => {
   const isItemActive = (item: any): boolean => {
     if (!item) return false;
     if (item.id && deletedIds.has(item.id)) return false;
+    if (item.username && (deletedIds.has(item.username) || deletedIds.has('user_' + item.username))) return false;
+    if (item.email && deletedIds.has(item.email)) return false;
     if (item.itemCode && (deletedIds.has(item.itemCode) || deletedIds.has('code_' + item.itemCode))) return false;
     if (item.nameOrModel && deletedIds.has('name_' + item.nameOrModel)) return false;
     return true;

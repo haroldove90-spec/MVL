@@ -8,8 +8,11 @@ import {
   INITIAL_QUOTES, 
   INITIAL_CUSTOMER_KITS,
   saveToStorage,
-  loadFromStorage
+  loadFromStorage,
+  getDeletedRecordIds,
+  markRecordAsDeleted
 } from '../mockData';
+import { deleteUserAccount } from './authService';
 
 export interface SyncStatus {
   clients: 'idle' | 'syncing' | 'synced' | 'error';
@@ -175,6 +178,7 @@ export async function persistEquipmentToSupabase(eq: Equipment): Promise<boolean
 // 3. PERSONAL Y ASESORES COMERCIALES (STAFF)
 // ==========================================
 export async function fetchStaffFromSupabase(): Promise<Staff[]> {
+  const deletedIds = getDeletedRecordIds();
   try {
     // Attempt staff table first
     const { data, error } = await supabase
@@ -182,16 +186,26 @@ export async function fetchStaffFromSupabase(): Promise<Staff[]> {
       .select('*');
 
     if (!error && data && data.length > 0) {
-      const mapped: Staff[] = data.map(row => ({
-        id: row.id,
-        name: row.name,
-        role: row.role as any,
-        customJobTitle: row.custom_job_title || row.role_description,
-        phone: row.phone || row.whatsapp || '',
-        whatsapp: row.whatsapp || row.phone || '',
-        email: row.email || '',
-        active: row.active !== false
-      }));
+      const mapped: Staff[] = data
+        .filter(row => {
+          if (row.id && deletedIds.has(row.id)) return false;
+          if (row.username && (deletedIds.has(row.username.toLowerCase()) || deletedIds.has('user_' + row.username.toLowerCase()))) return false;
+          if (row.email && deletedIds.has(row.email.toLowerCase())) return false;
+          return true;
+        })
+        .map(row => ({
+          id: row.id,
+          name: row.name,
+          username: row.username || (row.email ? row.email.split('@')[0] : '') || row.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+          password: row.password || 'Chevropar#1970',
+          role: row.role as any,
+          customJobTitle: row.custom_job_title || row.role_description || '',
+          phone: row.phone || row.whatsapp || '',
+          whatsapp: row.whatsapp || row.phone || '',
+          email: row.email || '',
+          active: row.active !== false,
+          createdAt: row.created_at || row.createdAt
+        }));
       saveToStorage('mvl_staff', mapped);
       return mapped;
     }
@@ -202,16 +216,26 @@ export async function fetchStaffFromSupabase(): Promise<Staff[]> {
       .select('*');
 
     if (!userError && userData && userData.length > 0) {
-      const fromUsers: Staff[] = userData.map(u => ({
-        id: u.id || `st_${u.username}`,
-        name: u.name,
-        role: u.role as any,
-        customJobTitle: u.custom_job_title || '',
-        phone: u.phone || u.whatsapp || '',
-        whatsapp: u.whatsapp || u.phone || '',
-        email: u.email || '',
-        active: u.active !== false
-      }));
+      const fromUsers: Staff[] = userData
+        .filter(u => {
+          if (u.id && deletedIds.has(u.id)) return false;
+          if (u.username && (deletedIds.has(u.username.toLowerCase()) || deletedIds.has('user_' + u.username.toLowerCase()))) return false;
+          if (u.email && deletedIds.has(u.email.toLowerCase())) return false;
+          return true;
+        })
+        .map(u => ({
+          id: u.id || `st_${u.username}`,
+          name: u.name,
+          username: u.username || '',
+          password: u.password || 'Chevropar#1970',
+          role: u.role as any,
+          customJobTitle: u.custom_job_title || '',
+          phone: u.phone || u.whatsapp || '',
+          whatsapp: u.whatsapp || u.phone || '',
+          email: u.email || '',
+          active: u.active !== false,
+          createdAt: u.created_at || u.createdAt
+        }));
       saveToStorage('mvl_staff', fromUsers);
       return fromUsers;
     }
@@ -220,6 +244,75 @@ export async function fetchStaffFromSupabase(): Promise<Staff[]> {
   } catch (err) {
     console.warn('[dataSync] Exception syncing staff:', err);
     return loadFromStorage<Staff[]>('mvl_staff', INITIAL_STAFF);
+  }
+}
+
+/**
+ * Permanently delete a staff member from Cloud (Supabase staff and user_accounts)
+ * and from all local persistence caches and memory.
+ */
+export async function deleteStaffRecord(
+  staffMember: Staff | { id: string; username?: string; email?: string; name?: string }
+): Promise<boolean> {
+  try {
+    const id = staffMember.id;
+    const username = staffMember.username || (staffMember.name ? staffMember.name.toLowerCase().replace(/[^a-z0-9]/g, '_') : '');
+    const email = staffMember.email || '';
+
+    // 1. Mark in tombstone set (by ID, username, and email)
+    if (id) markRecordAsDeleted(id);
+    if (username) {
+      markRecordAsDeleted(username.toLowerCase());
+      markRecordAsDeleted('user_' + username.toLowerCase());
+    }
+    if (email) {
+      markRecordAsDeleted(email.toLowerCase());
+    }
+
+    // 2. Remove from local storage 'mvl_staff'
+    const currentStaff = loadFromStorage<Staff[]>('mvl_staff', []);
+    const updatedStaff = currentStaff.filter(s => {
+      if (id && s.id === id) return false;
+      if (username && s.username?.toLowerCase() === username.toLowerCase()) return false;
+      if (email && s.email?.toLowerCase() === email.toLowerCase()) return false;
+      return true;
+    });
+    saveToStorage('mvl_staff', updatedStaff);
+
+    // 3. Delete from user_accounts in authService (removes from local storage and Supabase)
+    await deleteUserAccount({ id, username, email });
+
+    // 4. Delete from Supabase 'staff' table by id and username
+    try {
+      if (id) {
+        await supabase.from('staff').delete().eq('id', id);
+      }
+      if (username) {
+        await supabase.from('staff').delete().eq('username', username);
+      }
+    } catch (e) {
+      console.warn('Supabase staff table delete warning:', e);
+    }
+
+    // 5. Delete from Supabase 'user_accounts' table explicitly by id, username, and email
+    try {
+      if (id) {
+        await supabase.from('user_accounts').delete().eq('id', id);
+      }
+      if (username) {
+        await supabase.from('user_accounts').delete().eq('username', username);
+      }
+      if (email) {
+        await supabase.from('user_accounts').delete().eq('email', email);
+      }
+    } catch (e) {
+      console.warn('Supabase user_accounts table delete warning:', e);
+    }
+
+    return true;
+  } catch (err) {
+    console.warn('[dataSync] Exception deleting staff record:', err);
+    return false;
   }
 }
 
@@ -240,7 +333,7 @@ export async function persistStaffToSupabase(s: Staff): Promise<boolean> {
     await supabase.from('staff').upsert(dbPayload, { onConflict: 'id' });
 
     // Also keep user_accounts in sync if matching email or username exists
-    const username = (s.email.split('@')[0] || s.name.toLowerCase().replace(/\s+/g, '_')).slice(0, 30);
+    const username = (s.username || s.email.split('@')[0] || s.name.toLowerCase().replace(/\s+/g, '_')).slice(0, 30);
     await supabase.from('user_accounts').upsert({
       id: s.id,
       name: s.name,
@@ -406,6 +499,9 @@ export function subscribeToAllChanges(
         callback('equipment', payload);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'staff' }, (payload) => {
+        callback('staff', payload);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_accounts' }, (payload) => {
         callback('staff', payload);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes' }, (payload) => {

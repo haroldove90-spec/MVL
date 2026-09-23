@@ -10,7 +10,7 @@ import {
   INITIAL_EXPENSE_CONTROL, loadFromStorage, saveToStorage, markRecordAsDeleted, 
   clearSystemCache, purgeDemoDataAndCleanSystem, isCleanProductionMode 
 } from '../mockData';
-import { persistClientToSupabase, persistStaffToSupabase } from '../lib/dataSyncService';
+import { persistClientToSupabase, persistStaffToSupabase, deleteStaffRecord } from '../lib/dataSyncService';
 import { saveUserAccount, generateWhatsAppCredentialLink, SUPABASE_SETUP_SQL } from '../lib/authService';
 import { 
   Users, DollarSign, Package, Award, Plus, Trash2, 
@@ -290,11 +290,12 @@ export default function AdminDashboard({
         console.warn('Supabase delete error:', err);
       }
     } else if (type === 'staff') {
+      const target = staff.find(s => s.id === id);
       setStaff(prev => prev.filter(s => s.id !== id));
-      try {
-        await supabase.from('staff').delete().eq('id', id);
-      } catch (err) {
-        console.warn('Supabase delete error:', err);
+      if (target) {
+        deleteStaffRecord(target);
+      } else {
+        deleteStaffRecord({ id });
       }
     } else if (type === 'inventory') {
       setInventory(prev => prev.filter(i => i.id !== id));
@@ -894,9 +895,13 @@ export default function AdminDashboard({
     const updated = staff.map(s => s.id === id ? { ...s, active: !s.active } : s);
     setStaff(updated);
     const target = updated.find(s => s.id === id);
-    if (target && target.username) {
+    if (target) {
       try {
-        await supabase.from('user_accounts').update({ active: target.active }).eq('username', target.username);
+        await supabase.from('staff').update({ active: target.active }).eq('id', target.id);
+        if (target.username) {
+          await supabase.from('user_accounts').update({ active: target.active }).eq('username', target.username);
+        }
+        await supabase.from('user_accounts').update({ active: target.active }).eq('id', target.id);
       } catch (e) {
         console.warn('Could not sync active status to Supabase:', e);
       }
@@ -906,17 +911,10 @@ export default function AdminDashboard({
   // Delete staff
   const deleteStaff = async (id: string) => {
     const target = staff.find(s => s.id === id);
-    if (confirm(`¿Está seguro de eliminar a "${target?.name || 'este colaborador'}"? Ya no se volverá a mostrar en el sistema ni en la base de datos.`)) {
-      markRecordAsDeleted(id);
+    if (!target) return;
+    if (confirm(`¿Está seguro de eliminar definitivamente a "${target.name || 'este colaborador'}"? Ya no se volverá a mostrar en el sistema ni en la base de datos.`)) {
       setStaff(prev => prev.filter(s => s.id !== id));
-      try {
-        await supabase.from('staff').delete().eq('id', id);
-        if (target?.username) {
-          await supabase.from('user_accounts').delete().eq('username', target.username);
-        }
-      } catch (err) {
-        console.warn('Supabase staff delete error:', err);
-      }
+      await deleteStaffRecord(target);
     }
   };
 

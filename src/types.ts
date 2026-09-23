@@ -256,6 +256,7 @@ export interface Equipment {
   type?: 'compresor' | 'secador' | 'aire_acondicionado' | 'otros';
   mode?: 'venta' | 'renta';
   dataPlatePhotoUrl?: string;
+  manualPdfUrl?: string;
   compatibleParts?: string[];
   telemetry?: {
     psi: number;

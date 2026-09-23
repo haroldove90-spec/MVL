@@ -5,7 +5,7 @@
 
 import { UserAccount, UserRole, Staff } from '../types';
 import { supabase } from './supabase';
-import { loadFromStorage, saveToStorage } from '../mockData';
+import { loadFromStorage, saveToStorage, getDeletedRecordIds, markRecordAsDeleted } from '../mockData';
 
 export const INITIAL_USER_ACCOUNTS: UserAccount[] = [
   {
@@ -123,13 +123,24 @@ export async function syncUserAccountsFromSupabase(): Promise<UserAccount[]> {
     }
 
     if (data && Array.isArray(data) && data.length > 0) {
+      const deletedIds = getDeletedRecordIds();
       const mergedMap = new Map<string, UserAccount>();
       // seed local accounts first
-      localAccounts.forEach(u => mergedMap.set(u.username.toLowerCase(), u));
+      localAccounts
+        .filter(u => !deletedIds.has(u.id) && !deletedIds.has(u.username.toLowerCase()) && !deletedIds.has('user_' + u.username.toLowerCase()))
+        .forEach(u => mergedMap.set(u.username.toLowerCase(), u));
 
       // overlay Supabase accounts (allowing role changes from Supabase!)
       data.forEach((row: any) => {
         const uName = (row.username || '').toLowerCase();
+        const uId = row.id || '';
+        const uEmail = (row.email || '').toLowerCase();
+
+        // Skip if previously marked as deleted
+        if (deletedIds.has(uId) || (uName && (deletedIds.has(uName) || deletedIds.has('user_' + uName))) || (uEmail && deletedIds.has(uEmail))) {
+          return;
+        }
+
         const account: UserAccount = {
           id: row.id || `usr_${Date.now()}`,
           name: row.name || row.full_name || 'Usuario',
@@ -157,6 +168,48 @@ export async function syncUserAccountsFromSupabase(): Promise<UserAccount[]> {
   }
 
   return localAccounts;
+}
+
+/**
+ * Permanently delete a user account from Supabase user_accounts and local storage
+ */
+export async function deleteUserAccount(idOrUsername: { id?: string; username?: string; email?: string }): Promise<boolean> {
+  try {
+    const list = getLocalUserAccounts();
+    const cleanUsername = (idOrUsername.username || '').toLowerCase();
+    const cleanId = idOrUsername.id || '';
+    const cleanEmail = (idOrUsername.email || '').toLowerCase();
+
+    // 1. Mark in deleted records (tombstones)
+    if (cleanId) markRecordAsDeleted(cleanId);
+    if (cleanUsername) {
+      markRecordAsDeleted(cleanUsername);
+      markRecordAsDeleted('user_' + cleanUsername);
+    }
+    if (cleanEmail) markRecordAsDeleted(cleanEmail);
+
+    // 2. Remove from local storage
+    const updated = list.filter(u => {
+      if (cleanId && u.id === cleanId) return false;
+      if (cleanUsername && u.username?.toLowerCase() === cleanUsername) return false;
+      if (cleanEmail && u.email?.toLowerCase() === cleanEmail) return false;
+      return true;
+    });
+    saveLocalUserAccounts(updated);
+
+    // 3. Delete from Supabase user_accounts
+    if (cleanId) {
+      await supabase.from('user_accounts').delete().eq('id', cleanId);
+    }
+    if (cleanUsername) {
+      await supabase.from('user_accounts').delete().eq('username', cleanUsername);
+    }
+
+    return true;
+  } catch (err) {
+    console.warn('Error deleting user account:', err);
+    return false;
+  }
 }
 
 /**

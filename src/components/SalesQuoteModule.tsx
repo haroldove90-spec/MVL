@@ -9,6 +9,7 @@ import { INITIAL_QUOTES, INITIAL_ISSUER_PARTNERS, INITIAL_CUSTOMER_KITS, loadFro
 import { persistClientToSupabase, persistEquipmentToSupabase, persistQuoteToSupabase } from '../lib/dataSyncService';
 import { getCurrentUser } from '../lib/authService';
 import jsPDF from 'jspdf';
+import { TechnicalDocViewerModal, TechnicalDocViewerModalProps } from './TechnicalDocViewerModal';
 import { 
   FileText, Plus, UserPlus, Send, CheckCircle2, Clock, XCircle, 
   AlertTriangle, Phone, Mail, MessageSquare, Building2, Upload, 
@@ -318,9 +319,46 @@ export default function SalesQuoteModule({
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'approved' | 'discount_requested' | 'rejected' | 'pending_inventory'>('all');
   const [clientFilter, setClientFilter] = useState<string>('all');
 
-  // 3 Socios de MVL (Emisor Fiscal Seleccionable)
-  const [selectedPartnerId, setSelectedPartnerId] = useState<string>('partner_1');
-  const selectedPartner = INITIAL_ISSUER_PARTNERS.find(p => p.id === selectedPartnerId) || INITIAL_ISSUER_PARTNERS[0];
+  // Socios Fiscales de MVL (Emisor Fiscal Seleccionable y Gestionable)
+  const [issuerPartners, setIssuerPartners] = useState<IssuerPartner[]>(() =>
+    loadFromStorage<IssuerPartner[]>('mvl_issuer_partners', INITIAL_ISSUER_PARTNERS)
+  );
+
+  useEffect(() => {
+    saveToStorage('mvl_issuer_partners', issuerPartners);
+  }, [issuerPartners]);
+
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>(() =>
+    issuerPartners[0]?.id || 'partner_mvl'
+  );
+  const selectedPartner = issuerPartners.find(p => p.id === selectedPartnerId) || issuerPartners[0] || INITIAL_ISSUER_PARTNERS[0];
+
+  // Modals for Partner fiscal management, plant addition, contact addition and technical doc viewer
+  const [showManagePartnersModal, setShowManagePartnersModal] = useState(false);
+  const [editingPartner, setEditingPartner] = useState<IssuerPartner | null>(null);
+  const [partnerFormData, setPartnerFormData] = useState<Partial<IssuerPartner>>({});
+
+  const [showAddPlantModal, setShowAddPlantModal] = useState(false);
+  const [newPlantNameInput, setNewPlantNameInput] = useState('');
+  const [newPlantAddressInput, setNewPlantAddressInput] = useState('');
+  const [newPlantCityInput, setNewPlantCityInput] = useState('León, Gto.');
+
+  const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [newContactNameInput, setNewContactNameInput] = useState('');
+  const [newContactRoleInput, setNewContactRoleInput] = useState('Gerente de Planta / Mantenimiento');
+  const [newContactPhoneInput, setNewContactPhoneInput] = useState('');
+  const [newContactEmailInput, setNewContactEmailInput] = useState('');
+
+  const [technicalDocModal, setTechnicalDocModal] = useState<{
+    type: 'plate' | 'manual';
+    title?: string;
+    equipmentName?: string;
+    equipmentBrand?: string;
+    equipmentModel?: string;
+    equipmentSerial?: string;
+    imageUrl?: string | null;
+    manualUrl?: string | null;
+  } | null>(null);
 
   // Origin & Client Selection State
   const [quoteOrigin, setQuoteOrigin] = useState<'registrado' | 'nuevo' | 'publico_general'>('registrado');
@@ -339,7 +377,7 @@ export default function SalesQuoteModule({
   const [concept, setConcept] = useState('');
   const [agentName, setAgentName] = useState(() => {
     const logged = getCurrentUser();
-    return logged?.name || 'Ing. Leonardo Daniel Torres';
+    return logged?.name || 'Ing. Víctor Pedro Ramírez Barrios';
   });
   const [discountPercent, setDiscountPercent] = useState(0);
 
@@ -1839,6 +1877,153 @@ export default function SalesQuoteModule({
     window.open(url, '_blank');
   };
 
+  // Automated Gmail integration with pre-filled recipient from registered contact, subject, summary, direct PDF link & instant download
+  const handleSendQuoteGmail = (q: Quote) => {
+    const recipient = (q.contactEmail || q.clientEmail || '').trim();
+    const directPdfLink = getDirectQuotePublicUrl(q);
+    const subject = `Cotización Oficial MVL ${q.folNum} - ${q.concept} - ${q.clientName}`;
+    const body = 
+`Estimado(a) ${q.contactName || q.clientName}:
+
+Esperando se encuentre excelente, le hacemos llegar formalmente la cotización solicitada por parte de MVL Maquinaria.
+
+RESUMEN DE LA PROPUESTA:
+• Folio Oficial: ${q.folNum}
+• Concepto / Servicio: ${q.concept}
+• Inversión Total: $${q.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN (IVA Incluido)
+• Tiempo de Entrega: ${q.deliveryLeadTime || 'Inmediata'}
+• Asesor Comercial: ${q.agentName || 'Ing. Víctor Pedro Ramírez Barrios'}
+• Razón Social Emisora: ${q.issuerPartnerBusinessName || 'MVL Maquinaria y Servicios Industriales S.A. de C.V.'}
+
+📄 DESCARGA / CONSULTA DIRECTA DEL EXPEDIENTE PDF OFICIAL:
+${directPdfLink}
+
+(El archivo PDF oficial firmado se ha generado y descargado para su adjunto en este correo).
+
+Quedamos atentos a la emisión de su Orden de Compra o a cualquier requerimiento técnico adicional.
+
+Atentamente,
+${q.agentName || 'Ing. Víctor Pedro Ramírez Barrios'}
+MVL Maquinaria y Servicios Industriales S.A. de C.V.
+Blvd. José Pérez Marañón #118 B, San José del Consuelo II, C.P. 37217, León, Guanajuato.
+Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
+
+    // 1. Immediately trigger PDF download so the user can easily attach the file
+    handleDownloadPdf(q);
+
+    // 2. Open Gmail Web Compose with pre-filled recipient, subject and message body
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(recipient)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(gmailUrl, '_blank');
+  };
+
+  // Dynamic Plant / Sucursal addition and client persistence
+  const handleAddPlantToClient = () => {
+    if (!newPlantNameInput.trim()) return;
+    const targetClient = clients.find(c => c.id === selectedClientId);
+    if (!targetClient) return;
+
+    const newPlant = {
+      id: 'plant_' + Date.now(),
+      name: newPlantNameInput.trim(),
+      address: newPlantAddressInput.trim() || undefined,
+      city: newPlantCityInput.trim() || targetClient.city || 'León, Gto.'
+    };
+
+    const updatedClient: Client = {
+      ...targetClient,
+      plants: [...(targetClient.plants || []), newPlant]
+    };
+
+    setClients(prev => prev.map(c => c.id === targetClient.id ? updatedClient : c));
+    saveToStorage('mvl_clients', clients.map(c => c.id === targetClient.id ? updatedClient : c));
+    persistClientToSupabase(updatedClient).catch(err => console.warn('Error saving plant to Supabase:', err));
+
+    setSelectedPlantId(newPlant.id);
+    setSelectedPlantName(newPlant.name);
+    setSelectedPlantAddress(newPlant.address ? `${newPlant.address}, ${newPlant.city}` : newPlant.city);
+    setNewPlantNameInput('');
+    setNewPlantAddressInput('');
+    setShowAddPlantModal(false);
+  };
+
+  // Dynamic Contact addition and client persistence
+  const handleAddContactToClient = () => {
+    if (!newContactNameInput.trim()) return;
+    const targetClient = clients.find(c => c.id === selectedClientId);
+    if (!targetClient) return;
+
+    const newContact = {
+      name: newContactNameInput.trim(),
+      role: newContactRoleInput.trim() || 'Contacto Comercial',
+      phone: newContactPhoneInput.trim() || undefined,
+      email: newContactEmailInput.trim() || undefined
+    };
+
+    const updatedClient: Client = {
+      ...targetClient,
+      contacts: [...(targetClient.contacts || []), newContact]
+    };
+
+    setClients(prev => prev.map(c => c.id === targetClient.id ? updatedClient : c));
+    saveToStorage('mvl_clients', clients.map(c => c.id === targetClient.id ? updatedClient : c));
+    persistClientToSupabase(updatedClient).catch(err => console.warn('Error saving contact to Supabase:', err));
+
+    setSelectedContactName(newContact.name);
+    setSelectedContactRole(newContact.role);
+    setSelectedContactEmail(newContact.email || '');
+    if (newContact.phone) setClientWhatsapp(newContact.phone);
+    if (newContact.email) setClientEmail(newContact.email);
+
+    setNewContactNameInput('');
+    setNewContactPhoneInput('');
+    setNewContactEmailInput('');
+    setShowAddContactModal(false);
+  };
+
+  // Dynamic Issuer Partner (Socio Emisor) Management
+  const handleSaveIssuerPartner = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!partnerFormData.name || !partnerFormData.rfc) return;
+
+    if (editingPartner) {
+      const updated = issuerPartners.map(p =>
+        p.id === editingPartner.id ? { ...p, ...partnerFormData } as IssuerPartner : p
+      );
+      setIssuerPartners(updated);
+    } else {
+      const newPartner: IssuerPartner = {
+        id: 'partner_' + Date.now(),
+        name: partnerFormData.name.trim(),
+        businessName: partnerFormData.businessName?.trim() || partnerFormData.name.trim().toUpperCase(),
+        rfc: partnerFormData.rfc.trim().toUpperCase(),
+        taxRegime: partnerFormData.taxRegime?.trim() || '612 - Personas Físicas con Actividades Empresariales y Profesionales',
+        address: partnerFormData.address?.trim() || 'José Pérez Marañón #118 B, San José del Consuelo II, León, Gto.',
+        phone: partnerFormData.phone?.trim() || '477-710-9900',
+        email: partnerFormData.email?.trim() || 'administracion@mvlmaquinaria.com',
+        roleDescription: partnerFormData.roleDescription?.trim() || 'Socio Emisor MVL',
+        digitalSignatureUrl: partnerFormData.digitalSignatureUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(partnerFormData.name)}`
+      };
+      setIssuerPartners(prev => [...prev, newPartner]);
+      setSelectedPartnerId(newPartner.id);
+    }
+    setEditingPartner(null);
+    setPartnerFormData({});
+  };
+
+  const handleDeleteIssuerPartner = (id: string) => {
+    if (issuerPartners.length <= 1) {
+      alert('Debe existir al menos un socio emisor registrado en el sistema.');
+      return;
+    }
+    if (confirm('¿Confirmas que deseas eliminar este socio emisor del catálogo?')) {
+      const updated = issuerPartners.filter(p => p.id !== id);
+      setIssuerPartners(updated);
+      if (selectedPartnerId === id) {
+        setSelectedPartnerId(updated[0]?.id || 'partner_mvl');
+      }
+    }
+  };
+
   // Filtered quotes list
   const filteredQuotes = useMemo(() => {
     return quotes.filter(q => {
@@ -2163,13 +2348,22 @@ export default function SalesQuoteModule({
               </button>
             </div>
 
-            {/* Selector de Razón Social / Socio Emisor (4 Socios Registrados) */}
+            {/* Selector de Razón Social / Socio Emisor (Catálogo Fiscal Actualizado) */}
             <div className="p-3 bg-white rounded-xl border border-slate-200">
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 flex items-center gap-1">
-                <Award className="w-3.5 h-3.5 text-[#0196C1]" /> Razón Social Emisora (Socios Fiscales Registrados):
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                {INITIAL_ISSUER_PARTNERS.map(partner => (
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-[10px] font-black text-slate-500 uppercase flex items-center gap-1">
+                  <Award className="w-3.5 h-3.5 text-[#0196C1]" /> Razón Social Emisora (Socios Fiscales Registrados):
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowManagePartnersModal(true)}
+                  className="text-[10px] font-bold text-[#0196C1] hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Edit3 className="w-3 h-3" /> Configurar / Editar Datos Fiscales
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {issuerPartners.map(partner => (
                   <button
                     key={partner.id}
                     type="button"
@@ -2254,101 +2448,202 @@ export default function SalesQuoteModule({
                   </div>
                 )}
 
-                {/* Planta / Sucursal con Carga Automática */}
+                {/* Planta / Sucursal con Carga Automática y Registro Directo */}
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <label className="block text-[10px] font-extrabold text-slate-500 uppercase">
                       Planta / Sucursal
                     </label>
-                    {selectedClient?.plants && selectedClient.plants.length > 0 && (
-                      <span className="text-[9px] text-[#0196C1] font-bold">
-                        {selectedClient.plants.length} Sucursales
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {selectedClient?.plants && selectedClient.plants.length > 0 && (
+                        <span className="text-[9px] text-[#0196C1] font-bold">
+                          {selectedClient.plants.length} Sucursales
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowAddPlantModal(true)}
+                        className="text-[10px] font-extrabold text-[#0196C1] hover:underline flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" /> + Nueva Sucursal
+                      </button>
+                    </div>
                   </div>
                   {selectedClient?.plants && selectedClient.plants.length > 0 ? (
-                    <select
-                      value={selectedPlantName}
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (val === '__custom__') {
-                          setSelectedPlantName('');
-                        } else {
-                          setSelectedPlantName(val);
-                          const matchedPlant = selectedClient.plants?.find(p => p.name === val);
-                          if (matchedPlant) {
-                            setSelectedPlantId(matchedPlant.id);
-                            setSelectedPlantAddress(matchedPlant.address ? `${matchedPlant.address}, ${matchedPlant.city || ''}` : matchedPlant.city || '');
+                    <div className="space-y-1.5">
+                      <select
+                        value={selectedPlantName || '__custom__'}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === '__custom__') {
+                            setSelectedPlantName('');
+                            setSelectedPlantAddress('');
+                          } else {
+                            setSelectedPlantName(val);
+                            const matchedPlant = selectedClient.plants?.find(p => p.name === val);
+                            if (matchedPlant) {
+                              setSelectedPlantId(matchedPlant.id);
+                              setSelectedPlantAddress(matchedPlant.address ? `${matchedPlant.address}, ${matchedPlant.city || ''}` : matchedPlant.city || '');
+                            }
                           }
-                        }
-                      }}
-                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
-                    >
-                      {selectedClient.plants.map(p => (
-                        <option key={p.id} value={p.name}>
-                          {p.name} {p.city ? `(${p.city})` : ''}
-                        </option>
-                      ))}
-                      <option value="__custom__">✏️ Otra Sucursal / Manual...</option>
-                    </select>
+                        }}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                      >
+                        {selectedClient.plants.map(p => (
+                          <option key={p.id} value={p.name}>
+                            {p.name} {p.city ? `(${p.city})` : ''}
+                          </option>
+                        ))}
+                        <option value="__custom__">✏️ Otra Sucursal / Manual...</option>
+                      </select>
+                      {!selectedClient.plants.some(p => p.name === selectedPlantName) && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 animate-in fade-in duration-100">
+                          <input
+                            type="text"
+                            placeholder="Nombre de la nueva sucursal / planta"
+                            value={selectedPlantName}
+                            onChange={e => setSelectedPlantName(e.target.value)}
+                            className="text-xs p-2 bg-sky-50/50 border border-[#0196C1] rounded-lg outline-none font-bold text-slate-800"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Dirección / Ciudad (ej. Silao, Gto.)"
+                            value={selectedPlantAddress}
+                            onChange={e => setSelectedPlantAddress(e.target.value)}
+                            className="text-xs p-2 bg-sky-50/50 border border-[#0196C1] rounded-lg outline-none text-slate-800"
+                          />
+                        </div>
+                      )}
+                    </div>
                   ) : (
-                    <input
-                      type="text"
-                      placeholder="Planta Principal"
-                      value={selectedPlantName}
-                      onChange={e => setSelectedPlantName(e.target.value)}
-                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
-                    />
+                    <div className="space-y-1.5">
+                      <input
+                        type="text"
+                        placeholder="Planta Principal / Sucursal"
+                        value={selectedPlantName}
+                        onChange={e => setSelectedPlantName(e.target.value)}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Dirección de la planta"
+                        value={selectedPlantAddress}
+                        onChange={e => setSelectedPlantAddress(e.target.value)}
+                        className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-slate-700"
+                      />
+                    </div>
                   )}
                 </div>
 
-                {/* Contacto Registrado con Carga Automática */}
+                {/* Contacto Registrado con Carga Automática y Registro Directo */}
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <label className="block text-[10px] font-extrabold text-slate-500 uppercase">
                       Contacto del Cliente
                     </label>
-                    {selectedClient?.contacts && selectedClient.contacts.length > 0 && (
-                      <span className="text-[9px] text-emerald-600 font-bold">
-                        {selectedClient.contacts.length} Contactos
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {selectedClient?.contacts && selectedClient.contacts.length > 0 && (
+                        <span className="text-[9px] text-emerald-600 font-bold">
+                          {selectedClient.contacts.length} Contactos
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowAddContactModal(true)}
+                        className="text-[10px] font-extrabold text-[#0196C1] hover:underline flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" /> + Nuevo Contacto
+                      </button>
+                    </div>
                   </div>
                   {selectedClient?.contacts && selectedClient.contacts.length > 0 ? (
-                    <select
-                      value={selectedContactName}
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (val === '__custom__') {
-                          setSelectedContactName('');
-                        } else {
-                          setSelectedContactName(val);
-                          const matchedContact = selectedClient.contacts?.find(c => c.name === val);
-                          if (matchedContact) {
-                            setSelectedContactRole(matchedContact.role || '');
-                            setSelectedContactEmail(matchedContact.email || '');
-                            if (matchedContact.phone) setClientWhatsapp(matchedContact.phone);
-                            if (matchedContact.email) setClientEmail(matchedContact.email);
+                    <div className="space-y-1.5">
+                      <select
+                        value={selectedContactName || '__custom__'}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === '__custom__') {
+                            setSelectedContactName('');
+                            setSelectedContactRole('');
+                            setSelectedContactEmail('');
+                          } else {
+                            setSelectedContactName(val);
+                            const matchedContact = selectedClient.contacts?.find(c => c.name === val);
+                            if (matchedContact) {
+                              setSelectedContactRole(matchedContact.role || '');
+                              setSelectedContactEmail(matchedContact.email || '');
+                              if (matchedContact.phone) setClientWhatsapp(matchedContact.phone);
+                              if (matchedContact.email) setClientEmail(matchedContact.email);
+                            }
                           }
-                        }
-                      }}
-                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
-                    >
-                      {selectedClient.contacts.map((c, i) => (
-                        <option key={i} value={c.name}>
-                          {c.name} {c.role ? `(${c.role})` : ''}
-                        </option>
-                      ))}
-                      <option value="__custom__">✏️ Contacto Personalizado / Manual...</option>
-                    </select>
+                        }}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                      >
+                        {selectedClient.contacts.map((c, i) => (
+                          <option key={i} value={c.name}>
+                            {c.name} {c.role ? `(${c.role})` : ''}
+                          </option>
+                        ))}
+                        <option value="__custom__">✏️ Contacto Personalizado / Manual...</option>
+                      </select>
+                      {!selectedClient.contacts.some(c => c.name === selectedContactName) && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 animate-in fade-in duration-100">
+                          <input
+                            type="text"
+                            placeholder="Nombre del contacto"
+                            value={selectedContactName}
+                            onChange={e => setSelectedContactName(e.target.value)}
+                            className="text-xs p-2 bg-sky-50/50 border border-[#0196C1] rounded-lg outline-none font-bold text-slate-800"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Cargo (ej. Compras)"
+                            value={selectedContactRole}
+                            onChange={e => setSelectedContactRole(e.target.value)}
+                            className="text-xs p-2 bg-sky-50/50 border border-[#0196C1] rounded-lg outline-none text-slate-800"
+                          />
+                          <input
+                            type="email"
+                            placeholder="correo@empresa.com"
+                            value={selectedContactEmail}
+                            onChange={e => {
+                              setSelectedContactEmail(e.target.value);
+                              setClientEmail(e.target.value);
+                            }}
+                            className="text-xs p-2 bg-sky-50/50 border border-[#0196C1] rounded-lg outline-none text-slate-800"
+                          />
+                        </div>
+                      )}
+                    </div>
                   ) : (
-                    <input
-                      type="text"
-                      placeholder="Nombre del contacto"
-                      value={selectedContactName}
-                      onChange={e => setSelectedContactName(e.target.value)}
-                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
-                    />
+                    <div className="space-y-1.5">
+                      <input
+                        type="text"
+                        placeholder="Nombre del contacto"
+                        value={selectedContactName}
+                        onChange={e => setSelectedContactName(e.target.value)}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                      />
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <input
+                          type="text"
+                          placeholder="Cargo / Puesto"
+                          value={selectedContactRole}
+                          onChange={e => setSelectedContactRole(e.target.value)}
+                          className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-slate-700"
+                        />
+                        <input
+                          type="email"
+                          placeholder="Correo del contacto"
+                          value={selectedContactEmail}
+                          onChange={e => {
+                            setSelectedContactEmail(e.target.value);
+                            setClientEmail(e.target.value);
+                          }}
+                          className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-slate-700"
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
 
@@ -2774,14 +3069,32 @@ export default function SalesQuoteModule({
                     />
                   </label>
                   {dataPlatePhotoUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setDataPlatePhotoUrl(null)}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
-                      title="Eliminar foto"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setTechnicalDocModal({
+                          type: 'plate',
+                          equipmentName: concept || `${eqBrand} ${eqModel}`,
+                          equipmentBrand: eqBrand,
+                          equipmentModel: eqModel,
+                          equipmentSerial: eqSerial,
+                          imageUrl: dataPlatePhotoUrl
+                        })}
+                        className="px-2 py-2 bg-sky-50 hover:bg-sky-100 text-[#0196C1] rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                        title="Ver foto de placa"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Ver</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDataPlatePhotoUrl(null)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
+                        title="Eliminar foto"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -2814,14 +3127,32 @@ export default function SalesQuoteModule({
                     />
                   </label>
                   {manualPdfUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setManualPdfUrl(null)}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
-                      title="Eliminar manual"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setTechnicalDocModal({
+                          type: 'manual',
+                          equipmentName: concept || `${eqBrand} ${eqModel}`,
+                          equipmentBrand: eqBrand,
+                          equipmentModel: eqModel,
+                          equipmentSerial: eqSerial,
+                          manualUrl: manualPdfUrl
+                        })}
+                        className="px-2 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                        title="Ver manual técnico"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Ver</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setManualPdfUrl(null)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
+                        title="Eliminar manual"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -3945,6 +4276,15 @@ export default function SalesQuoteModule({
                       <Eye className="w-3.5 h-3.5 text-sky-400" /> Ver PDF
                     </button>
 
+                    <button
+                      type="button"
+                      onClick={() => handleSendQuoteGmail(q)}
+                      className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Enviar automáticamente por Gmail al contacto del cliente y descargar PDF"
+                    >
+                      <Mail className="w-3 h-3" /> Gmail
+                    </button>
+
                     <a
                       href={generateWhatsAppUrl(q)}
                       target="_blank"
@@ -4326,6 +4666,14 @@ export default function SalesQuoteModule({
                   <Share2 className="w-3.5 h-3.5" /> Compartir por WhatsApp
                 </button>
                 <button
+                  type="button"
+                  onClick={() => handleSendQuoteGmail(selectedQuoteForPreview)}
+                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  title="Enviar automáticamente por Gmail al contacto del cliente y descargar PDF"
+                >
+                  <Mail className="w-3.5 h-3.5" /> Enviar por Gmail
+                </button>
+                <button
                   onClick={() => handleDownloadPdf(selectedQuoteForPreview)}
                   className="px-3 py-1.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer"
                 >
@@ -4354,9 +4702,6 @@ export default function SalesQuoteModule({
                         (e.currentTarget as HTMLElement).style.display = 'none';
                       }}
                     />
-                    <div className="w-12 h-12 bg-linear-to-br from-[#0196C1] to-[#017fa4] rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-md border-2 border-white shrink-0">
-                      MVL
-                    </div>
                     <div>
                       <h1 className="text-base font-black text-slate-900 tracking-tight">
                         {selectedQuoteForPreview.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'}
@@ -4448,19 +4793,43 @@ export default function SalesQuoteModule({
 
               {/* TECHNICAL ATTACHMENTS BADGES (IF ANY) */}
               {(selectedQuoteForPreview.equipmentPlatePhotoUrl || selectedQuoteForPreview.equipmentManualPdfUrl) && (
-                <div className="flex flex-wrap gap-2 p-2.5 bg-sky-50/50 rounded-xl border border-sky-100 text-xs">
+                <div className="flex flex-wrap items-center gap-2 p-2.5 bg-sky-50/50 rounded-xl border border-sky-100 text-xs">
                   <span className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-1">
                     <FileCheck className="w-3.5 h-3.5 text-[#0196C1]" /> Anexos Técnicos:
                   </span>
                   {selectedQuoteForPreview.equipmentPlatePhotoUrl && (
-                    <span className="px-2 py-0.5 bg-white border border-slate-200 text-slate-700 rounded-md text-[10px] font-bold flex items-center gap-1">
-                      <Camera className="w-3 h-3 text-[#0196C1]" /> Foto de Placa de Equipo Validada
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setTechnicalDocModal({
+                        type: 'plate',
+                        equipmentName: selectedQuoteForPreview.concept,
+                        equipmentBrand: selectedQuoteForPreview.equipmentBrand,
+                        equipmentModel: selectedQuoteForPreview.equipmentModel,
+                        equipmentSerial: selectedQuoteForPreview.equipmentSerial,
+                        imageUrl: selectedQuoteForPreview.equipmentPlatePhotoUrl
+                      })}
+                      className="px-2.5 py-1 bg-white hover:bg-sky-50 border border-slate-200 text-slate-800 hover:text-[#0196C1] rounded-md text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                      title="Hacer clic para abrir visor de foto de placa"
+                    >
+                      <Camera className="w-3 h-3 text-[#0196C1]" /> Ver Foto de Placa de Datos
+                    </button>
                   )}
                   {selectedQuoteForPreview.equipmentManualPdfUrl && (
-                    <span className="px-2 py-0.5 bg-white border border-slate-200 text-slate-700 rounded-md text-[10px] font-bold flex items-center gap-1">
-                      <FileDown className="w-3 h-3 text-purple-600" /> Manual Técnico / Guía de Despiece en Expediente
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setTechnicalDocModal({
+                        type: 'manual',
+                        equipmentName: selectedQuoteForPreview.concept,
+                        equipmentBrand: selectedQuoteForPreview.equipmentBrand,
+                        equipmentModel: selectedQuoteForPreview.equipmentModel,
+                        equipmentSerial: selectedQuoteForPreview.equipmentSerial,
+                        manualUrl: selectedQuoteForPreview.equipmentManualPdfUrl
+                      })}
+                      className="px-2.5 py-1 bg-white hover:bg-purple-50 border border-slate-200 text-slate-800 hover:text-purple-700 rounded-md text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                      title="Hacer clic para abrir visor o descargar manual técnico"
+                    >
+                      <FileDown className="w-3 h-3 text-purple-600" /> Consultar Manual Técnico PDF
+                    </button>
                   )}
                 </div>
               )}
@@ -5031,6 +5400,375 @@ export default function SalesQuoteModule({
             </form>
           </div>
         </div>
+      )}
+
+      {/* MODAL: GESTIÓN DE SOCIOS EMISORES Y DATOS FISCALES */}
+      {showManagePartnersModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                <Award className="w-4 h-4 text-[#0196C1]" />
+                Catálogo de Socios Emisores MVL & Consistencia Fiscal
+              </h3>
+              <button
+                onClick={() => {
+                  setShowManagePartnersModal(false);
+                  setEditingPartner(null);
+                  setPartnerFormData({});
+                }}
+                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Formulario de Alta o Edición */}
+            <form onSubmit={handleSaveIssuerPartner} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+              <h4 className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                <Edit3 className="w-3.5 h-3.5 text-[#0196C1]" />
+                {editingPartner ? `Modificar Datos de: ${editingPartner.name}` : 'Registrar Nuevo Socio Emisor'}
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Nombre del Socio *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Ing. Víctor Pedro Ramírez Barrios"
+                    value={partnerFormData.name || ''}
+                    onChange={e => setPartnerFormData(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Razón Social Fiscal</label>
+                  <input
+                    type="text"
+                    placeholder="Ej. MVL Maquinaria y Servicios Industriales S.A. de C.V."
+                    value={partnerFormData.businessName || ''}
+                    onChange={e => setPartnerFormData(prev => ({ ...prev, businessName: e.target.value }))}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">RFC Fiscal *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. RABV891002TF6 / MVL190823AA1"
+                    value={partnerFormData.rfc || ''}
+                    onChange={e => setPartnerFormData(prev => ({ ...prev, rfc: e.target.value.toUpperCase() }))}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-mono font-bold uppercase"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Régimen Fiscal</label>
+                  <input
+                    type="text"
+                    placeholder="612 - Personas Físicas / 601 - General de Ley"
+                    value={partnerFormData.taxRegime || ''}
+                    onChange={e => setPartnerFormData(prev => ({ ...prev, taxRegime: e.target.value }))}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Domicilio Fiscal</label>
+                  <input
+                    type="text"
+                    placeholder="Calle, Número, Colonia, C.P., Ciudad, Estado"
+                    value={partnerFormData.address || ''}
+                    onChange={e => setPartnerFormData(prev => ({ ...prev, address: e.target.value }))}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Teléfono</label>
+                  <input
+                    type="text"
+                    placeholder="477-710-9900"
+                    value={partnerFormData.phone || ''}
+                    onChange={e => setPartnerFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Correo Electrónico</label>
+                  <input
+                    type="email"
+                    placeholder="contacto@mvlmaquinaria.com"
+                    value={partnerFormData.email || ''}
+                    onChange={e => setPartnerFormData(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                {editingPartner && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingPartner(null);
+                      setPartnerFormData({});
+                    }}
+                    className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg cursor-pointer"
+                  >
+                    Cancelar Edición
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-lg shadow-xs cursor-pointer"
+                >
+                  {editingPartner ? 'Guardar Cambios Fiscales' : 'Agregar Socio Emisor'}
+                </button>
+              </div>
+            </form>
+
+            {/* Listado de Socios Registrados */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase block">
+                Socios Registrados Activos ({issuerPartners.length})
+              </span>
+              <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+                {issuerPartners.map(p => (
+                  <div key={p.id} className="p-3 bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 hover:bg-slate-50">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-slate-900">{p.name}</span>
+                        {selectedPartnerId === p.id && (
+                          <span className="text-[9px] bg-sky-100 text-[#0196C1] font-bold px-2 py-0.5 rounded-full">
+                            Seleccionado en Cotización Actual
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] font-mono text-slate-600 font-bold block">RFC: {p.rfc} | {p.businessName}</span>
+                      <span className="text-[10px] text-slate-400 block">{p.address} • {p.phone}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPartnerId(p.id);
+                        }}
+                        className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer ${
+                          selectedPartnerId === p.id ? 'bg-[#0196C1] text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {selectedPartnerId === p.id ? 'Activo' : 'Usar'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingPartner(p);
+                          setPartnerFormData(p);
+                        }}
+                        className="p-1.5 text-slate-500 hover:text-[#0196C1] hover:bg-sky-50 rounded-lg cursor-pointer"
+                        title="Editar datos fiscales"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteIssuerPartner(p.id)}
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"
+                        title="Eliminar socio emisor"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: REGISTRAR NUEVA SUCURSAL / PLANTA PARA EL CLIENTE */}
+      {showAddPlantModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-[#0196C1]" />
+                Registrar Nueva Sucursal / Planta
+              </h3>
+              <button onClick={() => setShowAddPlantModal(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-sky-50 rounded-xl border border-sky-100 text-xs">
+              <span className="font-bold text-slate-700">Cliente Asociado:</span>
+              <span className="text-slate-900 font-black block mt-0.5">{selectedClient?.name || 'Cliente Actual'}</span>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Nombre de la Planta / Sucursal *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Planta Silao, Nave 2, Almacén Central"
+                  value={newPlantNameInput}
+                  onChange={e => setNewPlantNameInput(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Dirección de la Planta</label>
+                <input
+                  type="text"
+                  placeholder="Calle, Parque Industrial, No. Interior"
+                  value={newPlantAddressInput}
+                  onChange={e => setNewPlantAddressInput(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Ciudad / Estado</label>
+                <input
+                  type="text"
+                  placeholder="León, Gto. / Silao, Gto."
+                  value={newPlantCityInput}
+                  onChange={e => setNewPlantCityInput(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-slate-800"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowAddPlantModal(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleAddPlantToClient}
+                className="flex-1 py-2.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+              >
+                Guardar Sucursal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: REGISTRAR NUEVO CONTACTO PARA EL CLIENTE */}
+      {showAddContactModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-emerald-600" />
+                Registrar Nuevo Contacto del Cliente
+              </h3>
+              <button onClick={() => setShowAddContactModal(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-xs">
+              <span className="font-bold text-slate-700">Cliente Asociado:</span>
+              <span className="text-slate-900 font-black block mt-0.5">{selectedClient?.name || 'Cliente Actual'}</span>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Nombre Completo del Contacto *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Ing. Carlos Mendoza"
+                  value={newContactNameInput}
+                  onChange={e => setNewContactNameInput(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Cargo / Puesto</label>
+                <input
+                  type="text"
+                  placeholder="Ej. Gerente de Mantenimiento / Jefe de Compras"
+                  value={newContactRoleInput}
+                  onChange={e => setNewContactRoleInput(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Teléfono / WhatsApp</label>
+                <input
+                  type="text"
+                  placeholder="477-123-4567"
+                  value={newContactPhoneInput}
+                  onChange={e => setNewContactPhoneInput(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-slate-800 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Correo Electrónico</label>
+                <input
+                  type="email"
+                  placeholder="carlos.mendoza@empresa.com"
+                  value={newContactEmailInput}
+                  onChange={e => setNewContactEmailInput(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-slate-800"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowAddContactModal(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleAddContactToClient}
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+              >
+                Guardar Contacto
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: VISOR DE DOCUMENTACIÓN TÉCNICA (Foto de Placa / Manual Técnico) */}
+      {technicalDocModal && (
+        <TechnicalDocViewerModal
+          isOpen={true}
+          onClose={() => setTechnicalDocModal(null)}
+          type={technicalDocModal.type}
+          title={technicalDocModal.type === 'plate' ? 'Foto de Placa de Identificación de Equipo' : 'Manual Técnico & Guía de Despiece'}
+          equipmentName={technicalDocModal.equipmentName || concept || `${eqBrand} ${eqModel}`}
+          equipmentBrand={technicalDocModal.equipmentBrand || eqBrand}
+          equipmentModel={technicalDocModal.equipmentModel || eqModel}
+          equipmentSerial={technicalDocModal.equipmentSerial || eqSerial}
+          imageUrl={technicalDocModal.imageUrl}
+          manualUrl={technicalDocModal.manualUrl}
+        />
       )}
     </div>
   );
