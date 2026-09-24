@@ -53,7 +53,7 @@ async function startServer() {
         : port === 465;
       const user = smtpConfig?.user || process.env.SMTP_USER;
       const pass = smtpConfig?.pass || process.env.SMTP_PASS;
-      const fromEmail = smtpConfig?.fromEmail || process.env.SMTP_FROM_EMAIL || user || 'cotizaciones@mvlmaquinaria.com';
+      const fromEmail = smtpConfig?.fromEmail || user || process.env.SMTP_FROM_EMAIL || 'cotizaciones@mvlmaquinaria.com';
       const fromName = smtpConfig?.fromName || process.env.SMTP_FROM_NAME || 'MVL Maquinaria y Control Industrial';
 
       let transporter: Transporter;
@@ -63,13 +63,16 @@ async function startServer() {
           host,
           port,
           secure,
+          requireTLS: !secure && port === 587,
           auth: {
             user,
             pass
           },
           tls: {
             rejectUnauthorized: false
-          }
+          },
+          connectionTimeout: 10000,
+          greetingTimeout: 10000
         });
       } else {
         // If no credentials provided, create a test account via Ethereal or provide instructive response
@@ -142,12 +145,18 @@ async function startServer() {
         return res.status(400).json({ success: false, error: 'Faltan parámetros de servidor SMTP o autenticación.' });
       }
 
+      const portNum = Number(port);
+      const isSecure = secure !== undefined ? Boolean(secure) : portNum === 465;
+
       const transporter = nodemailer.createTransport({
         host,
-        port: Number(port),
-        secure: secure !== undefined ? Boolean(secure) : Number(port) === 465,
+        port: portNum,
+        secure: isSecure,
+        requireTLS: !isSecure && portNum === 587,
         auth: { user, pass },
-        tls: { rejectUnauthorized: false }
+        tls: { rejectUnauthorized: false },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000
       });
 
       await transporter.verify();

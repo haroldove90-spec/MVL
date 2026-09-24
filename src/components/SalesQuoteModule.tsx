@@ -19,7 +19,7 @@ import {
   Copy, Search, Filter, ArrowUpRight, Check, RefreshCw, Cpu, Zap, ShoppingCart,
   Camera, FileDown, Layers, Award, BookmarkPlus, FolderCheck, Hash, Edit3, Trash2,
   SlidersHorizontal, AlertCircle, HelpCircle, PackageCheck, CheckCheck, Edit, ShieldCheck, Activity,
-  Share2, Download
+  Share2, Download, Settings
 } from 'lucide-react';
 
 interface SalesQuoteModuleProps {
@@ -333,10 +333,18 @@ export default function SalesQuoteModule({
   // Email with Attached PDF Modal State
   const [emailModalQuote, setEmailModalQuote] = useState<Quote | null>(null);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [emailModalInitialTab, setEmailModalInitialTab] = useState<'compose' | 'settings'>('compose');
   const [postCreationPromptQuote, setPostCreationPromptQuote] = useState<Quote | null>(null);
 
-  const handleOpenEmailModal = (q: Quote) => {
+  const handleOpenEmailModal = (q: Quote, tab: 'compose' | 'settings' = 'compose') => {
     setEmailModalQuote(q);
+    setEmailModalInitialTab(tab);
+    setIsEmailModalOpen(true);
+  };
+
+  const handleOpenEmailSettings = () => {
+    setEmailModalQuote(quotes[0] || null);
+    setEmailModalInitialTab('settings');
     setIsEmailModalOpen(true);
   };
 
@@ -2136,6 +2144,14 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
             className="flex-1 sm:flex-none px-3.5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-black rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-1.5 transition-all"
           >
             <UserPlus className="w-4 h-4" /> [+ Nuevo Cliente]
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenEmailSettings}
+            className="flex-1 sm:flex-none px-3.5 py-2.5 bg-slate-700 hover:bg-slate-800 text-white text-xs font-black rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-1.5 transition-all"
+            title="Configura tu cuenta de correo (Outlook, Gmail, MVL) para enviar con el PDF adjunto"
+          >
+            <Settings className="w-4 h-4 text-cyan-300" /> [⚙️ Configurar Correo]
           </button>
         </div>
       </div>
@@ -6013,6 +6029,7 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
       <SendQuoteEmailModal
         quote={emailModalQuote}
         isOpen={isEmailModalOpen}
+        initialTab={emailModalInitialTab}
         onClose={() => setIsEmailModalOpen(false)}
       />
     </div>
