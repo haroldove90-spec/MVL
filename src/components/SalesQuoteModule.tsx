@@ -4840,31 +4840,31 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
             {/* Document Content Box */}
             <div id="printable-quote-area" className="p-8 space-y-6 text-slate-800 text-xs font-sans bg-white print:p-0">
               {/* PDF HEADER CON LOGOTIPO INSTITUCIONAL */}
-              <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-3">
+              <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                <div className="space-y-1 flex-1 min-w-0 pr-2">
+                  <div className="flex items-center gap-3.5">
                     <img
                       src="/mvl.png"
                       alt="Logo Oficial MVL"
-                      className="h-14 w-auto max-w-[130px] object-contain shrink-0"
+                      className="h-14 w-auto max-w-[125px] object-contain shrink-0"
                       onError={(e) => {
                         (e.currentTarget as HTMLElement).style.display = 'none';
                       }}
                     />
-                    <div>
-                      <h1 className="text-base font-black text-slate-900 tracking-tight">
+                    <div className="min-w-0">
+                      <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight truncate">
                         {selectedQuoteForPreview.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'}
                       </h1>
-                      <p className="text-[10px] text-slate-700 font-bold">
+                      <p className="text-[10px] text-slate-700 font-bold truncate">
                         Razón Social: {selectedQuoteForPreview.issuerPartnerName || 'Víctor Pedro Ramírez Barrios'} | RFC: <span className="font-mono">{selectedQuoteForPreview.issuerPartnerRfc || 'RABV891002TF6'}</span>
                       </p>
-                      <p className="text-[10px] text-slate-400">RÉGIMEN FISCAL: 612 Personas Físicas con Actividades Empresariales y Profesionales / MVL Maquinaria</p>
-                      <p className="text-[10px] text-slate-400">José Pérez Marañón #118 B, San José del Consuelo II, CP 37217, León, Guanajuato</p>
+                      <p className="text-[10px] text-slate-500 truncate">RÉGIMEN FISCAL: 612 Personas Físicas con Actividades Empresariales y Profesionales / MVL Maquinaria</p>
+                      <p className="text-[10px] text-slate-500 truncate">José Pérez Marañón #118 B, San José del Consuelo II, CP 37217, León, Guanajuato</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="text-left sm:text-right bg-sky-50 p-3 rounded-xl border border-sky-100 min-w-[200px]">
+                <div className="text-left sm:text-right bg-sky-50 p-3 rounded-xl border border-sky-100 shrink-0 min-w-[185px]">
                   <span className="text-[10px] font-extrabold text-[#0196C1] uppercase block">COTIZACIÓN INSTITUCIONAL</span>
                   <span className="text-sm font-black text-slate-900">{selectedQuoteForPreview.folNum}</span>
                   <p className="text-[10px] text-slate-500 font-bold mt-1">León, Gto. A {selectedQuoteForPreview.date}</p>

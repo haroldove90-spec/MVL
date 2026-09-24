@@ -52,8 +52,8 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
 
   const pageWidth = 215.9;
   const pageHeight = 279.4;
-  const margin = 14;
-  const contentWidth = pageWidth - margin * 2; // 187.9 mm
+  const margin = 13;
+  const contentWidth = pageWidth - margin * 2; // 189.9 mm
 
   // Corporate Top Bar (#0196C1)
   doc.setFillColor(1, 150, 193);
@@ -64,40 +64,44 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
   let headerTextX = margin;
   if (logoData) {
     try {
-      doc.addImage(logoData, 'PNG', margin, 8, 36, 15);
-      headerTextX = margin + 40;
+      doc.addImage(logoData, 'PNG', margin, 7.5, 31, 13.5);
+      headerTextX = margin + 33;
     } catch {
       headerTextX = margin;
     }
   }
 
-  // Issuer Info
+  // Right Box: Folio & Date Badge (Defined early to calculate clear separation)
+  const badgeW = 52;
+  const badgeX = pageWidth - margin - badgeW;
+  const badgeY = 7.5;
+  const badgeH = 21.5;
+
+  // Maximum width for issuer text to guarantee at least 10 mm of clear spacing before the badge
+  const maxIssuerWidth = badgeX - headerTextX - 10;
+
+  // Issuer Info (with controlled maxWidth and tailored sizing)
   doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(10.5);
+  doc.setFontSize(8.8);
   doc.setTextColor(15, 23, 42); // slate-900
   const businessName = (quote.issuerPartnerBusinessName || 'MVL CONTROL Y MANTENIMIENTO INDUSTRIAL S.A. DE C.V.').toUpperCase();
-  doc.text(businessName, headerTextX, 12);
+  doc.text(businessName, headerTextX, 11, { maxWidth: maxIssuerWidth });
 
   doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(7);
   doc.setTextColor(51, 65, 85); // slate-700
   const partnerName = quote.issuerPartnerName || 'Ing. Víctor Pedro Ramírez Barrios';
   const partnerRfc = quote.issuerPartnerRfc || 'RABV891002TF6';
-  doc.text(`Razón Social: ${partnerName}  |  RFC: ${partnerRfc}`, headerTextX, 16.5);
+  doc.text(`Razón Social: ${partnerName}  |  RFC: ${partnerRfc}`, headerTextX, 15, { maxWidth: maxIssuerWidth });
 
   doc.setFont('Helvetica', 'normal');
-  doc.setFontSize(7);
+  doc.setFontSize(6.5);
   doc.setTextColor(100, 116, 139); // slate-500
-  doc.text('Régimen Fiscal: 612 Personas Físicas con Actividades Empresariales y Profesionales', headerTextX, 20.5);
-  doc.text('José Pérez Marañón #118 B, San José del Consuelo II, C.P. 37217, León, Guanajuato', headerTextX, 24);
-  doc.text('Tel: (477) 710-9900  |  Correo: contacto@mvlmaquinaria.com', headerTextX, 27.5);
+  doc.text('Régimen Fiscal: 612 Personas Físicas con Actividades Empresariales', headerTextX, 18.5, { maxWidth: maxIssuerWidth });
+  doc.text('José Pérez Marañón #118 B, San José del Consuelo II, León, Gto.', headerTextX, 22, { maxWidth: maxIssuerWidth });
+  doc.text('Tel: (477) 710-9900  |  Correo: contacto@mvlmaquinaria.com', headerTextX, 25.5, { maxWidth: maxIssuerWidth });
 
-  // Right Box: Folio & Date Badge
-  const badgeX = pageWidth - margin - 58;
-  const badgeY = 8;
-  const badgeW = 58;
-  const badgeH = 21;
-
+  // Draw Right Box: Folio & Date Badge
   doc.setFillColor(240, 249, 255); // sky-50
   doc.setDrawColor(1, 150, 193); // #0196C1
   doc.setLineWidth(0.3);
@@ -114,7 +118,7 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
   doc.text(quote.folNum, badgeX + badgeW / 2, badgeY + 10.5, { align: 'center' });
 
   doc.setFont('Helvetica', 'normal');
-  doc.setFontSize(7);
+  doc.setFontSize(6.8);
   doc.setTextColor(71, 85, 105);
   doc.text(`León, Gto. a ${quote.date || new Date().toISOString().split('T')[0]}`, badgeX + badgeW / 2, badgeY + 15, { align: 'center' });
 
