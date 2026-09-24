@@ -11,6 +11,7 @@ import { getCurrentUser } from '../lib/authService';
 import jsPDF from 'jspdf';
 import { downloadQuoteAsPdf } from '../lib/quotePdfGenerator';
 import { TechnicalDocViewerModal, TechnicalDocViewerModalProps } from './TechnicalDocViewerModal';
+import { SendQuoteEmailModal } from './SendQuoteEmailModal';
 import { 
   FileText, Plus, UserPlus, Send, CheckCircle2, Clock, XCircle, 
   AlertTriangle, Phone, Mail, MessageSquare, Building2, Upload, 
@@ -328,6 +329,16 @@ export default function SalesQuoteModule({
 
   const [activeView, setActiveView] = useState<'list' | 'new_quote' | 'new_client'>('list');
   const [selectedQuoteForPreview, setSelectedQuoteForPreview] = useState<Quote | null>(null);
+
+  // Email with Attached PDF Modal State
+  const [emailModalQuote, setEmailModalQuote] = useState<Quote | null>(null);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [postCreationPromptQuote, setPostCreationPromptQuote] = useState<Quote | null>(null);
+
+  const handleOpenEmailModal = (q: Quote) => {
+    setEmailModalQuote(q);
+    setIsEmailModalOpen(true);
+  };
 
   // Quote editing mode
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
@@ -1614,6 +1625,7 @@ export default function SalesQuoteModule({
         if (targetQ) {
           handleDownloadPdf(targetQ);
           setDownloadSuccessNotice(`✅ Cotización ${targetQ.folNum} actualizada en el expediente y descargada automáticamente en PDF.`);
+          setPostCreationPromptQuote(targetQ);
         }
       }
       return;
@@ -1745,6 +1757,7 @@ export default function SalesQuoteModule({
       // Automatically download official PDF with 1-click and notify user
       handleDownloadPdf(newQ);
       setDownloadSuccessNotice(`✅ Cotización ${newQ.folNum} registrada con éxito en el historial y descargada automáticamente en PDF.`);
+      setPostCreationPromptQuote(newQ);
     }
   };
 
@@ -4393,11 +4406,11 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
 
                       <button
                         type="button"
-                        onClick={() => handleSendQuoteGmail(q)}
-                        className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                        title="Enviar automáticamente por Gmail al contacto del cliente y descargar PDF"
+                        onClick={() => handleOpenEmailModal(q)}
+                        className="p-1.5 bg-[#0196C1] hover:bg-[#017fa4] text-white rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                        title="Enviar cotización por correo electrónico con PDF adjunto al cliente"
                       >
-                        <Mail className="w-3 h-3" /> Gmail
+                        <Mail className="w-3 h-3" /> Enviar Correo
                       </button>
 
                       <button
@@ -4783,11 +4796,11 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleSendQuoteGmail(selectedQuoteForPreview)}
-                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-                  title="Enviar automáticamente por Gmail al contacto del cliente y descargar PDF"
+                  onClick={() => handleOpenEmailModal(selectedQuoteForPreview)}
+                  className="px-3 py-1.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  title="Enviar cotización por correo electrónico con archivo PDF adjunto"
                 >
-                  <Mail className="w-3.5 h-3.5" /> Enviar por Gmail
+                  <Mail className="w-3.5 h-3.5" /> Enviar por Correo con PDF
                 </button>
                 <button
                   type="button"
@@ -5890,6 +5903,118 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
           manualUrl={technicalDocModal.manualUrl}
         />
       )}
+
+      {/* MODAL: POST-CREACIÓN DE COTIZACIÓN (ENVIAR CORREO CON PDF ADJUNTO / WHATSAPP) */}
+      {postCreationPromptQuote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col">
+            <div className="p-5 bg-gradient-to-r from-[#0196C1] to-[#017fa4] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-white/20 rounded-xl">
+                  <CheckCircle2 className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base leading-tight">¡Cotización Registrada con Éxito!</h3>
+                  <p className="text-xs text-cyan-100">
+                    Folio: <span className="font-black text-white">{postCreationPromptQuote.folNum}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPostCreationPromptQuote(null)}
+                className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1 text-xs">
+                <div className="flex items-center gap-2 text-emerald-900 font-bold">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  PDF Generado y Descargado en tu equipo
+                </div>
+                <p className="text-emerald-700 text-[11px]">
+                  El archivo oficial en PDF ya fue guardado en tu carpeta de descargas con 1 solo clic.
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Cliente:</span>
+                  <span className="font-bold text-slate-800">{postCreationPromptQuote.clientName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Correo registrado:</span>
+                  <span className="font-medium text-slate-700">
+                    {postCreationPromptQuote.contactEmail || postCreationPromptQuote.clientEmail || 'No especificado (podrás escribirlo al enviar)'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Total Cotizado:</span>
+                  <span className="font-bold text-[#0196C1]">
+                    ${postCreationPromptQuote.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <p className="text-xs font-bold text-slate-700">¿Deseas enviar la cotización ahora mismo?</p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const q = postCreationPromptQuote;
+                    setPostCreationPromptQuote(null);
+                    handleOpenEmailModal(q);
+                  }}
+                  className="w-full py-2.5 px-4 bg-[#0196C1] hover:bg-[#017fa4] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span>Enviar por Correo Electrónico con PDF Adjunto</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleShareQuoteWhatsApp(postCreationPromptQuote);
+                  }}
+                  className="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>Compartir por WhatsApp (con mensaje y PDF)</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => handleDownloadPdf(postCreationPromptQuote)}
+                className="text-xs font-semibold text-[#0196C1] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" /> Descargar otra copia en PDF
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPostCreationPromptQuote(null)}
+                className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+              >
+                Ver en Historial
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ENVIAR COTIZACIÓN POR CORREO ELECTRÓNICO (CON PDF ADJUNTO) */}
+      <SendQuoteEmailModal
+        quote={emailModalQuote}
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+      />
     </div>
   );
 }

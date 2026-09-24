@@ -39,10 +39,10 @@ async function getLogoBase64(): Promise<string | null> {
 }
 
 /**
- * Generates and triggers the direct 1-click download of an official MVL Sales Quote in PDF format.
- * No print dialog, no blank pages, 100% vector and text crisp rendering.
+ * Generates an official MVL Sales Quote in PDF format using jsPDF & autoTable.
+ * Returns the jsPDF instance and sanitized filename.
  */
-export async function downloadQuoteAsPdf(quote: Quote): Promise<void> {
+export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileName: string }> {
   // Letter size in mm: width 215.9, height 279.4
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -432,12 +432,39 @@ export async function downloadQuoteAsPdf(quote: Quote): Promise<void> {
     doc.text(`Página ${i} de ${totalPages}`, pageWidth - margin, pageHeight - 6, { align: 'right' });
   }
 
-  // Sanitize filename and trigger automatic browser file download
+  // Sanitize filename
   const sanitizedConcept = (quote.concept || 'Cotizacion')
     .replace(/[^a-zA-Z0-9_-]/g, '_')
     .slice(0, 40);
   const fileName = `${quote.folNum}_${sanitizedConcept}.pdf`;
 
-  // Download directly to client disk
+  return { doc, fileName };
+}
+
+/**
+ * Downloads the official MVL Quote PDF directly to disk with 1-click.
+ */
+export async function downloadQuoteAsPdf(quote: Quote): Promise<void> {
+  const { doc, fileName } = await buildQuotePdf(quote);
   doc.save(fileName);
+}
+
+/**
+ * Generates an in-memory PDF Blob and File instance, ideal for Web Share API file attachments.
+ */
+export async function generateQuotePdfBlob(quote: Quote): Promise<{ blob: Blob; fileName: string; file: File }> {
+  const { doc, fileName } = await buildQuotePdf(quote);
+  const blob = doc.output('blob');
+  const file = new File([blob], fileName, { type: 'application/pdf' });
+  return { blob, fileName, file };
+}
+
+/**
+ * Generates base64 string for direct server-side email dispatch with attachments.
+ */
+export async function generateQuotePdfBase64(quote: Quote): Promise<{ base64: string; fileName: string }> {
+  const { doc, fileName } = await buildQuotePdf(quote);
+  const dataUri = doc.output('datauristring');
+  const base64 = dataUri.split(',')[1] || '';
+  return { base64, fileName };
 }
