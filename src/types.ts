@@ -181,6 +181,10 @@ export interface Quote {
   issuerPartnerRfc?: string;
   issuerPartnerBusinessName?: string;
   issuerSignatureName?: string;
+  issuerSignatureUrl?: string;
+  agentSignatureUrl?: string;
+  signedByAgent?: boolean;
+  signedDate?: string;
   preBillingRequest?: {
     requestedAt: string;
     status: 'pending' | 'invoiced';

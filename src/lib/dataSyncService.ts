@@ -126,6 +126,11 @@ export async function fetchEquipmentFromSupabase(): Promise<Equipment[]> {
         lastMaintenance: row.last_maintenance || '',
         nextMaintenance: row.next_maintenance || '',
         engineHours: Number(row.engine_hours) || 0,
+        voltage: row.voltage || row.telemetry?.voltage || '',
+        type: row.type || row.telemetry?.type || 'compresor',
+        mode: row.mode || 'venta',
+        dataPlatePhotoUrl: row.data_plate_photo_url || row.photo_url || row.telemetry?.dataPlatePhotoUrl || undefined,
+        manualPdfUrl: row.manual_pdf_url || row.telemetry?.manualPdfUrl || undefined,
         telemetry: row.telemetry || {}
       }));
       saveToStorage('mvl_equipment', mapped);
@@ -141,31 +146,68 @@ export async function fetchEquipmentFromSupabase(): Promise<Equipment[]> {
 
 export async function persistEquipmentToSupabase(eq: Equipment): Promise<boolean> {
   try {
-    const dbPayload = {
+    const fullPayload: any = {
       id: eq.id,
-      client_id: eq.clientId,
-      plant_id: eq.plantId,
+      client_id: eq.clientId || null,
+      plant_id: eq.plantId || null,
       name: eq.name,
       brand: eq.brand,
       model: eq.model,
       serial_number: eq.serialNumber,
-      oil_type: eq.oilType,
-      capacity: eq.capacity,
-      filters_required: eq.filtersRequired,
-      status: eq.status,
+      oil_type: eq.oilType || 'Sintético S-460',
+      capacity: eq.capacity || '',
+      filters_required: eq.filtersRequired || 'Kit estándar',
+      status: eq.status || 'active',
       last_maintenance: eq.lastMaintenance || null,
       next_maintenance: eq.nextMaintenance || null,
       engine_hours: eq.engineHours || 0,
+      voltage: eq.voltage || null,
+      type: eq.type || null,
+      mode: eq.mode || 'venta',
+      data_plate_photo_url: eq.dataPlatePhotoUrl || null,
+      manual_pdf_url: eq.manualPdfUrl || null,
       telemetry: eq.telemetry || {}
     };
 
     const { error } = await supabase
       .from('equipment')
-      .upsert(dbPayload, { onConflict: 'id' });
+      .upsert(fullPayload, { onConflict: 'id' });
 
     if (error) {
-      console.warn('[dataSync] Error saving equipment to Supabase:', error.message);
-      return false;
+      console.warn('[dataSync] Full payload upsert notice, trying base schema fallback:', error.message);
+      // Fallback with base columns in case extended columns don't exist yet in Supabase
+      const basePayload = {
+        id: eq.id,
+        client_id: eq.clientId || null,
+        plant_id: eq.plantId || null,
+        name: eq.name,
+        brand: eq.brand,
+        model: eq.model,
+        serial_number: eq.serialNumber,
+        oil_type: eq.oilType || 'Sintético S-460',
+        capacity: eq.capacity || '',
+        filters_required: eq.filtersRequired || 'Kit estándar',
+        status: eq.status || 'active',
+        last_maintenance: eq.lastMaintenance || null,
+        next_maintenance: eq.nextMaintenance || null,
+        engine_hours: eq.engineHours || 0,
+        telemetry: {
+          ...(eq.telemetry || {}),
+          voltage: eq.voltage,
+          type: eq.type,
+          mode: eq.mode,
+          dataPlatePhotoUrl: eq.dataPlatePhotoUrl,
+          manualPdfUrl: eq.manualPdfUrl
+        }
+      };
+      const { error: fallbackError } = await supabase
+        .from('equipment')
+        .upsert(basePayload, { onConflict: 'id' });
+
+      if (fallbackError) {
+        console.warn('[dataSync] Error saving equipment to Supabase:', fallbackError.message);
+        return false;
+      }
     }
     return true;
   } catch (err) {

@@ -12,6 +12,7 @@ import jsPDF from 'jspdf';
 import { downloadQuoteAsPdf } from '../lib/quotePdfGenerator';
 import { TechnicalDocViewerModal, TechnicalDocViewerModalProps } from './TechnicalDocViewerModal';
 import { SendQuoteEmailModal } from './SendQuoteEmailModal';
+import { DigitalSignaturePad } from './DigitalSignaturePad';
 import { 
   FileText, Plus, UserPlus, Send, CheckCircle2, Clock, XCircle, 
   AlertTriangle, Phone, Mail, MessageSquare, Building2, Upload, 
@@ -19,7 +20,7 @@ import {
   Copy, Search, Filter, ArrowUpRight, Check, RefreshCw, Cpu, Zap, ShoppingCart,
   Camera, FileDown, Layers, Award, BookmarkPlus, FolderCheck, Hash, Edit3, Trash2,
   SlidersHorizontal, AlertCircle, HelpCircle, PackageCheck, CheckCheck, Edit, ShieldCheck, Activity,
-  Share2, Download, Settings
+  Share2, Download, Settings, Box
 } from 'lucide-react';
 
 interface SalesQuoteModuleProps {
@@ -433,6 +434,7 @@ export default function SalesQuoteModule({
     const logged = getCurrentUser();
     return logged?.name || 'Ing. Víctor Pedro Ramírez Barrios';
   });
+  const [agentSignatureData, setAgentSignatureData] = useState<string | null>(null);
   const [discountPercent, setDiscountPercent] = useState(0);
 
   // Service Type Definition & Horometers (2k, 4k, 6k, 8k, 16k, 24k)
@@ -469,6 +471,7 @@ export default function SalesQuoteModule({
   const [newEqFilters, setNewEqFilters] = useState('Filtro de Aire, Aceite y Separador');
   const [newEqPhotoUrl, setNewEqPhotoUrl] = useState<string | null>(null);
   const [newEqManualPdfUrl, setNewEqManualPdfUrl] = useState<string | null>(null);
+  const [newEqTarget, setNewEqTarget] = useState<'general' | 'client'>('general');
 
   // Modal Alta Rápida CRM sin perder cotización
   const [showNewClientCrmModal, setShowNewClientCrmModal] = useState(false);
@@ -689,6 +692,16 @@ export default function SalesQuoteModule({
     }
   }, [selectedClientId]);
 
+  // Ensure selectedClientId is valid and not empty whenever clients list is loaded or updated
+  useEffect(() => {
+    if (clients.length > 0) {
+      const isValid = clients.some(c => c.id === selectedClientId);
+      if (!selectedClientId || !isValid) {
+        handleClientChange(clients[0].id);
+      }
+    }
+  }, [clients]);
+
   // Deep-link for WhatsApp shared quote PDF preview (?quote=COT-2026-...)
   useEffect(() => {
     try {
@@ -713,6 +726,92 @@ export default function SalesQuoteModule({
     if (!selectedClientId) return [];
     return equipment.filter(eq => eq.clientId === selectedClientId);
   }, [equipment, selectedClientId]);
+
+  // General equipment catalog (all equipment or non-client specific)
+  const generalEquipmentCatalog = useMemo(() => {
+    if (!selectedClientId) return equipment;
+    return equipment.filter(eq => eq.clientId !== selectedClientId);
+  }, [equipment, selectedClientId]);
+
+  // Distinct known brands in the system
+  const knownBrandsList = useMemo(() => {
+    const brandsSet = new Set<string>([
+      'Kaeser', 'Atlas Copco', 'Ingersoll Rand', 'Sullair', 'York',
+      'Carrier', 'Trane', 'Daikin', 'Midea', 'Lennox', 'CompAir',
+      'Quincy', 'Boge', 'Chicago Pneumatic', 'Gardner Denver', 'Hitachi',
+      'Aeroquip', 'Parker', 'SKF', 'Donaldson', 'Hankison', 'Danfoss', 'MVL'
+    ]);
+    equipment.forEach(e => { if (e.brand) brandsSet.add(e.brand.trim()); });
+    inventory.forEach(i => { if (i.brand) brandsSet.add(i.brand.trim()); });
+    return Array.from(brandsSet).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  }, [equipment, inventory]);
+
+  // Distinct known models / product lines
+  const knownModelsList = useMemo(() => {
+    const modelsSet = new Set<string>();
+    equipment.forEach(e => { if (e.model) modelsSet.add(e.model.trim()); });
+    inventory.forEach(i => { if (i.name) modelsSet.add(i.name.trim()); });
+    return Array.from(modelsSet).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  }, [equipment, inventory]);
+
+  // Inventory items that are equipment, machinery, or units
+  const inventoryEquipmentProducts = useMemo(() => {
+    return inventory.filter(i => 
+      i.name.toLowerCase().includes('compresor') ||
+      i.name.toLowerCase().includes('secador') ||
+      i.name.toLowerCase().includes('aire') ||
+      i.name.toLowerCase().includes('minisplit') ||
+      i.name.toLowerCase().includes('chiller') ||
+      i.name.toLowerCase().includes('bomba') ||
+      i.name.toLowerCase().includes('generador') ||
+      i.name.toLowerCase().includes('tanque')
+    );
+  }, [inventory]);
+
+  // Handler for selecting an equipment or product from the catalog
+  const handleEquipmentCatalogSelect = (val: string) => {
+    if (val === '__NEW_EQUIPMENT_BRAND__') {
+      setNewEqBrand(eqBrand || '');
+      setNewEqModel(eqModel || '');
+      setShowNewEquipmentModal(true);
+      return;
+    }
+    if (val === '__CUSTOM_MANUAL__') {
+      setSelectedEquipmentId('__CUSTOM_MANUAL__');
+      return;
+    }
+    setSelectedEquipmentId(val);
+
+    if (val.startsWith('client_eq_') || val.startsWith('gen_eq_')) {
+      const rawId = val.replace('client_eq_', '').replace('gen_eq_', '');
+      const found = equipment.find(e => e.id === rawId);
+      if (found) {
+        setEqBrand(found.brand || '');
+        setEqModel(found.model || '');
+        setEqSerial(found.serialNumber || '');
+        setEqCapacity(found.capacity || '');
+        setEqVoltage(found.voltage || '220V 3F');
+        if (found.type === 'compresor' || found.name?.toLowerCase().includes('compresor')) setEqType('Compresor');
+        else if (found.type === 'secador' || found.name?.toLowerCase().includes('secador')) setEqType('Secador');
+        else if (found.type === 'aire_acondicionado' || found.name?.toLowerCase().includes('aire')) setEqType('Aire Acondicionado');
+        else setEqType('Otros');
+        if (found.dataPlatePhotoUrl) setDataPlatePhotoUrl(found.dataPlatePhotoUrl);
+        if (found.manualPdfUrl) setManualPdfUrl(found.manualPdfUrl);
+      }
+    } else if (val.startsWith('inv_')) {
+      const rawId = val.replace('inv_', '');
+      const foundInv = inventory.find(i => i.id === rawId);
+      if (foundInv) {
+        if (foundInv.brand) setEqBrand(foundInv.brand);
+        setEqModel(foundInv.name);
+        setEqSerial(foundInv.code || '');
+        if (foundInv.name.toLowerCase().includes('secador')) setEqType('Secador');
+        else if (foundInv.name.toLowerCase().includes('aire')) setEqType('Aire Acondicionado');
+        else if (foundInv.name.toLowerCase().includes('compresor')) setEqType('Compresor');
+        else setEqType('Otros');
+      }
+    }
+  };
 
   // Handle client selection change: update selected equipment, plant and contact
   const handleClientChange = (clientId: string) => {
@@ -782,20 +881,27 @@ export default function SalesQuoteModule({
     }
   };
 
-  // Save new equipment from modal into unified DB per client
+  // Save new equipment or brand from modal into unified DB (General Catalog or Client Specific)
   const handleSaveNewEquipmentModal = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEqBrand.trim() || !newEqModel.trim()) return;
+    if (!newEqBrand.trim()) {
+      alert('Por favor especifica al menos la Marca del producto o equipo.');
+      return;
+    }
 
     const finalTypeDisplay = newEqType === 'Otros' && newEqCustomType.trim() ? newEqCustomType.trim() : newEqType;
+    const finalModel = newEqModel.trim() || 'Modelo Estándar';
+
+    const isClientTarget = newEqTarget === 'client' && Boolean(selectedClientId);
+    const targetClientId = isClientTarget ? selectedClientId : (selectedClientId || 'general_catalog');
 
     const newEquipmentItem: Equipment = {
       id: 'eq_' + Date.now(),
-      clientId: selectedClientId,
+      clientId: targetClientId,
       plantId: selectedClient?.plants?.[0]?.id || 'p_1',
-      name: `${newEqBrand} ${newEqModel} (${finalTypeDisplay})`,
+      name: `${newEqBrand.trim()} ${finalModel} (${finalTypeDisplay})`,
       brand: newEqBrand.trim(),
-      model: newEqModel.trim(),
+      model: finalModel,
       serialNumber: newEqSerial.trim() || `SN-${Date.now().toString().slice(-4)}`,
       capacity: newEqCapacity.trim() || 'N/A',
       voltage: newEqVoltage || '220V 3F',
@@ -806,7 +912,8 @@ export default function SalesQuoteModule({
       nextMaintenance: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
       status: 'active',
       type: newEqType === 'Compresor' ? 'compresor' : newEqType === 'Secador' ? 'secador' : newEqType === 'Aire Acondicionado' ? 'aire_acondicionado' : 'otros',
-      dataPlatePhotoUrl: newEqPhotoUrl || undefined
+      dataPlatePhotoUrl: newEqPhotoUrl || undefined,
+      manualPdfUrl: newEqManualPdfUrl || undefined
     };
 
     if (setEquipment) {
@@ -820,8 +927,9 @@ export default function SalesQuoteModule({
     // Persist new equipment to Supabase cloud
     persistEquipmentToSupabase(newEquipmentItem).catch(err => console.warn('Error syncing equipment:', err));
 
-    // Auto-select for current quote
-    setSelectedEquipmentId(newEquipmentItem.id);
+    // Auto-select for current quote and populate all fields
+    const selectKey = isClientTarget ? `client_eq_${newEquipmentItem.id}` : `gen_eq_${newEquipmentItem.id}`;
+    setSelectedEquipmentId(selectKey);
     setEqBrand(newEquipmentItem.brand);
     setEqModel(newEquipmentItem.model);
     setEqSerial(newEquipmentItem.serialNumber);
@@ -829,6 +937,7 @@ export default function SalesQuoteModule({
     setEqVoltage(newEquipmentItem.voltage);
     setEqType(newEqType);
     if (newEqPhotoUrl) setDataPlatePhotoUrl(newEqPhotoUrl);
+    if (newEqManualPdfUrl) setManualPdfUrl(newEqManualPdfUrl);
 
     // Reset modal
     setNewEqBrand('');
@@ -1133,6 +1242,7 @@ export default function SalesQuoteModule({
     if (q.equipmentManualPdfUrl) {
       setManualPdfUrl(q.equipmentManualPdfUrl);
     }
+    setAgentSignatureData(q.agentSignatureUrl || q.issuerSignatureUrl || null);
 
     setActiveView('new_quote');
   };
@@ -1475,6 +1585,7 @@ export default function SalesQuoteModule({
     if (q.equipmentManualPdfUrl) {
       setManualPdfUrl(q.equipmentManualPdfUrl);
     }
+    setAgentSignatureData(q.agentSignatureUrl || q.issuerSignatureUrl || null);
 
     setActiveView('new_quote');
   };
@@ -1562,6 +1673,10 @@ export default function SalesQuoteModule({
             issuerPartnerRfc: selectedPartner.rfc,
             issuerPartnerBusinessName: selectedPartner.businessName,
             issuerSignatureName: selectedPartner.roleDescription,
+            agentSignatureUrl: agentSignatureData || undefined,
+            issuerSignatureUrl: agentSignatureData || undefined,
+            signedByAgent: Boolean(agentSignatureData),
+            signedDate: agentSignatureData ? (existing.signedDate || new Date().toISOString()) : undefined,
             serviceHours: serviceTypeCategory === 'preventivo' ? serviceHours : undefined,
             equipmentPlatePhotoUrl: dataPlatePhotoUrl || undefined,
             equipmentManualPdfUrl: manualPdfUrl || undefined,
@@ -1666,6 +1781,10 @@ export default function SalesQuoteModule({
       issuerPartnerRfc: selectedPartner.rfc,
       issuerPartnerBusinessName: selectedPartner.businessName,
       issuerSignatureName: selectedPartner.roleDescription,
+      agentSignatureUrl: agentSignatureData || undefined,
+      issuerSignatureUrl: agentSignatureData || undefined,
+      signedByAgent: Boolean(agentSignatureData),
+      signedDate: agentSignatureData ? new Date().toISOString() : undefined,
       serviceHours: serviceTypeCategory === 'preventivo' ? serviceHours : undefined,
       equipmentPlatePhotoUrl: dataPlatePhotoUrl || undefined,
       equipmentManualPdfUrl: manualPdfUrl || undefined,
@@ -2487,17 +2606,48 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {quoteOrigin !== 'publico_general' ? (
                   <div>
-                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
-                      Cliente Registrado
-                    </label>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-[10px] font-extrabold text-slate-500 uppercase">
+                        Cliente Registrado ({clients.length})
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowNewClientCrmModal(true)}
+                        className="text-[10px] font-extrabold text-[#0196C1] hover:underline flex items-center gap-0.5 cursor-pointer"
+                        title="Registrar un nuevo cliente en el CRM sin perder esta cotización"
+                      >
+                        <Plus className="w-3 h-3" /> + Nuevo Cliente
+                      </button>
+                    </div>
                     <select
                       value={selectedClientId}
-                      onChange={e => handleClientChange(e.target.value)}
-                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === '__NEW_CLIENT__') {
+                          setShowNewClientCrmModal(true);
+                        } else {
+                          handleClientChange(val);
+                        }
+                      }}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-800 focus:ring-2 focus:ring-[#0196C1]"
                     >
-                      {clients.map(c => (
-                        <option key={c.id} value={c.id}>{c.name} ({c.rfc})</option>
-                      ))}
+                      {clients.length === 0 ? (
+                        <option value="" disabled>No hay clientes registrados en el catálogo</option>
+                      ) : (
+                        <>
+                          {!clients.some(c => c.id === selectedClientId) && (
+                            <option value="" disabled>-- Seleccionar de los {clients.length} clientes registrados --</option>
+                          )}
+                          {clients.map(c => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} {c.rfc ? `(${c.rfc})` : ''} {c.city ? `• ${c.city}` : ''}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                      <option value="__NEW_CLIENT__" className="text-[#0196C1] font-black">
+                        ➕ + Registrar Nuevo Cliente (CRM)...
+                      </option>
                     </select>
                   </div>
                 ) : (
@@ -2715,23 +2865,31 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                   )}
                 </div>
 
-                {/* Asesor Responsable Dinámico */}
+                {/* Asesor Responsable / Usuario Emisor Dinámico */}
                 <div>
-                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
-                    Asesor Responsable
-                  </label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase">
+                      Asesor / Usuario Emisor
+                    </label>
+                    <span className="text-[9px] text-[#0196C1] font-bold">
+                      👤 Quien elabora
+                    </span>
+                  </div>
                   <select
                     value={agentName}
                     onChange={e => setAgentName(e.target.value)}
-                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-[#0196C1]"
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-[#0196C1] focus:ring-2 focus:ring-[#0196C1]"
                   >
                     {eligibleSalesStaff.map(s => (
                       <option key={s.id} value={s.name}>
                         {s.name} ({s.customJobTitle || s.role})
                       </option>
                     ))}
+                    {!eligibleSalesStaff.some(s => s.name === agentName) && (
+                      <option value={agentName}>{agentName} (Usuario Actual)</option>
+                    )}
+                    <option value="Ing. Víctor Pedro Ramírez Barrios">Ing. Víctor Pedro Ramírez Barrios (Director Técnico)</option>
                     <option value="Ing. Leonardo Daniel Torres">Ing. Leonardo Daniel Torres (Ventas Especializadas)</option>
-                    <option value="MVL Control Industrial">MVL Control Industrial (Mesa de Control)</option>
                   </select>
                 </div>
               </div>
@@ -2984,56 +3142,105 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
               </div>
             </div>
 
-            {/* Selector de Equipo del Cliente Filtrado */}
-            <div className="p-3 bg-white rounded-xl border border-slate-200">
-              <label className="block text-[10px] font-black text-slate-600 uppercase mb-1 flex items-center gap-1">
-                <Cpu className="w-3.5 h-3.5 text-[#0196C1]" /> Seleccionar Equipo Registrado del Cliente ({selectedClient?.name || 'Cliente'}):
-              </label>
-              <div className="flex gap-2">
+            {/* Campo Desplegable: Equipo / Marca desde el Catálogo */}
+            <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                <div>
+                  <label className="text-[11px] font-black text-slate-800 uppercase flex items-center gap-1.5">
+                    <Box className="w-4 h-4 text-[#0196C1]" /> Campo: Equipo / Marca (Desplegable del Catálogo)
+                  </label>
+                  <span className="text-[10px] text-slate-500 block">
+                    Selecciona un producto/equipo del catálogo o escribe libremente abajo en Marca y Modelo
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-extrabold text-[#0196C1] bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
+                    {clientEquipments.length + generalEquipmentCatalog.length + inventoryEquipmentProducts.length} en catálogo
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewEqBrand(eqBrand || '');
+                      setNewEqModel(eqModel || '');
+                      setShowNewEquipmentModal(true);
+                    }}
+                    className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-black rounded-lg flex items-center gap-1 cursor-pointer transition-colors shadow-2xs shrink-0"
+                    title="Registrar una nueva marca o producto en el catálogo permanente"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> + Nueva Marca / Producto
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
                 <select
                   value={selectedEquipmentId}
-                  onChange={e => {
-                    const val = e.target.value;
-                    setSelectedEquipmentId(val);
-                    if (val === 'new_other') {
-                      setShowNewEquipmentModal(true);
-                      return;
-                    }
-                    const found = clientEquipments.find(eq => eq.id === val);
-                    if (found) {
-                      setEqBrand(found.brand || '');
-                      setEqModel(found.model || '');
-                      setEqSerial(found.serialNumber || '');
-                      setEqCapacity(found.capacity || '');
-                      setEqVoltage(found.voltage || '');
-                      if (found.name?.toLowerCase().includes('secador')) setEqType('Secador');
-                      else if (found.name?.toLowerCase().includes('aire')) setEqType('Aire Acondicionado');
-                      else if (found.name?.toLowerCase().includes('chiller') || found.name?.toLowerCase().includes('bomba')) setEqType('Otros');
-                      else setEqType('Compresor');
-                      if (found.dataPlatePhotoUrl) setDataPlatePhotoUrl(found.dataPlatePhotoUrl);
-                    }
-                  }}
-                  className="flex-1 text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
+                  onChange={e => handleEquipmentCatalogSelect(e.target.value)}
+                  className="flex-1 text-xs p-2.5 bg-slate-50 hover:bg-sky-50/40 border border-slate-200 focus:border-[#0196C1] rounded-xl outline-none font-bold text-slate-800 transition-colors"
                 >
-                  <option value="">-- Seleccionar de equipos registrados del cliente ({clientEquipments.length} equipos) --</option>
-                  {clientEquipments.map(eq => (
-                    <option key={eq.id} value={eq.id}>
-                      {eq.brand} {eq.model} | Serie: {eq.serialNumber || 'S/N'} | {eq.capacity || ''} ({eq.voltage || ''})
+                  <option value="">-- Seleccionar Equipo o Producto del Catálogo ({clientEquipments.length + generalEquipmentCatalog.length + inventoryEquipmentProducts.length} disponibles) --</option>
+                  
+                  {eqBrand && (
+                    <option value="__CUSTOM_MANUAL__">
+                      ✏️ Editando libremente: {eqBrand} {eqModel} {eqSerial ? `(Serie: ${eqSerial})` : ''}
                     </option>
-                  ))}
-                  <option value="new_other">+ [Otros] Registrar Nuevo Equipo para este Cliente...</option>
+                  )}
+
+                  {clientEquipments.length > 0 && (
+                    <optgroup label={`⭐ Equipos Registrados del Cliente (${selectedClient?.name || 'Cliente Actual'})`}>
+                      {clientEquipments.map(eq => (
+                        <option key={eq.id} value={`client_eq_${eq.id}`}>
+                          {eq.brand} {eq.model} | Serie: {eq.serialNumber || 'S/N'} | {eq.capacity || ''} ({eq.voltage || ''})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+
+                  {generalEquipmentCatalog.length > 0 && (
+                    <optgroup label="🏢 Catálogo General de Equipos & Maquinaria MVL">
+                      {generalEquipmentCatalog.map(eq => (
+                        <option key={eq.id} value={`gen_eq_${eq.id}`}>
+                          {eq.brand} {eq.model} ({eq.type || 'Equipo'}) - {eq.capacity || ''} {eq.serialNumber ? `| Serie: ${eq.serialNumber}` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+
+                  {inventoryEquipmentProducts.length > 0 && (
+                    <optgroup label="📦 Productos & Unidades en Almacén / Catálogo">
+                      {inventoryEquipmentProducts.map(inv => (
+                        <option key={inv.id} value={`inv_${inv.id}`}>
+                          {inv.brand || 'OEM'} - {inv.name} (Código: {inv.code})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+
+                  <option value="__NEW_EQUIPMENT_BRAND__" className="text-purple-700 font-black">
+                    ➕ + [Crear Registro] Nueva Marca o Producto en el Catálogo...
+                  </option>
+                  <option value="__CUSTOM_MANUAL__">
+                    ✏️ Modo Libre: Escribir Marca y Producto Manualmente...
+                  </option>
                 </select>
 
                 <button
                   type="button"
-                  onClick={() => setShowNewEquipmentModal(true)}
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1 cursor-pointer shrink-0"
+                  onClick={() => {
+                    setNewEqBrand(eqBrand || '');
+                    setNewEqModel(eqModel || '');
+                    setShowNewEquipmentModal(true);
+                  }}
+                  className="px-3 py-2 bg-slate-100 hover:bg-purple-50 text-slate-700 hover:text-purple-700 border border-slate-200 hover:border-purple-300 text-xs font-bold rounded-xl flex items-center justify-center gap-1 cursor-pointer shrink-0 transition-colors"
+                  title="Abrir formulario para dar de alta una nueva marca o equipo en el catálogo"
                 >
-                  <Plus className="w-3.5 h-3.5 text-[#0196C1]" /> Nuevo Equipo
+                  <Plus className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Nuevo Registro</span>
                 </button>
               </div>
             </div>
 
+            {/* Casillas de Edición Directa de Marca, Modelo, Tipo, Serie, Capacidad y Voltaje */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <div>
                 <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Tipo de Equipo</label>
@@ -3050,25 +3257,42 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
               </div>
 
               <div>
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Marca</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase">Marca (Editable)</label>
+                  <span className="text-[9px] text-[#0196C1] font-bold">Catálogo/Libre</span>
+                </div>
                 <input
                   type="text"
+                  list="mvl-brands-catalog-list"
                   value={eqBrand}
                   onChange={e => setEqBrand(e.target.value)}
-                  placeholder="Kaeser, York..."
-                  className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none font-bold"
+                  placeholder="Kaeser, York, Atlas Copco..."
+                  className="w-full text-xs p-2 bg-white border border-slate-200 focus:border-[#0196C1] rounded-lg outline-none font-bold text-slate-800 focus:ring-1 focus:ring-[#0196C1]"
                 />
+                <datalist id="mvl-brands-catalog-list">
+                  {knownBrandsList.map(b => (
+                    <option key={b} value={b} />
+                  ))}
+                </datalist>
               </div>
 
               <div>
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Modelo</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase">Modelo / Producto (Editable)</label>
+                </div>
                 <input
                   type="text"
+                  list="mvl-models-catalog-list"
                   value={eqModel}
                   onChange={e => setEqModel(e.target.value)}
-                  placeholder="BSD 50, AS 30 T..."
-                  className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none font-bold"
+                  placeholder="BSD 50, AS 30 T, YHKE..."
+                  className="w-full text-xs p-2 bg-white border border-slate-200 focus:border-[#0196C1] rounded-lg outline-none font-bold text-slate-800 focus:ring-1 focus:ring-[#0196C1]"
                 />
+                <datalist id="mvl-models-catalog-list">
+                  {knownModelsList.map(m => (
+                    <option key={m} value={m} />
+                  ))}
+                </datalist>
               </div>
 
               <div>
@@ -3091,7 +3315,7 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                   value={eqCapacity}
                   onChange={e => setEqCapacity(e.target.value)}
                   placeholder="50 HP / 1.5 TR"
-                  className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none"
+                  className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none font-bold text-slate-800"
                 />
               </div>
 
@@ -3102,9 +3326,62 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                   value={eqVoltage}
                   onChange={e => setEqVoltage(e.target.value)}
                   placeholder="220V 3F, 440V"
-                  className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none"
+                  className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none text-slate-800"
                 />
               </div>
+            </div>
+
+            {/* Banner de Ayuda y Guardado Rápido */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-sky-50/70 rounded-xl border border-sky-200/80 text-[11px]">
+              <div className="flex items-center gap-2 text-slate-700">
+                <CheckCircle2 className="w-4 h-4 text-[#0196C1] shrink-0" />
+                <span>
+                  <strong>Equipo / Marca 100% editable:</strong> Puedes seleccionarlo desde el desplegable del catálogo o escribir directamente la marca y modelo en las casillas.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!eqBrand.trim()) {
+                    alert('Por favor escribe al menos una marca para guardar en el catálogo.');
+                    return;
+                  }
+                  if (setEquipment) {
+                    const alreadyExists = equipment.some(e => e.brand.toLowerCase() === eqBrand.trim().toLowerCase() && e.model.toLowerCase() === eqModel.trim().toLowerCase());
+                    if (alreadyExists) {
+                      alert(`El registro "${eqBrand} ${eqModel}" ya está dado de alta en el catálogo.`);
+                      return;
+                    }
+                    const newEq: Equipment = {
+                      id: 'eq_' + Date.now(),
+                      clientId: selectedClientId || 'general_catalog',
+                      plantId: selectedClient?.plants?.[0]?.id || 'p_1',
+                      name: `${eqBrand.trim()} ${eqModel.trim() || 'Equipo'}`,
+                      brand: eqBrand.trim(),
+                      model: eqModel.trim() || 'Estándar',
+                      serialNumber: eqSerial.trim() || `SN-${Date.now().toString().slice(-4)}`,
+                      capacity: eqCapacity.trim() || 'N/A',
+                      voltage: eqVoltage || '220V 3F',
+                      filtersRequired: 'Kit estándar',
+                      engineHours: 1000,
+                      oilType: 'Sintético S-460',
+                      lastMaintenance: new Date().toISOString().split('T')[0],
+                      nextMaintenance: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
+                      status: 'active',
+                      type: eqType === 'Compresor' ? 'compresor' : eqType === 'Secador' ? 'secador' : eqType === 'Aire Acondicionado' ? 'aire_acondicionado' : 'otros',
+                      dataPlatePhotoUrl: dataPlatePhotoUrl || undefined
+                    };
+                    setEquipment(prev => [newEq, ...prev]);
+                    saveToStorage('mvl_equipment', [newEq, ...equipment]);
+                    persistEquipmentToSupabase(newEq).catch(err => console.warn(err));
+                    alert(`✓ "${eqBrand} ${eqModel}" guardado con éxito en el catálogo de productos y marcas.`);
+                  }
+                }}
+                className="px-2.5 py-1 bg-white hover:bg-sky-100 text-[#0196C1] border border-sky-300 rounded-lg font-bold text-[10px] cursor-pointer flex items-center gap-1 shrink-0 self-start sm:self-auto transition-all shadow-2xs"
+                title="Guardar la marca y modelo actuales en el catálogo permanente de MVL"
+              >
+                <Plus className="w-3 h-3" /> Guardar marca/producto actual en catálogo
+              </button>
             </div>
 
             {/* ADJUNTOS TÉCNICOS */}
@@ -4154,6 +4431,14 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
             </div>
           </div>
 
+          {/* FIRMA DIGITAL DEL ASESOR / USUARIO EMISOR */}
+          <DigitalSignaturePad
+            signerName={agentName || 'Ing. Responsable MVL'}
+            initialSignature={agentSignatureData || undefined}
+            onSignatureChange={setAgentSignatureData}
+            title="Firma Digital del Asesor / Usuario Emisor"
+          />
+
           {/* BOTONES DE ACCIÓN: GUARDAR COTIZACIÓN & GUARDAR COMO BORRADOR/PENDIENTE DE INVENTARIO */}
           <div className="pt-4 flex flex-col sm:flex-row gap-3 border-t border-slate-100">
             <button
@@ -4563,14 +4848,14 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
         </div>
       )}
 
-      {/* REGISTRAR NUEVO EQUIPO MODAL (OTROS / MANUAL) */}
+      {/* REGISTRAR NUEVO EQUIPO / PRODUCTO O MARCA MODAL */}
       {showNewEquipmentModal && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-200">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-purple-600" />
-                Registrar Nuevo Equipo en Catálogo del Cliente
+                <Box className="w-5 h-5 text-purple-600" />
+                Registrar Nuevo Producto, Equipo o Marca en Catálogo
               </h3>
               <button onClick={() => setShowNewEquipmentModal(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
                 <X className="w-5 h-5" />
@@ -4578,12 +4863,78 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
             </div>
 
             <p className="text-xs text-slate-500">
-              Registra un nuevo equipo para <strong>{selectedClient?.name || 'este cliente'}</strong>. Se guardará permanentemente en su expediente técnico y se vinculará de inmediato a esta cotización.
+              Registra una nueva marca o producto. Se guardará permanentemente en el catálogo y se vinculará de inmediato a esta cotización.
             </p>
 
+            {/* Ámbito de Registro: Catálogo General o Cliente Específico */}
+            <div className="p-2.5 bg-purple-50/70 rounded-xl border border-purple-200 space-y-1.5">
+              <label className="block text-[10px] font-black text-purple-900 uppercase">
+                Destino del Registro en Catálogo:
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNewEqTarget('general')}
+                  className={`p-2 rounded-lg text-xs font-bold text-left cursor-pointer transition-all border ${
+                    newEqTarget === 'general'
+                      ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                      : 'bg-white text-purple-900 border-purple-200 hover:bg-purple-100'
+                  }`}
+                >
+                  <span className="block font-black">🏢 Catálogo General MVL</span>
+                  <span className={`text-[9px] block ${newEqTarget === 'general' ? 'text-purple-200' : 'text-purple-600'}`}>Disponible para todos los clientes</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewEqTarget('client')}
+                  className={`p-2 rounded-lg text-xs font-bold text-left cursor-pointer transition-all border ${
+                    newEqTarget === 'client'
+                      ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                      : 'bg-white text-purple-900 border-purple-200 hover:bg-purple-100'
+                  }`}
+                >
+                  <span className="block font-black truncate">⭐ {selectedClient?.name || 'Cliente Actual'}</span>
+                  <span className={`text-[9px] block ${newEqTarget === 'client' ? 'text-purple-200' : 'text-purple-600'}`}>Asignado solo a este cliente</span>
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Marca con Pills de Marcas Populares */}
+              <div className="sm:col-span-2 space-y-1">
+                <div className="flex justify-between items-center">
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase">Marca del Equipo / Producto *</label>
+                  <span className="text-[9px] text-purple-600 font-bold">Selecciona o escribe una nueva</span>
+                </div>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Kaeser, York, Carrier, Trane, Atlas Copco..."
+                  value={newEqBrand}
+                  onChange={e => setNewEqBrand(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 focus:border-purple-600 rounded-xl outline-none font-bold text-slate-800"
+                />
+                {/* Pills sugeridas */}
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {['Kaeser', 'Atlas Copco', 'Ingersoll Rand', 'Sullair', 'York', 'Carrier', 'Trane', 'Daikin', 'Midea', 'CompAir'].map(brandPreset => (
+                    <button
+                      key={brandPreset}
+                      type="button"
+                      onClick={() => setNewEqBrand(brandPreset)}
+                      className={`text-[9px] font-bold px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
+                        newEqBrand.toLowerCase() === brandPreset.toLowerCase()
+                          ? 'bg-purple-600 text-white border-purple-600'
+                          : 'bg-slate-100 hover:bg-purple-100 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {brandPreset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="sm:col-span-2">
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Tipo de Equipo</label>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Tipo de Equipo / Categoría</label>
                 <select
                   value={newEqType}
                   onChange={e => setNewEqType(e.target.value as any)}
@@ -4608,25 +4959,15 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                 )}
               </div>
 
-              <div>
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Marca</label>
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Modelo / Nombre del Producto *</label>
                 <input
                   type="text"
-                  placeholder="Ej. Kaeser, Atlas Copco, York, Trane..."
-                  value={newEqBrand}
-                  onChange={e => setNewEqBrand(e.target.value)}
-                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Modelo</label>
-                <input
-                  type="text"
-                  placeholder="Ej. BSD 50, CSD 75, YHKE..."
+                  required
+                  placeholder="Ej. BSD 50, CSD 75, YHKE 1.5 TR, Compresor 25 HP..."
                   value={newEqModel}
                   onChange={e => setNewEqModel(e.target.value)}
-                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold"
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 focus:border-purple-600 rounded-xl outline-none font-bold text-slate-800"
                 />
               </div>
 
@@ -4636,7 +4977,7 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                 </label>
                 <input
                   type="text"
-                  placeholder="Ej. SN-994821, 1030"
+                  placeholder="Ej. SN-994821, 1030 (Opcional)"
                   value={newEqSerial}
                   onChange={e => setNewEqSerial(e.target.value)}
                   className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-mono font-bold text-slate-800"
@@ -4728,7 +5069,7 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                 onClick={handleSaveNewEquipmentModal}
                 className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black rounded-xl cursor-pointer shadow-xs"
               >
-                Guardar Equipo y Asignar
+                ✓ Guardar en Catálogo y Seleccionar
               </button>
             </div>
           </div>
@@ -5067,16 +5408,49 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
               </div>
 
               {/* SIGNATURE AREA WITH DIGITAL SIGNATURE DINÁMICA DEL SOCIO EMISOR */}
-              <div className="pt-6 border-t border-slate-200 flex flex-col items-center justify-center text-center space-y-1">
-                <div className="font-serif italic text-lg text-slate-700 font-bold border-b border-slate-300 pb-1 px-8">
-                  {selectedQuoteForPreview.issuerPartnerName || selectedQuoteForPreview.agentName || 'Ing. Leonardo Daniel Torres Ojeda'}
+              <div className="pt-6 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-6 text-center">
+                {/* Asesor / Usuario Emisor Firma */}
+                <div className="flex flex-col items-center justify-center space-y-1">
+                  {selectedQuoteForPreview.agentSignatureUrl || selectedQuoteForPreview.issuerSignatureUrl ? (
+                    <img
+                      src={selectedQuoteForPreview.agentSignatureUrl || selectedQuoteForPreview.issuerSignatureUrl}
+                      alt="Firma del Asesor Emisor"
+                      className="h-16 max-w-[200px] object-contain border-b border-slate-300 pb-1"
+                    />
+                  ) : (
+                    <div className="font-serif italic text-base text-slate-700 font-bold border-b border-slate-300 pb-1 px-8 min-w-[200px]">
+                      {selectedQuoteForPreview.agentName || selectedQuoteForPreview.issuerPartnerName || 'Ing. Responsable MVL'}
+                    </div>
+                  )}
+                  <p className="text-xs font-black text-slate-800 mt-1">
+                    {selectedQuoteForPreview.agentName || selectedQuoteForPreview.issuerPartnerName || 'Ing. Víctor Pedro Ramírez Barrios'}
+                  </p>
+                  <p className="text-[10px] text-slate-600 font-bold">
+                    Asesor Técnico Comercial • MVL Maquinaria
+                  </p>
+                  <p className="text-[9px] text-slate-400">
+                    {selectedQuoteForPreview.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'} | RFC: {selectedQuoteForPreview.issuerPartnerRfc || 'RABV891002TF6'}
+                  </p>
+                  <span className="text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 mt-0.5">
+                    ✓ Firma Digital Registrada
+                  </span>
                 </div>
-                <p className="text-xs font-bold text-slate-800">
-                  {selectedQuoteForPreview.issuerSignatureName || 'Firma Digital Válida / Representante Autorizado MVL'}
-                </p>
-                <p className="text-[10px] text-slate-500">
-                  {selectedQuoteForPreview.issuerPartnerBusinessName || 'MVL Control y Mantenimiento'} | RFC: {selectedQuoteForPreview.issuerPartnerRfc || 'RABV891002TF6'}
-                </p>
+
+                {/* Aceptación y Visto Bueno del Cliente */}
+                <div className="flex flex-col items-center justify-center space-y-1">
+                  <div className="h-16 flex items-end justify-center border-b border-slate-300 pb-1 px-8 min-w-[200px]">
+                    <span className="text-slate-300 text-xs italic">Sello y Firma del Cliente</span>
+                  </div>
+                  <p className="text-xs font-bold text-slate-800 mt-1">
+                    {selectedQuoteForPreview.contactName || selectedQuoteForPreview.clientName}
+                  </p>
+                  <p className="text-[10px] text-slate-500 font-medium">
+                    {selectedQuoteForPreview.contactRole || 'Aceptación y Visto Bueno del Cliente'}
+                  </p>
+                  <p className="text-[9px] text-slate-400">
+                    Recepción de Cotización / Autorización de Orden de Compra (OC)
+                  </p>
+                </div>
               </div>
             </div>
           </div>

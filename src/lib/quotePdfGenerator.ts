@@ -390,7 +390,17 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
     if (sigY < 255) {
       const sigColW = 80;
 
-      // Left Signature: Asesor MVL
+      // Left Signature: Asesor MVL / Usuario Emisor
+      const sigImg = quote.agentSignatureUrl || quote.issuerSignatureUrl;
+      if (sigImg) {
+        try {
+          // Embed signature image centered above the signature line
+          doc.addImage(sigImg, 'PNG', margin + 10 + 15, sigY - 7, 50, 14);
+        } catch (e) {
+          console.warn('Error embedding signature image in PDF:', e);
+        }
+      }
+
       doc.setDrawColor(148, 163, 184);
       doc.setLineWidth(0.3);
       doc.line(margin + 10, sigY + 8, margin + 10 + sigColW, sigY + 8);
@@ -398,12 +408,13 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
       doc.setFont('Helvetica', 'bold');
       doc.setFontSize(7.5);
       doc.setTextColor(15, 23, 42);
-      doc.text(quote.agentName || 'Ing. Víctor Pedro Ramírez Barrios', margin + 10 + sigColW / 2, sigY + 11.5, { align: 'center' });
+      const issuerName = quote.agentName || quote.issuerPartnerName || 'Ing. Víctor Pedro Ramírez Barrios';
+      doc.text(issuerName, margin + 10 + sigColW / 2, sigY + 11.5, { align: 'center' });
 
       doc.setFont('Helvetica', 'normal');
       doc.setFontSize(6.5);
       doc.setTextColor(100, 116, 139);
-      doc.text('Asesor Técnico Responsable  |  MVL Maquinaria', margin + 10 + sigColW / 2, sigY + 14.5, { align: 'center' });
+      doc.text('Asesor Técnico Comercial / Emisor Autorizado MVL', margin + 10 + sigColW / 2, sigY + 14.5, { align: 'center' });
 
       // Right Signature: Visto Bueno Cliente
       const sigRightX = pageWidth - margin - sigColW - 10;
@@ -412,12 +423,13 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
       doc.setFont('Helvetica', 'bold');
       doc.setFontSize(7.5);
       doc.setTextColor(15, 23, 42);
-      doc.text('Aceptación y Visto Bueno del Cliente', sigRightX + sigColW / 2, sigY + 11.5, { align: 'center' });
+      const clientSigner = quote.contactName ? `${quote.contactName}` : 'Aceptación y Visto Bueno del Cliente';
+      doc.text(clientSigner, sigRightX + sigColW / 2, sigY + 11.5, { align: 'center' });
 
       doc.setFont('Helvetica', 'normal');
       doc.setFontSize(6.5);
       doc.setTextColor(100, 116, 139);
-      doc.text('Firma, Sello y Orden de Compra (OC)', sigRightX + sigColW / 2, sigY + 14.5, { align: 'center' });
+      doc.text(quote.contactRole ? `${quote.contactRole} • Firma & Sello OC` : 'Firma, Sello y Orden de Compra (OC)', sigRightX + sigColW / 2, sigY + 14.5, { align: 'center' });
     }
   }
 
