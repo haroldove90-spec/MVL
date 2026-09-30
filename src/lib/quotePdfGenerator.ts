@@ -372,18 +372,28 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
     doc.setLineWidth(0.2);
     doc.roundedRect(margin, termsY, contentWidth, termsH, 1, 1, 'FD');
 
+    const conditionsText = quote.commercialConditions || 
+      `• Tiempo de Entrega: ${quote.deliveryLeadTime || 'Inmediata'}\n` +
+      `• Moneda: Pesos Mexicanos (MXN) con IVA del 16% incluido.\n` +
+      `• Garantía: 3 a 6 meses en refacciones originales y mano de obra técnica certificada.\n` +
+      `• Transferencias a: BBVA Bancomer | Beneficiario: Víctor Pedro Ramírez Barrios / MVL | CLABE: 012 225 01548962314 8`;
+    
+    const lines = conditionsText.split('\n').filter(l => l.trim() !== '');
+
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(6.5);
     doc.setTextColor(15, 23, 42);
     doc.text('CONDICIONES COMERCIALES DE VENTA Y PAGO:', margin + 3, termsY + 4);
-
+    
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(6.5);
     doc.setTextColor(71, 85, 105);
-    doc.text(`• Tiempo de Entrega: ${quote.deliveryLeadTime || 'Inmediata'}`, margin + 3, termsY + 8);
-    doc.text(`• Moneda: Pesos Mexicanos (MXN) con IVA del 16% incluido.`, margin + 3, termsY + 11.5);
-    doc.text(`• Garantía: 3 a 6 meses en refacciones originales y mano de obra técnica certificada.`, margin + 3, termsY + 15);
-    doc.text(`• Transferencias a: BBVA Bancomer | Beneficiario: Víctor Pedro Ramírez Barrios / MVL | CLABE: 012 225 01548962314 8`, margin + 3, termsY + 18.5);
+
+    let lineY = termsY + 8;
+    lines.forEach(line => {
+      doc.text(line, margin + 3, lineY);
+      lineY += 3.5;
+    });
 
     // Signatures Area
     const sigY = termsY + termsH + 6;
