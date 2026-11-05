@@ -262,6 +262,7 @@ export default function CoordinatorDashboard({
           staff={staff}
           workOrders={workOrders}
           setWorkOrders={setWorkOrders}
+          mode="form_only"
         />
       </div>
     );
@@ -284,8 +285,8 @@ export default function CoordinatorDashboard({
         <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs flex justify-between items-center">
           <div>
             <span className="text-[10px] font-black uppercase text-[#0196C1] tracking-wider">Historial de Expedientes</span>
-            <h2 className="text-lg font-black text-slate-800">Todas las Cotizaciones & Registros</h2>
-            <p className="text-xs text-slate-500">Consulta y administra todas las cotizaciones guardadas en el sistema.</p>
+            <h2 className="text-lg font-black text-slate-800">Historial de Cotizaciones</h2>
+            <p className="text-xs text-slate-500">Buscador inteligente, métricas y filtros por estatus de cotizaciones anteriores y vigentes.</p>
           </div>
           <button
             type="button"
@@ -305,6 +306,7 @@ export default function CoordinatorDashboard({
           staff={staff}
           workOrders={workOrders}
           setWorkOrders={setWorkOrders}
+          mode="list_only"
         />
       </div>
     );

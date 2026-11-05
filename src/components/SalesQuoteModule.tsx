@@ -33,6 +33,7 @@ interface SalesQuoteModuleProps {
   staff: Staff[];
   workOrders?: WorkOrder[];
   setWorkOrders?: React.Dispatch<React.SetStateAction<WorkOrder[]>>;
+  mode?: 'form_only' | 'list_only' | 'full';
 }
 
 interface QuickTemplate {
@@ -280,7 +281,8 @@ export default function SalesQuoteModule({
   inventory,
   staff,
   workOrders = [],
-  setWorkOrders
+  setWorkOrders,
+  mode = 'full'
 }: SalesQuoteModuleProps) {
   const [quotes, setQuotes] = useState<Quote[]>(() =>
     loadFromStorage<Quote[]>('mvl_quotes', INITIAL_QUOTES)
@@ -329,7 +331,9 @@ export default function SalesQuoteModule({
     loadFromStorage<boolean>('mvl_show_quick_templates', true)
   );
 
-  const [activeView, setActiveView] = useState<'list' | 'new_quote' | 'new_client'>('list');
+  const [activeView, setActiveView] = useState<'list' | 'new_quote' | 'new_client'>(
+    mode === 'form_only' ? 'new_quote' : mode === 'list_only' ? 'list' : 'list'
+  );
   const [selectedQuoteForPreview, setSelectedQuoteForPreview] = useState<Quote | null>(null);
 
   // Email with Attached PDF Modal State
@@ -1902,10 +1906,14 @@ export default function SalesQuoteModule({
     } else {
       setEditingQuoteId(null);
       setDraftSavedNotice(null);
-      setActiveView('list');
+      if (mode !== 'form_only') {
+        setActiveView('list');
+      } else {
+        setDraftSavedNotice(`✅ Cotización ${newQ.folNum} generada y enviada a revisión del Admin exitosamente.`);
+      }
       // Automatically download official PDF with 1-click and notify user
       handleDownloadPdf(newQ);
-      setDownloadSuccessNotice(`✅ Cotización ${newQ.folNum} registrada con éxito en el historial y descargada automáticamente en PDF.`);
+      setDownloadSuccessNotice(`✅ Cotización ${newQ.folNum} registrada con éxito y enviada a revisión del Admin.`);
       setPostCreationPromptQuote(newQ);
     }
   };
