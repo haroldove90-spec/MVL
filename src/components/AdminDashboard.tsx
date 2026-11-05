@@ -22,6 +22,11 @@ import {
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import SalesCatalogModule from './SalesCatalogModule';
+import { Quote } from '../types';
+import { NotificationBellModal } from './NotificationBellModal';
+import { addNotification } from '../lib/notificationStore';
+import { playBeepSound } from '../lib/notificationService';
+
 interface AdminDashboardProps {
   staff: Staff[];
   setStaff: React.Dispatch<React.SetStateAction<Staff[]>>;
@@ -35,8 +40,8 @@ interface AdminDashboardProps {
   setWorkOrders?: React.Dispatch<React.SetStateAction<WorkOrder[]>>;
   purchaseOrders?: PurchaseOrder[];
   setPurchaseOrders?: React.Dispatch<React.SetStateAction<PurchaseOrder[]>>;
-  activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial';
-  setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial') => void;
+  activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'quote_authorizations' | 'tutorial';
+  setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'quote_authorizations' | 'tutorial') => void;
   currentUser?: UserAccount | null;
   onCleanDemoData?: () => void;
   onSwitchRole?: (role: UserRole) => void;
@@ -62,7 +67,7 @@ export default function AdminDashboard({
   onSwitchRole
 }: AdminDashboardProps) {
   // Navigation tabs with parent-control fallback
-  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial'>('financial');
+  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'quote_authorizations' | 'tutorial'>('financial');
   const activeTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
   const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
 
@@ -1046,6 +1051,8 @@ export default function AdminDashboard({
             <Database className="w-4 h-4 text-emerald-400" />
             <span>SQL Supabase</span>
           </button>
+
+          <NotificationBellModal role="admin" />
         </div>
       </div>
 
@@ -1146,6 +1153,111 @@ export default function AdminDashboard({
                 <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Mis Equipos, IoT y Fallas</p>
               </div>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* --- Tab: Autorización de Cotizaciones --- */}
+      {activeTab === 'quote_authorizations' && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6 text-left">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <span className="text-[10px] font-black uppercase text-amber-600 tracking-wider">Módulo de Dirección</span>
+              <h2 className="text-lg font-black text-slate-800">Autorización de Cotizaciones de Ventas</h2>
+              <p className="text-xs text-slate-500">Revisa las cotizaciones generadas por el equipo de ventas pendientes de revisión y autorízalas con 1 clic.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold bg-amber-50 text-amber-800 px-3 py-1.5 rounded-xl border border-amber-200">
+                Pendientes: {loadFromStorage<Quote[]>('mvl_quotes', []).filter(q => q.status === 'pendiente_revision' || !q.status || q.status === 'draft').length}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {loadFromStorage<Quote[]>('mvl_quotes', []).length === 0 ? (
+              <div className="py-12 text-center text-slate-400 text-xs italic">
+                No hay cotizaciones registradas en el sistema.
+              </div>
+            ) : (
+              loadFromStorage<Quote[]>('mvl_quotes', []).map(q => {
+                const isPending = q.status === 'pendiente_revision' || !q.status || q.status === 'draft';
+                const isAuthorized = q.status === 'autorizada' || q.status === 'approved';
+
+                return (
+                  <div key={q.id} className={`p-4 rounded-xl border transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${
+                    isPending ? 'bg-amber-50/50 border-amber-200' : 'bg-white border-slate-200'
+                  }`}>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-black text-[#0196C1] uppercase bg-sky-100 px-2 py-0.5 rounded">{q.folNum}</span>
+                        <span className="text-xs font-bold text-slate-800">{q.clientName}</span>
+                        <span className="text-[10px] text-slate-400">({q.date})</span>
+
+                        {isPending ? (
+                          <span className="text-[9px] font-black uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
+                            ⏳ Pendiente de revisión
+                          </span>
+                        ) : isAuthorized ? (
+                          <span className="text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">
+                            ✅ Autorizada por Dirección
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-black uppercase bg-sky-100 text-sky-800 px-2 py-0.5 rounded">
+                            {q.status}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-600 font-medium">{q.concept}</p>
+                      <div className="text-[10px] text-slate-500 flex gap-3 flex-wrap">
+                        <span>Asesor: <strong>{q.agentName || 'Ventas'}</strong></span>
+                        <span>•</span>
+                        <span>Total: <strong className="text-slate-800">${q.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</strong></span>
+                        <span>•</span>
+                        <span>Entrega: <strong>{q.deliveryLeadTime || 'Inmediata'}</strong></span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                      {isPending && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = loadFromStorage<Quote[]>('mvl_quotes', []).map(item => {
+                              if (item.id === q.id) {
+                                return { ...item, status: 'autorizada' as const };
+                              }
+                              return item;
+                            });
+                            saveToStorage('mvl_quotes', updated);
+                            addNotification({
+                              title: 'Cotización Autorizada por Dirección',
+                              message: `La cotización ${q.folNum} para ${q.clientName} ha sido AUTORIZADA por el Administrador.`,
+                              type: 'quote_authorized',
+                              quoteFolNum: q.folNum,
+                              targetRole: 'coordinator'
+                            });
+                            playBeepSound();
+                            window.location.reload();
+                          }}
+                          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 transition-all"
+                        >
+                          <CheckCircle2 className="w-4 h-4" /> Autorizar Cotización
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          import('../lib/quotePdfGenerator').then(m => m.downloadQuoteAsPdf(q));
+                        }}
+                        className="px-3 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5"
+                      >
+                        <FileText className="w-4 h-4" /> PDF
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}

@@ -9,10 +9,11 @@ import {
   Calendar, Plus, Clock, FileCheck, CheckCircle2, 
   MapPin, UserCheck, AlertCircle, FileEdit, Eye, Check,
   BookOpen, HelpCircle, Lightbulb, PlayCircle, ChevronRight, Wrench, ShieldCheck,
-  Package, Layers
+  Package, Layers, LayoutGrid
 } from 'lucide-react';
 import SalesQuoteModule from './SalesQuoteModule';
 import { SalesAgendaModule } from './SalesAgendaModule';
+import { NotificationBellModal } from './NotificationBellModal';
 
 export type CoordinatorFilterType = 
   | 'quotes' 
@@ -209,7 +210,20 @@ export default function CoordinatorDashboard({
         type="button"
         onClick={() => setStatusFilter('all')}
         className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-          ['all', 'pending', 'in_progress', 'review', 'completed'].includes(statusFilter)
+          statusFilter === 'all' 
+            ? 'bg-[#0196C1] text-white shadow-xs' 
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        }`}
+      >
+        <LayoutGrid className="w-4 h-4 text-sky-300" />
+        <span>2. Historial Cotizaciones</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setStatusFilter('pending')}
+        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          ['pending', 'in_progress', 'review', 'completed'].includes(statusFilter)
             ? 'bg-slate-800 text-white shadow-xs' 
             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
         }`}
@@ -218,18 +232,21 @@ export default function CoordinatorDashboard({
         <span>4. Órdenes de Trabajo OT ({workOrders.length})</span>
       </button>
 
-      <button
-        type="button"
-        onClick={() => setStatusFilter('tutorial')}
-        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ml-auto ${
-          statusFilter === 'tutorial' 
-            ? 'bg-[#0196C1] text-white shadow-xs' 
-            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-        }`}
-      >
-        <BookOpen className="w-4 h-4" />
-        <span>Guía</span>
-      </button>
+      <div className="ml-auto flex items-center gap-2">
+        <NotificationBellModal role="coordinator" />
+        <button
+          type="button"
+          onClick={() => setStatusFilter('tutorial')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            statusFilter === 'tutorial' 
+              ? 'bg-[#0196C1] text-white shadow-xs' 
+              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Guía</span>
+        </button>
+      </div>
     </div>
   );
 

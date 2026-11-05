@@ -10,7 +10,7 @@ import {
   ArrowLeft, LogOut, Check, Sparkles, AlertCircle, RefreshCw,
   LayoutGrid, DollarSign, Users, Layers, Package, Clock,
   FileText, Calendar, AlertOctagon, BookOpen, FileCheck, ShieldCheck, ChevronRight, Wrench,
-  Compass, UserCheck
+  Compass, UserCheck, Award
 } from 'lucide-react';
 
 // Data models & Storage helpers
@@ -92,7 +92,7 @@ export default function App() {
   };
 
   // --- Sub-module Tab/Filter States ---
-  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'tutorial'>(() => {
+  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'quote_authorizations' | 'tutorial'>(() => {
     const saved = loadFromStorage<string>('mvl_admin_tab', 'financial');
     if (saved === 'customer_kits') return 'financial';
     return (saved as any) || 'financial';
@@ -362,6 +362,15 @@ export default function App() {
                       <span>Órdenes de Compra</span>
                     </button>
                     <button
+                      onClick={() => setAdminTab('quote_authorizations')}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        adminTab === 'quote_authorizations' ? 'bg-[#0196C1] text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <Award className="w-4 h-4 shrink-0 text-amber-400" />
+                      <span>Autorización Cotizaciones</span>
+                    </button>
+                    <button
                       onClick={() => setAdminTab('expense_control')}
                       className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                         adminTab === 'expense_control' ? 'bg-[#0196C1] text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -401,7 +410,7 @@ export default function App() {
                       }`}
                     >
                       <LayoutGrid className="w-4 h-4 shrink-0" />
-                      <span>Todas las GT</span>
+                      <span>Historial Cotizaciones</span>
                     </button>
                     <button
                       onClick={() => setCoordFilter('agenda')}

@@ -7,7 +7,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Client, Equipment, InventoryItem, Quote, QuoteItem, Staff, WorkOrder, IssuerPartner, CustomerKitItem } from '../types';
 import { INITIAL_QUOTES, INITIAL_ISSUER_PARTNERS, INITIAL_CUSTOMER_KITS, loadFromStorage, saveToStorage } from '../mockData';
 import { persistClientToSupabase, persistEquipmentToSupabase, persistQuoteToSupabase, fetchQuotesFromSupabase } from '../lib/dataSyncService';
-import { getCurrentUser } from '../lib/authService';
+import { getCurrentUser } from './../lib/authService';
+import { addNotification } from '../lib/notificationStore';
 import jsPDF from 'jspdf';
 import { downloadQuoteAsPdf } from '../lib/quotePdfGenerator';
 import { TechnicalDocViewerModal, TechnicalDocViewerModalProps } from './TechnicalDocViewerModal';
@@ -1884,6 +1885,16 @@ export default function SalesQuoteModule({
     setQuotes(updated);
     saveToStorage('mvl_quotes', updated);
     persistQuoteToSupabase(newQ).catch(err => console.warn('Error syncing new quote to cloud:', err));
+
+    if (!isDraftOrPendingInventory) {
+      addNotification({
+        title: 'Nueva Cotización Pendiente de Autorización',
+        message: `El asesor ${agentName} generó la cotización ${newQ.folNum} (${newQ.clientName}) por $${newQ.total.toLocaleString('es-MX')} MXN. Requiere revisión de Dirección.`,
+        type: 'quote_pending',
+        quoteFolNum: newQ.folNum,
+        targetRole: 'admin'
+      });
+    }
 
     if (isDraftOrPendingInventory) {
       setEditingQuoteId(newQ.id);
