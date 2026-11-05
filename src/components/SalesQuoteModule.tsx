@@ -572,6 +572,7 @@ export default function SalesQuoteModule({
   );
   const [deliveryLeadTimeOption, setDeliveryLeadTimeOption] = useState<'auto' | 'inmediato' | 'sobre_pedido' | 'manual'>('auto');
   const [manualDeliveryTime, setManualDeliveryTime] = useState('Inmediata (Existencia en Almacén)');
+  const [clientRfcInput, setClientRfcInput] = useState('XAXX010101000');
 
   // Form states for adding items to Supply & Installation tables
   const [newEqItemDesc, setNewEqItemDesc] = useState('');
@@ -819,6 +820,8 @@ export default function SalesQuoteModule({
     setSelectedEquipmentId('');
     const foundClient = clients.find(c => c.id === clientId);
     if (foundClient) {
+      setPublicClientName(foundClient.name || '');
+      setClientRfcInput(foundClient.rfc || 'XAXX010101000');
       if (foundClient.plants && foundClient.plants.length > 0) {
         setSelectedPlantId(foundClient.plants[0].id);
         setSelectedPlantName(foundClient.plants[0].name);
@@ -1658,7 +1661,7 @@ export default function SalesQuoteModule({
             ...existing,
             concept: concept || defaultConcept,
             clientId: quoteOrigin === 'publico_general' ? 'publico' : selectedClientId,
-            clientName: quoteOrigin === 'publico_general' ? publicClientName : (selectedClient?.name || 'Cliente'),
+            clientName: publicClientName || selectedClient?.name || 'Cliente',
             subtotal: subtotalWithDiscount,
             tax,
             total,
@@ -1687,10 +1690,10 @@ export default function SalesQuoteModule({
             discountRequested: discountPercent > 0 ? discountPercent : undefined,
             discountAmount: discountAmount > 0 ? discountAmount : undefined,
             commercialConditions,
-            deliveryLeadTime: calculatedDeliveryTime,
+            deliveryLeadTime: manualDeliveryTime || calculatedDeliveryTime,
             agentName,
             clientAddress: selectedPlantAddress || selectedClient?.address || '',
-            clientRfc: selectedClient?.rfc || '',
+            clientRfc: clientRfcInput || selectedClient?.rfc || 'XAXX010101000',
             plantName: selectedPlantName,
             plantAddress: selectedPlantAddress,
             contactName: selectedContactName,
@@ -1763,7 +1766,7 @@ export default function SalesQuoteModule({
       id: 'q_' + Date.now(),
       folNum,
       clientId: quoteOrigin === 'publico_general' ? 'publico' : selectedClientId,
-      clientName: quoteOrigin === 'publico_general' ? publicClientName : (selectedClient?.name || 'Cliente'),
+      clientName: publicClientName || selectedClient?.name || 'Cliente',
       date: new Date().toISOString().split('T')[0],
       validUntil: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
       concept: concept || defaultConcept,
@@ -1795,10 +1798,10 @@ export default function SalesQuoteModule({
       discountRequested: discountPercent > 0 ? discountPercent : undefined,
       discountAmount: discountAmount > 0 ? discountAmount : undefined,
       commercialConditions,
-      deliveryLeadTime: calculatedDeliveryTime,
+      deliveryLeadTime: manualDeliveryTime || calculatedDeliveryTime,
       agentName,
       clientAddress: selectedPlantAddress || selectedClient?.address || '',
-      clientRfc: selectedClient?.rfc || '',
+      clientRfc: clientRfcInput || selectedClient?.rfc || 'XAXX010101000',
       plantName: selectedPlantName,
       plantAddress: selectedPlantAddress,
       contactName: selectedContactName,
@@ -2448,6 +2451,104 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
               >
                 {editingQuoteId ? 'Salir de Edición' : 'Cerrar Formulario'}
               </button>
+            </div>
+          </div>
+
+          {/* 1. DATOS DEL CLIENTE, PLANTA, CONTACTO Y TIEMPO DE ENTREGA */}
+          <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-3">
+            <div className="flex justify-between items-center">
+              <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
+                <Building2 className="w-4 h-4 text-[#0196C1]" /> 1. Datos del Cliente, Planta & Entrega
+              </label>
+              <select
+                value={selectedClientId}
+                onChange={e => handleClientChange(e.target.value)}
+                className="text-[10px] font-bold bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 outline-none cursor-pointer"
+                title="Cargar datos de un cliente registrado del catálogo"
+              >
+                <option value="" disabled>📂 Cargar datos de Cliente Registrado...</option>
+                {clients.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {/* Row 1, Col 1: Cliente / Razón Social (editable manual) */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-1.5">
+                <span className="text-[10px] font-black text-slate-500 uppercase block">Cliente / Razón Social</span>
+                <input
+                  type="text"
+                  placeholder="Nombre / Razón Social del Cliente"
+                  value={publicClientName}
+                  onChange={e => setPublicClientName(e.target.value)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800"
+                />
+              </div>
+
+              {/* Row 1, Col 2: Planta / Sucursal */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-1.5">
+                <span className="text-[10px] font-black text-slate-500 uppercase block">Planta / Sucursal</span>
+                <input
+                  type="text"
+                  placeholder="Planta Principal / Sucursal"
+                  value={selectedPlantName}
+                  onChange={e => setSelectedPlantName(e.target.value)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800"
+                />
+              </div>
+
+              {/* Row 1, Col 3: Tiempo de Entrega (Manual directo) */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-1.5">
+                <span className="text-[10px] font-black text-slate-500 uppercase block">Tiempo de Entrega</span>
+                <input
+                  type="text"
+                  placeholder="Ej. Inmediata (Existencia en Almacén)"
+                  value={manualDeliveryTime}
+                  onChange={e => setManualDeliveryTime(e.target.value)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800"
+                />
+              </div>
+
+              {/* Row 2, Col 1: RFC del Cliente */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-1.5">
+                <span className="text-[10px] font-black text-slate-500 uppercase block">RFC del Cliente</span>
+                <input
+                  type="text"
+                  placeholder="XAXX010101000"
+                  value={clientRfcInput}
+                  onChange={e => setClientRfcInput(e.target.value.toUpperCase())}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold font-mono text-slate-800"
+                />
+              </div>
+
+              {/* Row 2, Col 2: Atención / Contacto */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-1.5">
+                <span className="text-[10px] font-black text-slate-500 uppercase block">Atención / Contacto</span>
+                <input
+                  type="text"
+                  placeholder="Gerencia de Mantenimiento / Planta"
+                  value={selectedContactName}
+                  onChange={e => setSelectedContactName(e.target.value)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800"
+                />
+              </div>
+
+              {/* Row 2, Col 3: Asesor Responsable */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-1.5">
+                <span className="text-[10px] font-black text-slate-500 uppercase block">Asesor Responsable</span>
+                <select
+                  value={agentName}
+                  onChange={e => setAgentName(e.target.value)}
+                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-[#0196C1]"
+                >
+                  {eligibleSalesStaff.map(s => (
+                    <option key={s.id} value={s.name}>{s.name} ({s.customJobTitle || s.role})</option>
+                  ))}
+                  <option value="Ing. Víctor Pedro Ramírez Barrios">Ing. Víctor Pedro Ramírez Barrios</option>
+                  <option value="Ing. Leonardo Daniel Torres">Ing. Leonardo Daniel Torres</option>
+                </select>
+              </div>
             </div>
           </div>
 
