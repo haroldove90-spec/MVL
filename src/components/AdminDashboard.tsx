@@ -18,13 +18,13 @@ import {
   ShieldCheck, AlertTriangle, Building, Activity, FileText, Search, Edit2, Edit, X, Eye, RefreshCw,
   BookOpen, HelpCircle, Lightbulb, PlayCircle, CheckCircle2, ChevronRight, Info, Building2,
   Power, PowerOff, Copy, Send, Key, Database, LogOut, Check, Sparkles,
-  Compass, UserCheck, Wrench, FileCheck, ArrowRight, LayoutGrid
+  Compass, UserCheck, Wrench, FileCheck, ArrowRight, LayoutGrid, CheckCheck
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import SalesCatalogModule from './SalesCatalogModule';
 import { Quote } from '../types';
 import { NotificationBellModal } from './NotificationBellModal';
-import { addNotification } from '../lib/notificationStore';
+import { addNotification, getStoredNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../lib/notificationStore';
 import { playBeepSound } from '../lib/notificationService';
 
 interface AdminDashboardProps {
@@ -40,8 +40,8 @@ interface AdminDashboardProps {
   setWorkOrders?: React.Dispatch<React.SetStateAction<WorkOrder[]>>;
   purchaseOrders?: PurchaseOrder[];
   setPurchaseOrders?: React.Dispatch<React.SetStateAction<PurchaseOrder[]>>;
-  activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'quote_authorizations' | 'tutorial';
-  setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'quote_authorizations' | 'tutorial') => void;
+  activeTab?: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'quote_authorizations' | 'notifications' | 'tutorial';
+  setActiveTab?: (val: 'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'quote_authorizations' | 'notifications' | 'tutorial') => void;
   currentUser?: UserAccount | null;
   onCleanDemoData?: () => void;
   onSwitchRole?: (role: UserRole) => void;
@@ -67,7 +67,7 @@ export default function AdminDashboard({
   onSwitchRole
 }: AdminDashboardProps) {
   // Navigation tabs with parent-control fallback
-  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'quote_authorizations' | 'tutorial'>('financial');
+  const [localActiveTab, setLocalActiveTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'quote_authorizations' | 'notifications' | 'tutorial'>('financial');
   const activeTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
   const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
 
@@ -1257,6 +1257,72 @@ export default function AdminDashboard({
                   </div>
                 );
               })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- Tab: Notificaciones --- */}
+      {activeTab === 'notifications' && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 text-left">
+          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+            <div>
+              <span className="text-[10px] font-black uppercase text-[#0196C1] tracking-wider">Centro de Alertas & Avisos</span>
+              <h2 className="text-lg font-black text-slate-800">Módulo de Notificaciones de Administrador</h2>
+              <p className="text-xs text-slate-500">Historial completo de solicitudes de cotización, alertas de órdenes de compra y avisos del sistema.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                markAllNotificationsAsRead('admin');
+                if (setActiveTab) setActiveTab('notifications');
+              }}
+              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-all flex items-center gap-1.5"
+            >
+              <CheckCheck className="w-4 h-4 text-cyan-300" /> Marcar todas como leídas
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {getStoredNotifications().filter(n => n.targetRole === 'admin' || n.targetRole === 'all' || !n.targetRole).length === 0 ? (
+              <div className="p-12 text-center text-slate-400 text-xs italic">
+                No hay notificaciones registradas para administrador.
+              </div>
+            ) : (
+              getStoredNotifications().filter(n => n.targetRole === 'admin' || n.targetRole === 'all' || !n.targetRole).map(n => (
+                <div 
+                  key={n.id}
+                  className={`p-4 rounded-xl border transition-all flex items-start gap-3.5 ${
+                    n.read ? 'bg-slate-50 border-slate-200 opacity-80' : 'bg-sky-50/70 border-sky-200 shadow-xs'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    n.type === 'quote_authorized' ? 'bg-emerald-100 text-emerald-700' :
+                    n.type === 'quote_pending' ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-[#0196C1]'
+                  }`}>
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-slate-900 uppercase tracking-wide">{n.title}</span>
+                      <span className="text-[10px] font-medium text-slate-400">{n.timestamp}</span>
+                    </div>
+                    <p className="text-xs text-slate-700 leading-relaxed">{n.message}</p>
+                    {!n.read && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          markNotificationAsRead(n.id);
+                          if (setActiveTab) setActiveTab('notifications');
+                        }}
+                        className="mt-2 text-[11px] font-bold text-[#0196C1] hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Check className="w-3.5 h-3.5" /> Marcar como leída
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>

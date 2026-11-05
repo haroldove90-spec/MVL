@@ -10,7 +10,7 @@ import {
   ArrowLeft, LogOut, Check, Sparkles, AlertCircle, RefreshCw,
   LayoutGrid, DollarSign, Users, Layers, Package, Clock,
   FileText, Calendar, AlertOctagon, BookOpen, FileCheck, ShieldCheck, ChevronRight, Wrench,
-  Compass, UserCheck, Award
+  Compass, UserCheck, Award, Bell
 } from 'lucide-react';
 
 // Data models & Storage helpers
@@ -92,7 +92,7 @@ export default function App() {
   };
 
   // --- Sub-module Tab/Filter States ---
-  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'quote_authorizations' | 'tutorial'>(() => {
+  const [adminTab, setAdminTab] = useState<'financial' | 'staff' | 'clients' | 'catalog' | 'inventory' | 'purchase_orders' | 'expense_control' | 'quote_authorizations' | 'notifications' | 'tutorial'>(() => {
     const saved = loadFromStorage<string>('mvl_admin_tab', 'financial');
     if (saved === 'customer_kits') return 'financial';
     return (saved as any) || 'financial';
@@ -378,6 +378,15 @@ export default function App() {
                     >
                       <DollarSign className="w-4 h-4 shrink-0" />
                       <span>Control de Gastos</span>
+                    </button>
+                    <button
+                      onClick={() => setAdminTab('notifications')}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        adminTab === 'notifications' ? 'bg-[#0196C1] text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <Bell className="w-4 h-4 shrink-0 text-cyan-300" />
+                      <span>Notificaciones</span>
                     </button>
                     <button
                       onClick={() => setAdminTab('tutorial')}

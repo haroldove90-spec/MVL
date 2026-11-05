@@ -9,16 +9,18 @@ import {
   Calendar, Plus, Clock, FileCheck, CheckCircle2, 
   MapPin, UserCheck, AlertCircle, FileEdit, Eye, Check,
   BookOpen, HelpCircle, Lightbulb, PlayCircle, ChevronRight, Wrench, ShieldCheck,
-  Package, Layers, LayoutGrid
+  Package, Layers, LayoutGrid, Bell, CheckCheck, FileText
 } from 'lucide-react';
 import SalesQuoteModule from './SalesQuoteModule';
 import { SalesAgendaModule } from './SalesAgendaModule';
 import { NotificationBellModal } from './NotificationBellModal';
+import { getStoredNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../lib/notificationStore';
 
 export type CoordinatorFilterType = 
   | 'quotes' 
   | 'all' 
   | 'agenda' 
+  | 'notifications'
   | 'tutorial';
 
 interface CoordinatorDashboardProps {
@@ -233,6 +235,18 @@ export default function CoordinatorDashboard({
       </button>
 
       <div className="ml-auto flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setStatusFilter('notifications')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            statusFilter === 'notifications' 
+              ? 'bg-[#0196C1] text-white shadow-xs' 
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'
+          }`}
+        >
+          <Bell className="w-4 h-4 text-cyan-300" />
+          <span>Notificaciones</span>
+        </button>
         <NotificationBellModal role="coordinator" />
         <button
           type="button"
@@ -249,6 +263,74 @@ export default function CoordinatorDashboard({
       </div>
     </div>
   );
+
+  if (statusFilter === 'notifications') {
+    const notifs = getStoredNotifications().filter(n => n.targetRole === 'coordinator' || n.targetRole === 'all' || !n.targetRole);
+    return (
+      <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs space-y-4 text-left">
+        <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+          <div>
+            <span className="text-[10px] font-black uppercase text-[#0196C1] tracking-wider">Centro de Alertas & Avisos</span>
+            <h2 className="text-lg font-black text-slate-800">Módulo de Notificaciones</h2>
+            <p className="text-xs text-slate-500">Historial completo de cotizaciones autorizadas, avisos operativos y solicitudes de servicio.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              markAllNotificationsAsRead('coordinator');
+              setStatusFilter('notifications');
+            }}
+            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-all flex items-center gap-1.5"
+          >
+            <CheckCheck className="w-4 h-4 text-cyan-300" /> Marcar todas como leídas
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {notifs.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 text-xs italic">
+              No hay notificaciones registradas en este momento.
+            </div>
+          ) : (
+            notifs.map(n => (
+              <div 
+                key={n.id}
+                className={`p-4 rounded-xl border transition-all flex items-start gap-3.5 ${
+                  n.read ? 'bg-slate-50 border-slate-200 opacity-80' : 'bg-sky-50/70 border-sky-200 shadow-xs'
+                }`}
+              >
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  n.type === 'quote_authorized' ? 'bg-emerald-100 text-emerald-700' :
+                  n.type === 'quote_pending' ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-[#0196C1]'
+                }`}>
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900 uppercase tracking-wide">{n.title}</span>
+                    <span className="text-[10px] font-medium text-slate-400">{n.timestamp}</span>
+                  </div>
+                  <p className="text-xs text-slate-700 leading-relaxed">{n.message}</p>
+                  {!n.read && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        markNotificationAsRead(n.id);
+                        setStatusFilter('notifications');
+                      }}
+                      className="mt-2 text-[11px] font-bold text-[#0196C1] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" /> Marcar como leída
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (statusFilter === 'quotes') {
     return (
