@@ -80,26 +80,17 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
   // Maximum width for issuer text to guarantee at least 10 mm of clear spacing before the badge
   const maxIssuerWidth = badgeX - headerTextX - 10;
 
-  // Issuer Info (with controlled maxWidth and tailored sizing)
+  // Issuer Info Clean
   doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(8.8);
+  doc.setFontSize(9.5);
   doc.setTextColor(15, 23, 42); // slate-900
-  const businessName = (quote.issuerPartnerBusinessName || 'MVL CONTROL Y MANTENIMIENTO INDUSTRIAL S.A. DE C.V.').toUpperCase();
-  doc.text(businessName, headerTextX, 11, { maxWidth: maxIssuerWidth });
-
-  doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(7);
-  doc.setTextColor(51, 65, 85); // slate-700
-  const partnerName = quote.issuerPartnerName || 'Ing. Víctor Pedro Ramírez Barrios';
-  const partnerRfc = quote.issuerPartnerRfc || 'RABV891002TF6';
-  doc.text(`Razón Social: ${partnerName}  |  RFC: ${partnerRfc}`, headerTextX, 15, { maxWidth: maxIssuerWidth });
+  doc.text('MVL MAQUINARIA Y SERVICIOS INDUSTRIALES S.A. DE C.V.', headerTextX, 12, { maxWidth: maxIssuerWidth });
 
   doc.setFont('Helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(100, 116, 139); // slate-500
-  doc.text('Régimen Fiscal: 612 Personas Físicas con Actividades Empresariales', headerTextX, 18.5, { maxWidth: maxIssuerWidth });
-  doc.text('José Pérez Marañón #118 B, San José del Consuelo II, León, Gto.', headerTextX, 22, { maxWidth: maxIssuerWidth });
-  doc.text('Tel: (477) 710-9900  |  Correo: contacto@mvlmaquinaria.com', headerTextX, 25.5, { maxWidth: maxIssuerWidth });
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105); // slate-700
+  doc.text('José Pérez Marañón #118 B, San José del Consuelo II, León, Gto.', headerTextX, 17, { maxWidth: maxIssuerWidth });
+  doc.text('Tel: (477) 710-9900  |  Correo: contacto@mvlmaquinaria.com', headerTextX, 22, { maxWidth: maxIssuerWidth });
 
   // Draw Right Box: Folio & Date Badge
   doc.setFillColor(240, 249, 255); // sky-50

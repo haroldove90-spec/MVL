@@ -242,7 +242,6 @@ export default function CoordinatorDashboard({
   if (statusFilter === 'quotes') {
     return (
       <div className="space-y-4">
-        {navHeader}
         <SalesQuoteModule
           clients={clients}
           setClients={setClients || (() => {})}
@@ -260,7 +259,6 @@ export default function CoordinatorDashboard({
   if (statusFilter === 'customer_kits') {
     return (
       <div className="space-y-4">
-        {navHeader}
         <CustomerKitsModule
           clients={clients}
           equipment={equipment}
@@ -272,7 +270,6 @@ export default function CoordinatorDashboard({
   if (statusFilter === 'catalog') {
     return (
       <div className="space-y-4">
-        {navHeader}
         <SalesCatalogModule
           clients={clients}
           onNavigateToKits={() => setStatusFilter('customer_kits')}
@@ -286,7 +283,6 @@ export default function CoordinatorDashboard({
 
   return (
     <div className="space-y-6">
-      {navHeader}
       
       {/* Top statistics overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
