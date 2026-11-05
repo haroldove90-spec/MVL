@@ -12,18 +12,12 @@ import {
   Package, Layers
 } from 'lucide-react';
 import SalesQuoteModule from './SalesQuoteModule';
-import CustomerKitsModule from './CustomerKitsModule';
-import SalesCatalogModule from './SalesCatalogModule';
+import { SalesAgendaModule } from './SalesAgendaModule';
 
 export type CoordinatorFilterType = 
   | 'quotes' 
-  | 'customer_kits' 
-  | 'catalog' 
   | 'all' 
-  | 'pending' 
-  | 'in_progress' 
-  | 'review' 
-  | 'completed' 
+  | 'agenda' 
   | 'tutorial';
 
 interface CoordinatorDashboardProps {
@@ -256,26 +250,44 @@ export default function CoordinatorDashboard({
     );
   }
 
-  if (statusFilter === 'customer_kits') {
+  if (statusFilter === 'agenda') {
     return (
       <div className="space-y-4">
-        <CustomerKitsModule
+        <SalesAgendaModule
           clients={clients}
-          equipment={equipment}
+          agentName={staff[0]?.name || 'Ing. Leonardo Daniel Torres'}
         />
       </div>
     );
   }
 
-  if (statusFilter === 'catalog') {
+  if (statusFilter === 'all') {
     return (
-      <div className="space-y-4">
-        <SalesCatalogModule
+      <div className="space-y-6">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs flex justify-between items-center">
+          <div>
+            <span className="text-[10px] font-black uppercase text-[#0196C1] tracking-wider">Historial de Expedientes</span>
+            <h2 className="text-lg font-black text-slate-800">Todas las Cotizaciones & Registros</h2>
+            <p className="text-xs text-slate-500">Consulta y administra todas las cotizaciones guardadas en el sistema.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('quotes')}
+            className="px-4 py-2.5 bg-[#0196C1] hover:bg-[#017fa4] text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer transition-all"
+          >
+            + Nueva Cotización
+          </button>
+        </div>
+
+        <SalesQuoteModule
           clients={clients}
-          onNavigateToKits={() => setStatusFilter('customer_kits')}
-          onSelectForQuote={(_item) => {
-            setStatusFilter('quotes');
-          }}
+          setClients={setClients || (() => {})}
+          equipment={equipment}
+          setEquipment={setEquipment}
+          inventory={inventory}
+          staff={staff}
+          workOrders={workOrders}
+          setWorkOrders={setWorkOrders}
         />
       </div>
     );

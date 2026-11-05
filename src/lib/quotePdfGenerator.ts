@@ -354,7 +354,28 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
   doc.text(`$${quote.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`, totalsX + totalsW - 4, sectionY + curTotalOffset + 1, { align: 'right' });
 
   // Commercial Terms & Bank Box (Left of totals or full width below)
-  const termsY = sectionY + totalsH + 4;
+  let termsY = sectionY + totalsH + 4;
+
+  if (quote.scopeNotes && quote.scopeNotes.trim() !== '') {
+    const scopeH = 18;
+    doc.setFillColor(240, 249, 255); // sky-50
+    doc.setDrawColor(1, 150, 193);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(margin, termsY, contentWidth, scopeH, 1, 1, 'FD');
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(1, 150, 193);
+    doc.text('ALCANCES Y OBSERVACIONES DEL PROYECTO:', margin + 3, termsY + 4);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(51, 65, 85);
+    const scopeLines = doc.splitTextToSize(quote.scopeNotes, contentWidth - 6);
+    doc.text(scopeLines.slice(0, 3), margin + 3, termsY + 8);
+
+    termsY += scopeH + 3;
+  }
 
   if (termsY < 235) {
     const termsH = 22;

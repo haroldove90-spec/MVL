@@ -107,7 +107,7 @@ export interface Quote {
   subtotal: number;
   tax: number;
   total: number;
-  status: 'draft' | 'sent' | 'approved' | 'rejected' | 'discount_requested' | 'denied' | 'pending_inventory';
+  status: 'draft' | 'sent' | 'approved' | 'rejected' | 'discount_requested' | 'denied' | 'pending_inventory' | 'pendiente_revision' | 'autorizada';
   quoteType?: 'vendedor' | 'cliente' | 'publico';
   quoteOrigin?: 'nuevo' | 'registrado' | 'publico_general';
   quoteCategory?: 'standard' | 'poliza' | 'suministro_instalacion' | 'personalizado';
@@ -123,6 +123,7 @@ export interface Quote {
   equipmentManualPdfUrl?: string;
   mvlDocsRequested?: boolean; // Solicitar a Contabilidad documentos fiscales de MVL
   commercialConditions?: string;
+  scopeNotes?: string;
   deliveryLeadTime?: string;
   reasonDenied?: 'cambio_admin' | 'no_contesto' | 'cambio_maquina' | 'otros';
   deniedReasonDetails?: string;

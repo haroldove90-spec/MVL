@@ -570,6 +570,8 @@ export default function SalesQuoteModule({
   const [commercialConditions, setCommercialConditions] = useState<string>(
     '1. Precios en Moneda Nacional (MXN) más 16% de IVA.\n2. Tiempo de entrega: DDP en planta cliente (según disponibilidad de inventario).\n3. Condiciones de pago: Crédito 30 días con Orden de Compra autorizada.\n4. Vigencia de la cotización: 30 días naturales a partir de su emisión.\n5. Garantía: 12 meses en refacciones originales instaladas por MVL y 90 días en mano de obra.'
   );
+  const [scopeNotes, setScopeNotes] = useState<string>('');
+  const [quoteStatus, setQuoteStatus] = useState<Quote['status']>('pendiente_revision');
   const [deliveryLeadTimeOption, setDeliveryLeadTimeOption] = useState<'auto' | 'inmediato' | 'sobre_pedido' | 'manual'>('auto');
   const [manualDeliveryTime, setManualDeliveryTime] = useState('Inmediata (Existencia en Almacén)');
   const [clientRfcInput, setClientRfcInput] = useState('XAXX010101000');
@@ -1204,6 +1206,8 @@ export default function SalesQuoteModule({
     setClientEmail(q.clientEmail || '');
     setDiscountPercent(q.discountRequested || 0);
     setCommercialConditions(q.commercialConditions || commercialConditions);
+    setScopeNotes(q.scopeNotes || '');
+    setQuoteStatus(q.status || 'pendiente_revision');
     
     if (q.issuerPartnerId) {
       setSelectedPartnerId(q.issuerPartnerId);
@@ -1548,6 +1552,8 @@ export default function SalesQuoteModule({
     setSelectedPlantName(q.plantName || 'Planta Principal');
     setCrmGiro(q.crmGiro || 'Manufactura');
     setCommercialConditions(q.commercialConditions || commercialConditions);
+    setScopeNotes(q.scopeNotes || '');
+    setQuoteStatus('pendiente_revision');
     
     if (q.equipmentDetails) {
       setEqBrand(q.equipmentDetails.brand || 'Kaeser');
@@ -1665,7 +1671,8 @@ export default function SalesQuoteModule({
             subtotal: subtotalWithDiscount,
             tax,
             total,
-            status: finalStatus,
+            status: isDraftOrPendingInventory ? 'draft' : quoteStatus,
+            scopeNotes: scopeNotes.trim() || undefined,
             quoteType,
             quoteOrigin,
             quoteCategory,
@@ -1773,7 +1780,8 @@ export default function SalesQuoteModule({
       subtotal: subtotalWithDiscount,
       tax,
       total,
-      status: finalStatus,
+      status: isDraftOrPendingInventory ? 'draft' : quoteStatus,
+      scopeNotes: scopeNotes.trim() || undefined,
       quoteType,
       quoteOrigin,
       quoteCategory,
@@ -4056,6 +4064,42 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                 className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none font-sans text-slate-800 leading-relaxed resize-y focus:border-[#0196C1] focus:bg-white transition-all"
               />
             </div>
+
+            {/* Estatus Operativo de la Cotización */}
+            <div className="p-3.5 bg-white rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Award className="w-4 h-4 text-[#0196C1]" />
+                <span className="text-xs font-black text-slate-700 uppercase">Estatus Operativo de la Cotización:</span>
+              </div>
+              <select
+                value={quoteStatus}
+                onChange={e => setQuoteStatus(e.target.value as any)}
+                className="text-xs py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none w-full sm:w-auto"
+              >
+                <option value="pendiente_revision">⏳ Pendiente de revisión</option>
+                <option value="autorizada">✅ Autorizada</option>
+                <option value="sent">📨 Emitida / Vigente</option>
+                <option value="approved">🏆 Aprobada con Orden de Compra</option>
+                <option value="draft">📝 Borrador</option>
+                <option value="rejected">❌ Rechazada</option>
+              </select>
+            </div>
+
+            {/* Alcances y Observaciones del Proyecto */}
+            <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-[#0196C1]" /> Alcances y Observaciones del Proyecto (Persistente en Cotización & PDF):
+                </span>
+              </div>
+              <textarea
+                rows={3}
+                value={scopeNotes}
+                onChange={e => setScopeNotes(e.target.value)}
+                placeholder="Escribe los alcances específicos del proyecto, entregables, condiciones especiales u observaciones técnicas..."
+                className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none font-sans text-slate-800 leading-relaxed resize-y focus:border-[#0196C1] focus:bg-white transition-all"
+              />
+            </div>
           </div>
 
           {/* FIRMA DIGITAL DEL ASESOR / USUARIO EMISOR */}
@@ -4235,6 +4279,18 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                       {q.status === 'sent' && (
                         <span className="text-[9px] font-black uppercase bg-sky-100 text-[#0196C1] px-2 py-0.5 rounded flex items-center gap-1">
                           <Send className="w-3 h-3 text-[#0196C1]" /> Emitida / Vigente
+                        </span>
+                      )}
+
+                      {q.status === 'pendiente_revision' && (
+                        <span className="text-[9px] font-black uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-amber-600" /> ⏳ Pendiente de revisión
+                        </span>
+                      )}
+
+                      {q.status === 'autorizada' && (
+                        <span className="text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> ✅ Autorizada
                         </span>
                       )}
                     </div>

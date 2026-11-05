@@ -392,25 +392,7 @@ export default function App() {
                       }`}
                     >
                       <FileCheck className="w-4 h-4 shrink-0 text-emerald-400" />
-                      <span>Cotizaciones & Ventas</span>
-                    </button>
-                    <button
-                      onClick={() => setCoordFilter('customer_kits')}
-                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        coordFilter === 'customer_kits' ? 'bg-[#00A2E8] text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                      }`}
-                    >
-                      <Wrench className="w-4 h-4 shrink-0 text-sky-400" />
-                      <span>Kit de Clientes</span>
-                    </button>
-                    <button
-                      onClick={() => setCoordFilter('catalog')}
-                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        coordFilter === 'catalog' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                      }`}
-                    >
-                      <Package className="w-4 h-4 shrink-0 text-indigo-400" />
-                      <span>Catálogo de Ventas</span>
+                      <span>Cotizaciones</span>
                     </button>
                     <button
                       onClick={() => setCoordFilter('all')}
@@ -419,43 +401,16 @@ export default function App() {
                       }`}
                     >
                       <LayoutGrid className="w-4 h-4 shrink-0" />
-                      <span>Todas las OT</span>
+                      <span>Todas las GT</span>
                     </button>
                     <button
-                      onClick={() => setCoordFilter('pending')}
+                      onClick={() => setCoordFilter('agenda')}
                       className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        coordFilter === 'pending' ? 'bg-[#0196C1] text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                        coordFilter === 'agenda' ? 'bg-[#0196C1] text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                       }`}
                     >
-                      <Clock className="w-4 h-4 shrink-0" />
-                      <span>OT Pendientes</span>
-                    </button>
-                    <button
-                      onClick={() => setCoordFilter('in_progress')}
-                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        coordFilter === 'in_progress' ? 'bg-[#0196C1] text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                      }`}
-                    >
-                      <RefreshCw className="w-4 h-4 shrink-0" />
-                      <span>OT Activas en Campo</span>
-                    </button>
-                    <button
-                      onClick={() => setCoordFilter('review')}
-                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        coordFilter === 'review' ? 'bg-[#0196C1] text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                      }`}
-                    >
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      <span>En Revisión / Firma</span>
-                    </button>
-                    <button
-                      onClick={() => setCoordFilter('completed')}
-                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        coordFilter === 'completed' ? 'bg-[#0196C1] text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                      }`}
-                    >
-                      <Check className="w-4 h-4 shrink-0" />
-                      <span>OT Finalizadas</span>
+                      <Calendar className="w-4 h-4 shrink-0 text-amber-400" />
+                      <span>Agenda de Visitas</span>
                     </button>
                     <button
                       onClick={() => setCoordFilter('tutorial')}
