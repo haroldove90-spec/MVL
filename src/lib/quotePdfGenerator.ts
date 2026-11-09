@@ -243,6 +243,9 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
   currentY += bannerH + 3;
 
   // Items Table
+  const currencyCode = quote.currency || 'MXN';
+  const currencyName = quote.currency === 'USD' ? 'Dólares Americanos (USD)' : 'Pesos Mexicanos (MXN)';
+
   const items = quote.itemsTable && quote.itemsTable.length > 0
     ? quote.itemsTable
     : (quote.items || []);
@@ -250,7 +253,7 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
   const tableRows = items.map((it, idx) => [
     it.partida || idx + 1,
     it.description || 'Servicio especializado',
-    it.brand || 'MVL',
+    it.brand || quote.equipmentDetails?.brand || 'MVL',
     `${it.quantity || 1} ${it.unit || 'pza'}`,
     it.partNumber || '-',
     `$${(it.catalogPrice || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
@@ -259,7 +262,7 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
 
   autoTable(doc, {
     startY: currentY,
-    head: [['#', 'Descripción Técnica del Servicio / Suministro', 'Marca', 'Cant.', 'No. Parte', 'P. Unitario', 'Total MXN']],
+    head: [['#', 'Descripción Técnica del Servicio / Suministro', 'Marca', 'Cant.', 'No. Parte', 'P. Unitario', `Total ${currencyCode}`]],
     body: tableRows,
     theme: 'grid',
     headStyles: {
@@ -322,7 +325,7 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
   doc.setTextColor(71, 85, 105);
   doc.text('Subtotal:', totalsX + 4, sectionY + 5);
   doc.setFont('Helvetica', 'bold');
-  doc.text(`$${quote.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`, totalsX + totalsW - 4, sectionY + 5, { align: 'right' });
+  doc.text(`$${quote.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${currencyCode}`, totalsX + totalsW - 4, sectionY + 5, { align: 'right' });
 
   let curTotalOffset = 5;
   if (quote.discountRequested && quote.discountRequested > 0) {
@@ -332,7 +335,7 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
     doc.text(`Descuento Comercial (${quote.discountRequested}%):`, totalsX + 4, sectionY + curTotalOffset);
     const discAmount = quote.discountAmount || (quote.subtotal * (quote.discountRequested / 100));
     doc.setFont('Helvetica', 'bold');
-    doc.text(`-$${discAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`, totalsX + totalsW - 4, sectionY + curTotalOffset, { align: 'right' });
+    doc.text(`-$${discAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${currencyCode}`, totalsX + totalsW - 4, sectionY + curTotalOffset, { align: 'right' });
   }
 
   curTotalOffset += 5;
@@ -340,7 +343,7 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
   doc.setTextColor(71, 85, 105);
   doc.text('IVA (16%):', totalsX + 4, sectionY + curTotalOffset);
   doc.setFont('Helvetica', 'bold');
-  doc.text(`$${quote.tax.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`, totalsX + totalsW - 4, sectionY + curTotalOffset, { align: 'right' });
+  doc.text(`$${quote.tax.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${currencyCode}`, totalsX + totalsW - 4, sectionY + curTotalOffset, { align: 'right' });
 
   curTotalOffset += 5;
   doc.setDrawColor(226, 232, 240);
@@ -351,7 +354,7 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
   doc.setTextColor(1, 150, 193);
   doc.text('TOTAL:', totalsX + 4, sectionY + curTotalOffset + 1);
   doc.setFontSize(9.5);
-  doc.text(`$${quote.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`, totalsX + totalsW - 4, sectionY + curTotalOffset + 1, { align: 'right' });
+  doc.text(`$${quote.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${currencyCode}`, totalsX + totalsW - 4, sectionY + curTotalOffset + 1, { align: 'right' });
 
   // Commercial Terms & Bank Box (Left of totals or full width below)
   let termsY = sectionY + totalsH + 4;
@@ -386,7 +389,7 @@ export async function buildQuotePdf(quote: Quote): Promise<{ doc: jsPDF; fileNam
 
     const conditionsText = quote.commercialConditions || 
       `• Tiempo de Entrega: ${quote.deliveryLeadTime || 'Inmediata'}\n` +
-      `• Moneda: Pesos Mexicanos (MXN) con IVA del 16% incluido.\n` +
+      `• Moneda: ${currencyName} con IVA del 16% incluido.\n` +
       `• Garantía: 3 a 6 meses en refacciones originales y mano de obra técnica certificada.\n` +
       `• Transferencias a: BBVA Bancomer | Beneficiario: Víctor Pedro Ramírez Barrios / MVL | CLABE: 012 225 01548962314 8`;
     

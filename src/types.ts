@@ -101,6 +101,7 @@ export interface Quote {
   folNum: string; // COT-2026-001
   clientId: string;
   clientName: string;
+  currency?: 'MXN' | 'USD';
   date: string;
   validUntil: string;
   concept: string;

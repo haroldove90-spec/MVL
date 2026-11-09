@@ -557,6 +557,9 @@ export default function SalesQuoteModule({
     '12. Recomendaciones de servicios preventivos posteriores.'
   ]);
 
+  // Currency Selection State
+  const [quoteCurrency, setQuoteCurrency] = useState<'MXN' | 'USD'>('MXN');
+
   // Standard Quote Items Linked to Inventory
   const [standardItems, setStandardItems] = useState<QuoteItem[]>([
     { partida: 1, description: 'Filtro de Aire Kaeser 6.2012.0', brand: 'Kaeser', quantity: 1, unit: 'pza', partNumber: '6.2012.0', catalogPrice: 1250, total: 1250, deliveryTime: 'Inmediata', inStock: true, stockQty: 8 },
@@ -1214,6 +1217,7 @@ export default function SalesQuoteModule({
     setCommercialConditions(q.commercialConditions || commercialConditions);
     setScopeNotes(q.scopeNotes || '');
     setQuoteStatus(q.status || 'pendiente_revision');
+    setQuoteCurrency(q.currency || 'MXN');
     
     if (q.issuerPartnerId) {
       setSelectedPartnerId(q.issuerPartnerId);
@@ -1694,6 +1698,7 @@ export default function SalesQuoteModule({
             signedByAgent: Boolean(agentSignatureData),
             signedDate: agentSignatureData ? (existing.signedDate || new Date().toISOString()) : undefined,
             serviceHours: serviceTypeCategory === 'preventivo' ? serviceHours : undefined,
+            currency: quoteCurrency,
             equipmentPlatePhotoUrl: dataPlatePhotoUrl || undefined,
             equipmentManualPdfUrl: manualPdfUrl || undefined,
             policyType: quoteCategory === 'poliza' ? policyType : undefined,
@@ -1786,6 +1791,7 @@ export default function SalesQuoteModule({
       subtotal: subtotalWithDiscount,
       tax,
       total,
+      currency: quoteCurrency,
       status: isDraftOrPendingInventory ? 'draft' : quoteStatus,
       scopeNotes: scopeNotes.trim() || undefined,
       quoteType,
@@ -3496,10 +3502,11 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                     <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase text-[9px] border-b border-slate-200">
                       <th className="py-2 px-2.5">#</th>
                       <th className="py-2 px-2.5">Descripción de la Partida</th>
+                      <th className="py-2 px-2.5 w-24">Marca</th>
                       <th className="py-2 px-2.5">No. Parte</th>
                       <th className="py-2 px-2.5">Stock Almacén</th>
                       <th className="py-2 px-2.5 text-center w-20">Cant.</th>
-                      <th className="py-2 px-2.5 text-right w-32">P. Unitario (Costo)</th>
+                      <th className="py-2 px-2.5 text-right w-32">P. Unitario ({quoteCurrency})</th>
                       <th className="py-2 px-2.5 text-right">Total</th>
                       <th className="py-2 px-2.5 text-center">Acción</th>
                     </tr>
@@ -3509,6 +3516,15 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                       <tr key={idx} className="hover:bg-slate-50">
                         <td className="py-2 px-2.5 font-bold text-slate-500">{item.partida}</td>
                         <td className="py-2 px-2.5 font-bold text-slate-800">{item.description}</td>
+                        <td className="py-2 px-2.5">
+                          <input
+                            type="text"
+                            value={item.brand || ''}
+                            onChange={e => handleUpdateStandardItem(idx, 'brand', e.target.value)}
+                            placeholder="Marca..."
+                            className="w-24 p-1 bg-slate-50 border border-slate-200 rounded font-bold text-xs"
+                          />
+                        </td>
                         <td className="py-2 px-2.5 font-mono text-slate-500">{item.partNumber}</td>
                         <td className="py-2 px-2.5">
                           <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${item.inStock ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
@@ -4051,7 +4067,32 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
               <Clock className="w-4 h-4 text-[#0196C1]" /> 5. Tiempo de Entrega, Descuento Comercial & Resumen de Cotización
             </label>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Currency Selection */}
+              <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-2">
+                <span className="text-[10px] font-black text-slate-600 uppercase block">Moneda / Divisa:</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQuoteCurrency('MXN')}
+                    className={`p-2 rounded-lg border text-center text-xs font-bold cursor-pointer ${
+                      quoteCurrency === 'MXN' ? 'bg-sky-50 border-[#0196C1] text-[#0196C1] ring-1 ring-[#0196C1]' : 'bg-slate-50 text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    <span>Pesos (MXN)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuoteCurrency('USD')}
+                    className={`p-2 rounded-lg border text-center text-xs font-bold cursor-pointer ${
+                      quoteCurrency === 'USD' ? 'bg-sky-50 border-[#0196C1] text-[#0196C1] ring-1 ring-[#0196C1]' : 'bg-slate-50 text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    <span>Dólares (USD)</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Delivery Time Selection */}
               <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-2">
                 <span className="text-[10px] font-black text-slate-600 uppercase block">Tiempo de Entrega:</span>
@@ -4117,25 +4158,25 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1.5 text-xs">
                   <div className="flex justify-between text-slate-600">
                     <span>Subtotal Partidas:</span>
-                    <span className="font-bold">${calculatedSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
+                    <span className="font-bold">${calculatedSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} {quoteCurrency}</span>
                   </div>
                   {discountPercent > 0 && (
                     <div className="flex justify-between text-emerald-700 font-bold">
                       <span>Descuento ({discountPercent}%):</span>
-                      <span>-${calculatedDiscountAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
+                      <span>-${calculatedDiscountAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} {quoteCurrency}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-slate-600">
                     <span>Subtotal Neto:</span>
-                    <span className="font-bold">${calculatedNetSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
+                    <span className="font-bold">${calculatedNetSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} {quoteCurrency}</span>
                   </div>
                   <div className="flex justify-between text-slate-600">
                     <span>IVA (16%):</span>
-                    <span className="font-bold">${calculatedTax.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
+                    <span className="font-bold">${calculatedTax.toLocaleString('es-MX', { minimumFractionDigits: 2 })} {quoteCurrency}</span>
                   </div>
                   <div className="flex justify-between text-slate-900 font-black text-sm pt-1.5 border-t border-slate-200">
                     <span>TOTAL:</span>
-                    <span className="text-[#0196C1]">${calculatedTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
+                    <span className="text-[#0196C1]">${calculatedTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} {quoteCurrency}</span>
                   </div>
                 </div>
               </div>
