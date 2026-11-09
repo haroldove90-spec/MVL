@@ -4,19 +4,21 @@
  */
 
 import React, { useState } from 'react';
-import { WorkOrder, Staff, Client, Equipment, InventoryItem } from '../types';
+import { WorkOrder, Staff, Client, Equipment, InventoryItem, Quote } from '../types';
+import { loadFromStorage } from '../mockData';
 import { 
   Calendar, Plus, Clock, FileCheck, CheckCircle2, 
   MapPin, UserCheck, AlertCircle, FileEdit, Eye, Check,
   BookOpen, HelpCircle, Lightbulb, PlayCircle, ChevronRight, Wrench, ShieldCheck,
-  Package, Layers, LayoutGrid, Bell, CheckCheck, FileText
+  Package, Layers, LayoutGrid, Bell, CheckCheck, FileText, Star, Sparkles, Zap, Building2
 } from 'lucide-react';
 import SalesQuoteModule from './SalesQuoteModule';
 import { SalesAgendaModule } from './SalesAgendaModule';
 import { NotificationBellModal } from './NotificationBellModal';
-import { getStoredNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../lib/notificationStore';
+import { getStoredNotifications, markNotificationAsRead, markAllNotificationsAsRead, addNotification } from '../lib/notificationStore';
 
 export type CoordinatorFilterType = 
+  | 'commercial_panel'
   | 'quotes' 
   | 'all' 
   | 'agenda' 
@@ -171,6 +173,19 @@ export default function CoordinatorDashboard({
     <div className="bg-white p-2.5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-wrap items-center gap-1.5 mb-6">
       <button
         type="button"
+        onClick={() => setStatusFilter('commercial_panel')}
+        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          statusFilter === 'commercial_panel' 
+            ? 'bg-[#0196C1] text-white shadow-xs' 
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        }`}
+      >
+        <Star className="w-4 h-4 text-amber-400 fill-amber-300" />
+        <span>Panel Comercial & Prioridades</span>
+      </button>
+
+      <button
+        type="button"
         onClick={() => setStatusFilter('quotes')}
         className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
           statusFilter === 'quotes' 
@@ -263,6 +278,174 @@ export default function CoordinatorDashboard({
       </div>
     </div>
   );
+
+  if (statusFilter === 'commercial_panel') {
+    const quotes = loadFromStorage<Quote[]>('mvl_quotes', []);
+    const openQuotes = quotes.filter(q => q.status === 'sent' || q.status === 'draft' || q.status === 'pendiente_revision');
+    const closedSalesTotal = quotes.filter(q => q.status === 'approved' || q.status === 'autorizada').reduce((acc, q) => acc + q.total, 0);
+
+    return (
+      <div className="space-y-6 text-left">
+        {/* Banner header */}
+        <div className="bg-gradient-to-r from-slate-900 via-[#1e1e1f] to-[#282829] text-white p-6 rounded-2xl shadow-lg border-l-4 border-[#0196C1] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider bg-amber-400/20 px-2.5 py-1 rounded-lg">
+              Asesor Comercial / Nivel Operativo
+            </span>
+            <h2 className="text-xl font-black text-white">Panel Comercial & Control Diario de Ventas</h2>
+            <p className="text-xs text-slate-300">
+              Prioridades del día, control de visitas, seguimientos comerciales y solicitudes de procesos especiales.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              alert('📊 Reporte Comercial Mensual generado correctamente. Descargando resumen ejecutivo de cotizaciones y visitas.');
+            }}
+            className="px-4 py-2.5 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-xl shadow-md cursor-pointer transition-all flex items-center gap-2"
+          >
+            <FileText className="w-4 h-4" /> Generar Reporte Mensual
+          </button>
+        </div>
+
+        {/* Control Diario Ventas (Metrics Grid) */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
+            <span className="text-[10px] font-black text-slate-400 uppercase">Visitas de Semana</span>
+            <p className="text-2xl font-black text-slate-800">3 <span className="text-xs font-normal text-slate-400">/ Meta 5</span></p>
+            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-1">
+              <div className="bg-[#0196C1] h-full w-3/5" />
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
+            <span className="text-[10px] font-black text-amber-600 uppercase">Seguimiento Para Hoy</span>
+            <p className="text-2xl font-black text-amber-700">2 <span className="text-xs font-normal text-slate-400">citas / avisos</span></p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
+            <span className="text-[10px] font-black text-sky-600 uppercase">Cotizaciones Abiertas</span>
+            <p className="text-2xl font-black text-[#0196C1]">{openQuotes.length}</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
+            <span className="text-[10px] font-black text-emerald-600 uppercase">Ventas Cerradas</span>
+            <p className="text-2xl font-black text-emerald-700">${closedSalesTotal.toLocaleString('es-MX', { maximumFractionDigits: 0 })} MXN</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Prioridades del Día */}
+          <div className="md:col-span-2 space-y-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                  <Star className="w-4 h-4 text-amber-500 fill-amber-400" /> Prioridades del Día & Seguimientos
+                </h3>
+                <div className="flex gap-1.5 text-[11px]">
+                  <span className="px-2.5 py-1 bg-amber-50 text-amber-800 font-bold rounded-lg border border-amber-200">Semanal</span>
+                  <span className="px-2.5 py-1 bg-slate-50 text-slate-600 font-bold rounded-lg border border-slate-200">15 Días</span>
+                  <span className="px-2.5 py-1 bg-slate-50 text-slate-600 font-bold rounded-lg border border-slate-200">Mensual</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="p-3.5 bg-amber-50/60 rounded-xl border border-amber-200 flex items-start gap-3">
+                  <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-xs space-y-1">
+                    <span className="font-bold text-amber-900 block">Prioridad 1: Cotizaciones sin respuesta (&gt;3 días)</span>
+                    <p className="text-slate-600">Revisar estatus con Grupo Industrial Monterrey (Folio COT-2026-001) y enviar recordatorio de seguimiento.</p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-sky-50/60 rounded-xl border border-sky-200 flex items-start gap-3">
+                  <Calendar className="w-5 h-5 text-[#0196C1] shrink-0 mt-0.5" />
+                  <div className="text-xs space-y-1">
+                    <span className="font-bold text-sky-900 block">Visita Programada para Hoy (10:00 hrs)</span>
+                    <p className="text-slate-600">CDI Corte y Doblez Industrial — Levantamiento técnico para compresor de tornillo.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Solicitudes y Procesos */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+              <h3 className="text-sm font-black text-slate-800">Solicitudes y Procesos Comerciales</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    addNotification({
+                      title: 'Solicitud Alta CRM / Constancia Fiscal',
+                      message: `El asesor comercial solicitó validación de Constancia Fiscal para nuevo cliente ante Socios y Coordinación de Ventas.`,
+                      type: 'quote_pending',
+                      targetRole: 'admin'
+                    });
+                    alert('✅ Solicitud enviada al Coordinador y Socios para verificación de Constancia Fiscal.');
+                  }}
+                  className="p-4 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 text-left cursor-pointer transition-all space-y-1"
+                >
+                  <span className="text-xs font-black text-slate-900 block flex items-center gap-1.5">
+                    <Building2 className="w-4 h-4 text-[#0196C1]" /> Solicitud Nuevo Cliente Alta CRM
+                  </span>
+                  <p className="text-[11px] text-slate-500">Mandar alerta a Coordinador & Socios para verificar datos con Constancia Fiscal.</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    addNotification({
+                      title: 'Solicitud de Campaña de Mercado y Publicidad',
+                      message: `El asesor comercial solicitó apoyo con campaña de mercado y publicidad digital.`,
+                      type: 'general',
+                      targetRole: 'admin'
+                    });
+                    alert('📢 Solicitud de campaña de marketing enviada con éxito.');
+                  }}
+                  className="p-4 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 text-left cursor-pointer transition-all space-y-1"
+                >
+                  <span className="text-xs font-black text-slate-900 block flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-amber-500" /> Solicitud de Campañas & Marketing
+                  </span>
+                  <p className="text-[11px] text-slate-500">Requerir apoyo para prospección, mercado y publicidad.</p>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Acciones Rápidas */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs h-fit space-y-4">
+            <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5">
+              <Zap className="w-4 h-4 text-amber-500" /> Acciones Rápidas
+            </h3>
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                onClick={() => setStatusFilter('quotes')}
+                className="w-full py-2.5 px-4 bg-[#0196C1] hover:bg-[#017fa4] text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-between"
+              >
+                <span>+ Nueva Cotización</span>
+                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded">Con Seguimiento</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('agenda')}
+                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-between"
+              >
+                <span>📅 Registrar Visita</span>
+                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded">Con Cita</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('commercial_panel')}
+                className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-between"
+              >
+                <span>⭐ Mis Pendientes</span>
+                <span className="text-[10px] bg-amber-400 text-slate-900 font-bold px-2 py-0.5 rounded">2 Activos</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (statusFilter === 'notifications') {
     const notifs = getStoredNotifications().filter(n => n.targetRole === 'coordinator' || n.targetRole === 'all' || !n.targetRole);
