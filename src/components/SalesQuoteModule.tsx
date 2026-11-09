@@ -21,7 +21,7 @@ import {
   Copy, Search, Filter, ArrowUpRight, Check, RefreshCw, Cpu, Zap, ShoppingCart,
   Camera, FileDown, Layers, Award, BookmarkPlus, FolderCheck, Hash, Edit3, Trash2,
   SlidersHorizontal, AlertCircle, HelpCircle, PackageCheck, CheckCheck, Edit, ShieldCheck, Activity,
-  Share2, Download, Settings, Box
+  Share2, Download, Settings, Box, Users
 } from 'lucide-react';
 
 interface SalesQuoteModuleProps {
@@ -421,6 +421,7 @@ export default function SalesQuoteModule({
   } | null>(null);
 
   // Origin & Client Selection State
+  const [constanciaFileName, setConstanciaFileName] = useState<string | null>(null);
   const [quoteOrigin, setQuoteOrigin] = useState<'registrado' | 'nuevo' | 'publico_general'>('registrado');
   const [quoteType, setQuoteType] = useState<'vendedor' | 'cliente' | 'publico'>('vendedor');
   const [publicClientName, setPublicClientName] = useState('');
@@ -2479,6 +2480,108 @@ Tel. 477-710-9900 / WhatsApp: 477-390-8812`;
                 {editingQuoteId ? 'Salir de Edición' : 'Cerrar Formulario'}
               </button>
             </div>
+          </div>
+
+          {/* FLUJO DE COTIZACIÓN: 1. ¿QUÉ SOCIO EMITIRÁ FACTURA? */}
+          <div className="bg-sky-50/80 p-4 rounded-2xl border border-sky-200 space-y-2">
+            <label className="text-[11px] font-black text-sky-900 uppercase flex items-center justify-between">
+              <span className="flex items-center gap-1.5"><Shield className="w-4 h-4 text-[#0196C1]" /> ¿Qué Socio Emitirá Factura? (Emisor de la Cotización)</span>
+              <button
+                type="button"
+                onClick={() => setShowManagePartnersModal(true)}
+                className="text-[10px] text-[#0196C1] hover:underline font-bold cursor-pointer"
+              >
+                Gestionar Socios Emisores ⚙️
+              </button>
+            </label>
+            <select
+              value={selectedPartnerId}
+              onChange={e => setSelectedPartnerId(e.target.value)}
+              className="w-full text-xs p-2.5 bg-white border border-sky-200 rounded-xl font-bold text-slate-800 outline-none cursor-pointer"
+            >
+              {issuerPartners.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name} — RFC: {p.rfc} ({p.businessName})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* FLUJO DE COTIZACIÓN: 2. SELECCIÓN DE TIPO DE CLIENTE */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
+            <label className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5">
+              <Users className="w-4 h-4 text-[#0196C1]" /> 2. Selección de Cliente (Flujo Comercial)
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setQuoteOrigin('publico_general');
+                  setQuoteType('publico');
+                  setPublicClientName('Público General');
+                }}
+                className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  quoteOrigin === 'publico_general' ? 'bg-[#0196C1] text-white border-[#0196C1] shadow-xs' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                Venta al Público
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuoteOrigin('registrado');
+                  setQuoteType('vendedor');
+                }}
+                className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  quoteOrigin === 'registrado' ? 'bg-[#0196C1] text-white border-[#0196C1] shadow-xs' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                Cliente Registrado
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuoteOrigin('nuevo');
+                  setQuoteType('vendedor');
+                  setPublicClientName('');
+                }}
+                className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  quoteOrigin === 'nuevo' ? 'bg-amber-600 text-white border-amber-600 shadow-xs' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                + Cliente Nuevo (Validación)
+              </button>
+            </div>
+
+            {quoteOrigin === 'nuevo' && (
+              <div className="p-3.5 bg-amber-50/80 rounded-xl border border-amber-200 space-y-2 text-xs text-amber-900 animate-in fade-in">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block font-bold">Validación Obligatoria de Cliente Nuevo:</strong>
+                    <span>Llena los datos fiscales y adjunta el documento PDF de Constancia de Situación Fiscal. La cotización se enviará a revisión con el área de Socios y Coordinador de Ventas.</span>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-amber-200/60 flex items-center gap-2">
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={e => {
+                      if (e.target.files?.[0]) {
+                        setConstanciaFileName(e.target.files[0].name);
+                        setQuoteStatus('pendiente_revision');
+                      }
+                    }}
+                    className="text-xs text-slate-600 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-600 file:text-white hover:file:bg-amber-700 cursor-pointer"
+                  />
+                  {constanciaFileName && (
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
+                      📄 {constanciaFileName} adjuntada (Pendiente de validación)
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 1. DATOS DEL CLIENTE, PLANTA, CONTACTO Y TIEMPO DE ENTREGA */}
